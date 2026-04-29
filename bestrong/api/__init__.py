@@ -134,10 +134,12 @@ def create_app():
     from .routes_wellness import router as wellness_router
     from .routes_worklog import router as worklog_router
 
+    from .. import __version__
+
     app = FastAPI(
         title="BeStrong",
         description="Powerlifting coaching analytics API",
-        version="1.0.0",
+        version=__version__,
         lifespan=_lifespan,
     )
 
@@ -209,7 +211,7 @@ def create_app():
 
     @app.get("/api/health")
     async def health():
-        return {"status": "ok", "version": "1.0.0"}
+        return {"status": "ok", "version": __version__}
 
     app.include_router(auth_router)
     app.include_router(athletes_router)

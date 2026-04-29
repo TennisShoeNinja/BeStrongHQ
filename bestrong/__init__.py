@@ -1,3 +1,5 @@
-"""BeStrong — Powerlifting coaching analytics tool."""
+"""BeStrong, powerlifting coaching analytics tool."""
 
-__version__ = "1.0.2b1"
+from .__version__ import DISPLAY_VERSION, RELEASE_LABEL, __version__
+
+__all__ = ["__version__", "RELEASE_LABEL", "DISPLAY_VERSION"]

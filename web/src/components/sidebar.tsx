@@ -24,6 +24,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-provider";
+import { DISPLAY_VERSION } from "@/lib/version";
 
 interface SidebarProps {
   notificationCount?: number;
@@ -221,7 +222,7 @@ function SidebarContent({
       </nav>
 
       <div className="cloud-sidebar-footer">
-        <p className="text-xs cloud-text-dim">v1.0.3 BETA</p>
+        <p className="text-xs cloud-text-dim">{DISPLAY_VERSION}</p>
       </div>
     </div>
   );

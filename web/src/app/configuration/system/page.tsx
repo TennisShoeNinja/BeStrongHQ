@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import apiClient from '@/lib/api';
 import { useAuth } from '@/lib/auth-provider';
+import { DISPLAY_VERSION } from '@/lib/version';
 import {
   FIELD_LABEL,
   INPUT_STYLE,
@@ -432,7 +433,7 @@ export default function SystemConfigurationPage() {
                   className="cloud-text"
                   style={{ fontSize: 14, fontWeight: 600 }}
                 >
-                  BeStrong HQ v1.0.7 BETA
+                  BeStrong HQ {DISPLAY_VERSION}
                 </p>
                 <p
                   className="cloud-text-muted"
