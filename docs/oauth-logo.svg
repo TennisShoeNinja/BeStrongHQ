@@ -1,0 +1,34 @@
+<!--
+  Google OAuth verification logo for BeStrong HQ.
+
+  Same brand mark as web/public/app-icon.svg, but with square corners
+  (no rx) so the exported PNG has no transparent regions. Google's
+  consent-screen rendering crops to a circle, but the source image
+  must be a solid-corner square per their submission rules.
+
+  Convert to 120x120 PNG before upload:
+
+    # macOS, fastest
+    brew install librsvg
+    rsvg-convert -w 120 -h 120 docs/oauth-logo.svg -o docs/oauth-logo.png
+
+    # Or open in Figma -> File -> Export as PNG @ 120x120
+
+    # Or online: https://cloudconvert.com/svg-to-png (set width=120)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-label="BeStrong{HQ}">
+  <defs>
+    <radialGradient id="bsGlow" cx="0.3" cy="0" r="0.9">
+      <stop offset="0" stop-color="#0C5CAB" stop-opacity="0.30"></stop>
+      <stop offset="0.6" stop-color="#0C5CAB" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="bsScrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.06"></stop>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" fill="#0A0F18"></rect>
+  <rect width="120" height="120" fill="url(#bsGlow)"></rect>
+  <rect width="120" height="120" fill="url(#bsScrim)"></rect>
+  <text x="60" y="82" text-anchor="middle" font-family="'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace" font-size="48" font-weight="500" letter-spacing="-0.02em"><tspan fill="#7CB4ED">{</tspan><tspan fill="#FAFAFA">HQ</tspan><tspan fill="#7CB4ED">}</tspan></text>
+</svg>

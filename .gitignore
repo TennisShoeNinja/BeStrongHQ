@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment / secrets
+.env
+.env.*
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution
+*.tar.gz
+*.whl
+
+# Node.js / Next.js
+node_modules/
+.next/
+web/.next/
+web/node_modules/
+
+# AI tooling working files (keep root CLAUDE.md committed)
+**/CLAUDE.md
+!/CLAUDE.md
+CLAUDE copy.md
+.worktrees/
+.claude/

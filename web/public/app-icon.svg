@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="BeStrong{HQ}">
+  <defs>
+    <radialGradient id="bsGlow" cx="0.3" cy="0" r="0.9">
+      <stop offset="0" stop-color="#0C5CAB" stop-opacity="0.30"></stop>
+      <stop offset="0.6" stop-color="#0C5CAB" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="bsScrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.06"></stop>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0A0F18"></rect>
+  <rect width="64" height="64" rx="14" fill="url(#bsGlow)"></rect>
+  <rect width="64" height="64" rx="14" fill="url(#bsScrim)"></rect>
+  <text x="32" y="44" text-anchor="middle" font-family="&#39;IBM Plex Mono&#39;, ui-monospace, &#39;SF Mono&#39;, Menlo, Consolas, &#39;Courier New&#39;, monospace" font-size="26" font-weight="500" letter-spacing="-0.02em"><tspan fill="#7CB4ED">{</tspan><tspan fill="#FAFAFA">HQ</tspan><tspan fill="#7CB4ED">}</tspan></text>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.06"></rect>
+</svg>

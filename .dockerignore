@@ -1,0 +1,65 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+
+# Virtualenvs
+.venv
+venv
+
+# Version control / CI
+.git
+.github
+.gitignore
+
+# Dev caches
+.ruff_cache
+.pytest_cache
+
+# Build outputs (rebuilt inside the container)
+dist
+build
+node_modules
+web/.next
+
+# Databases (always ship empty — volume mounts the real one at runtime)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Secrets / local env
+.env
+.env.local
+
+# OS junk
+.DS_Store
+
+# Test fixtures (hefty xlsx files not needed at runtime)
+tests/fixtures/*.xlsx
+
+# Private ops repo — copied separately as cloud_pkg/ via deploy.sh.
+# Anchored with a leading slash so it doesn't accidentally match
+# cloud_pkg or any other path component containing "cloud".
+/cloud
+
+# Knowledge base / docs / one-off scripts (not needed in the runtime image).
+# README.md is kept — the Dockerfile's pyproject COPY requires it.
+.mex
+docs
+templates
+*.docx
+*.xlsx
+*.html
+audit*.md
+CHANGELOG.md
+CLAUDE*.md
+AGENTS.md
+issue-*.md
+check_wellness.py
+
+# Editor / tooling state
+.vscode
+.idea
+.claude

@@ -1,0 +1,48 @@
+name: Bug report
+description: Something broken, unexpected, or wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Details make fixes faster.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see? What did you expect to see?
+      placeholder: "I clicked X and Y broke..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to...
+        2. Click...
+        3. See error
+    validations:
+      required: false
+  - type: input
+    id: where
+    attributes:
+      label: Where did this happen?
+      description: Page URL, section of the app, or CLI command
+      placeholder: "/athletes/profile or bestrong resync-all"
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or logs
+      description: Drag-and-drop images here. Paste terminal output in a code block.
+    validations:
+      required: false
+  - type: input
+    id: credit
+    attributes:
+      label: Credit name (optional)
+      description: Name or handle to list in ACKNOWLEDGMENTS.md. Leave blank to stay anonymous.
+    validations:
+      required: false

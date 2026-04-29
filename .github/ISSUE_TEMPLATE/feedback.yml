@@ -1,0 +1,39 @@
+name: Feedback or feature idea
+description: Something that could work better, a feature you want, a rough edge
+labels: ["feedback"]
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What's on your mind?
+      description: Rough thoughts are fine. A sentence is fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: What part of the app?
+      options:
+        - Dashboard / home
+        - Athletes / profiles
+        - Meets
+        - Training program / parser
+        - Charts / analytics
+        - Admin / settings
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (optional)
+      description: Drag-and-drop images here.
+    validations:
+      required: false
+  - type: input
+    id: credit
+    attributes:
+      label: Credit name (optional)
+      description: Name or handle to list in ACKNOWLEDGMENTS.md. Leave blank to stay anonymous.
+    validations:
+      required: false

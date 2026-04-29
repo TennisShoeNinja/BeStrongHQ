@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bestrong"
+version = "1.0.8b1"
+description = "Powerlifting coaching analytics — parse training programs, visualize progress"
+readme = "README.md"
+license = {text = "AGPL-3.0-or-later"}
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "sqlalchemy>=2.0",
+    "pydantic>=2.0",
+    "openpyxl>=3.1",
+    "platformdirs>=3.0",
+    "typer>=0.9",
+    "rich>=13.0",
+    "python-multipart>=0.0.6",
+    "requests>=2.31",
+    "google-api-python-client>=2.100",
+    "google-auth-httplib2>=0.1",
+    "google-auth-oauthlib>=1.0",
+    "slowapi>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "httpx>=0.24",
+    "ruff>=0.1",
+]
+
+[project.scripts]
+bestrong = "bestrong.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bestrong*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
