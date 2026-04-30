@@ -5,7 +5,7 @@
 **Coaching infrastructure for powerlifting teams.**
 
 [![CI](https://github.com/TennisShoeNinja/BeStrongHQ/actions/workflows/ci.yml/badge.svg)](https://github.com/TennisShoeNinja/BeStrongHQ/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-1.0.8--beta-blue)
+![version](https://img.shields.io/badge/version-1.1.0--beta-blue)
 ![license](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![python](https://img.shields.io/badge/python-%3E%3D3.10-3776AB?logo=python&logoColor=white)
 ![node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
@@ -24,7 +24,7 @@
 From Google Sheets chaos to structured athlete progression, meet prep, and block planning, in the dashboard coaches will actually love opening. Built by a powerlifting coach, for powerlifting coaches.
 
 <div align="center">
-  <img src="docs/preview.png" alt="BeStrong HQ — coach dashboard showing the athletes view" />
+  <img src="docs/preview.png" alt="BeStrong HQ coach dashboard showing the athletes view" />
 </div>
 
 ## Features
@@ -99,7 +99,7 @@ Don't want to self-host? [bestronghq.com](https://bestronghq.com) is the managed
 | Automatic backups | - | ✓ | ✓ |
 | Priority support | Community | Email | Dedicated |
 
-The Starter and Pro setup fee covers the time it takes to build a parser tailored to your spreadsheet format. Subscription is cancelable anytime; the setup fee covers the parser build and is not refundable. Community-edition coaches who'd rather have us build their parser instead of writing it themselves can commission one for $150 — see the [custom parser guide](docs/custom-parser-guide.md) for the DIY path.
+The Starter and Pro setup fee covers the time it takes to build a parser tailored to your spreadsheet format. Subscription is cancelable anytime; the setup fee covers the parser build and is not refundable. Community-edition coaches who'd rather have us build their parser instead of writing it themselves can commission one for $150. See the [custom parser guide](docs/custom-parser-guide.md) for the DIY path.
 
 Hosted adds the operational pieces too: deployment, server uptime, backups, OAuth setup, billing integrations, revenue tracking, and custom parser work. The free version stays free, forever, for coaches who want to run their own setup.
 
