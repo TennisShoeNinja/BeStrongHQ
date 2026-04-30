@@ -231,9 +231,10 @@ def create_app():
 
 
     try:
-        from bestrong_cloud.api import router as _plugin_router
-        app.include_router(_plugin_router)
-    except ImportError:
+        from bestrong_cloud import api as _plugin_api
+        app.include_router(_plugin_api.router)
+        _plugin_api.register_middlewares(app)
+    except (ImportError, AttributeError):
         pass
 
 
