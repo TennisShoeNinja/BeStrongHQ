@@ -379,10 +379,10 @@ export default function Home() {
                     </span>
                     <span>{info.description.toLowerCase()}</span>
                   </span>
-                  <span className="cloud-text-dim" aria-hidden>·</span>
-                  <span>feels {Math.round(currentWeather.apparent_temperature)}°</span>
-                  <span className="cloud-text-dim" aria-hidden>·</span>
-                  <span>{currentWeather.relative_humidity_2m}% humidity</span>
+                  <span className="cloud-text-dim hidden md:inline" aria-hidden>·</span>
+                  <span className="hidden md:inline">feels {Math.round(currentWeather.apparent_temperature)}°</span>
+                  <span className="cloud-text-dim hidden md:inline" aria-hidden>·</span>
+                  <span className="hidden md:inline">{currentWeather.relative_humidity_2m}% humidity</span>
                 </>
               );
             })()}
