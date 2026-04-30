@@ -335,7 +335,7 @@ function ProfileStatusPills({
             athlete.next_meet_id && onOpenMeet(athlete.next_meet_id)
           }
           disabled={!athlete.next_meet_id}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border hover:bg-[color:var(--cloud-surface-raised)] transition-colors"
+          className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border hover:bg-[color:var(--cloud-surface-raised)] transition-colors"
           style={{
             backgroundColor: "var(--cloud-surface-raised)",
             borderColor: "var(--cloud-border)",
