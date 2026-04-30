@@ -3,6 +3,21 @@
 What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
 `-beta` suffix while we're still in beta.
 
+## [1.1.0 Public Beta], 2026-04-29
+
+### Added
+
+- **Centralized version constants.** A single source of truth on each side
+  (`bestrong/__version__.py` for the API, `web/src/lib/version.ts` for the
+  UI). Sidebar footer, About panel, FastAPI metadata, `/api/health`, and
+  package metadata all read from these. To bump versions, edit two files.
+
+### Changed
+
+- **Public release.** First version cut for the open public beta. Source
+  tree, install guides, and CLI all targeted at coaches running BeStrong HQ
+  on their own machine.
+
 ## [1.0.8 BETA], 2026-04-25
 
 ### Fixed
@@ -172,14 +187,14 @@ only re-auth once a week instead of twice.
 - **Sidebar label**: "Settings" renamed to "Configuration" to match the page
   it links to (previously two different words for the same thing).
 
-## [1.0.2 BETA] — 2026-04-19
+## [1.0.2 BETA], 2026-04-19
 
 ### Added
 
 - **Rep PRs.** The app now celebrates every rep-range PR (1RM, 2RM, 3RM … up to
   10RM) on squat / bench / deadlift compound variations, not just singles.
-  Variations are tracked separately — a Close-Grip Bench PR and a Competition
-  Bench PR don't get mashed together.
+  Variations are tracked separately, so a Close-Grip Bench PR and a
+  Competition Bench PR don't get mashed together.
 - **New PRs banner** at the top of each athlete's profile, surfacing PRs from
   their current block. Dismissible per program so it reappears fresh each block.
 - **PR History filters.** Filter by rep count (e.g. "show me all 3RMs") and by
@@ -202,7 +217,7 @@ only re-auth once a week instead of twice.
 - **Outlier detection rewritten** using a percent-of-median deviation instead of
   a z-score. Points flagged as outliers get a dashed amber ring on the chart and
   a one-click "Open source sheet" link.
-- **Block Review — PRs This Block**: collapses to the heaviest event per
+- **Block Review, PRs This Block**: collapses to the heaviest event per
   (exercise, reps) combo, shows rep badges + variation names. No more 154 → 157
   → 160 progression noise within a single block.
 - **PR History Timeline**: rep badges (3RM / 6RM / Total), variation sublines,
@@ -213,11 +228,11 @@ only re-auth once a week instead of twice.
 - `Copy of ...` files from Google Drive are now rejected at import. Seventeen
   historical duplicates were cleaned up as part of the rollout.
 - Accessories like "Smith Machine Incline Bench" or "Goblet Squats" no longer
-  leak into compound PR / outlier / peak-lifts pipelines — compound
+  leak into compound PR / outlier / peak-lifts pipelines. Compound
   classification is now purely color-based (the coach's yellow / light green /
   light blue on the exercise name).
-- Past meets auto-clear from "next meet" fields once their date passes — no
-  more stale meets showing weeks after they're over.
+- Past meets auto-clear from "next meet" fields once their date passes, so
+  no more stale meets showing weeks after they're over.
 - RPE compliance denominator now restricted to rows where the coach painted the
   RPE cell pink. Accessories don't drag the number down anymore.
 - RPE parsing tolerates ranges (`7-8` → 7.5), text wrapped around a number
@@ -229,9 +244,3 @@ only re-auth once a week instead of twice.
 Schema migrations run automatically on startup. New columns were added to
 `max_history` (rep PR tracking), `exercise_entries` (cell-fill flags), and
 `athletes` (goal bodyweight, body metrics visibility). No data loss.
-
----
-
-## [1.0.1 BETA] and earlier
-
-Pre-changelog. See git history for details.
