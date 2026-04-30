@@ -219,7 +219,7 @@ export default function MeetsPage() {
       >
         {}
         <div
-          className="flex items-center justify-between"
+          className="flex flex-col md:flex-row md:items-center md:justify-between"
           style={{ gap: 16 }}
         >
           <div>
@@ -255,15 +255,11 @@ export default function MeetsPage() {
           style={{ padding: 16 }}
         >
           <div
-            className="grid"
-            style={{
-              gridTemplateColumns: "minmax(200px, 2fr) 160px auto auto",
-              gap: 12,
-              alignItems: "center",
-            }}
+            className="flex flex-wrap items-center"
+            style={{ gap: 12 }}
           >
             {}
-            <div style={{ position: "relative" }}>
+            <div style={{ position: "relative", flex: "1 1 200px", minWidth: 200 }}>
               <Search
                 className="cloud-text-muted"
                 style={{

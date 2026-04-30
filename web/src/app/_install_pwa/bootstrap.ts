@@ -3,6 +3,34 @@
 
 const DISMISSED_KEY = "bestrong:install-chip:dismissed";
 const MOUNT_ID = "bestrong-install-chip-root";
+const STYLE_ID = "bestrong-install-chip-style";
+
+const CHIP_STYLES = `
+#${MOUNT_ID} .bestrong-install-chip {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 999px;
+  background-color: var(--cloud-surface-raised, #0f0f12);
+  border: 1px solid var(--cloud-border-strong, rgba(255,255,255,0.12));
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  font-size: 13px;
+  color: var(--cloud-text, #fafafa);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  top: 72px;
+  right: 16px;
+}
+@media (max-width: 767px) {
+  #${MOUNT_ID} .bestrong-install-chip {
+    top: auto;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  }
+}
+`;
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -53,31 +81,22 @@ function markDismissed(): void {
 let deferred: BeforeInstallPromptEvent | null = null;
 let chipEl: HTMLElement | null = null;
 
+function ensureStyles(): void {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = CHIP_STYLES;
+  document.head.appendChild(style);
+}
+
 function buildChip(mode: Mode): HTMLElement {
+  ensureStyles();
+
   const host = document.createElement("div");
   host.id = MOUNT_ID;
 
   const chip = document.createElement("div");
-  chip.setAttribute(
-    "style",
-    [
-      "position:fixed",
-      "top:16px",
-      "right:16px",
-      "z-index:60",
-      "display:flex",
-      "align-items:center",
-      "gap:4px",
-      "padding:6px 6px 6px 12px",
-      "border-radius:999px",
-      "background-color:var(--cloud-surface-raised,#0f0f12)",
-      "border:1px solid var(--cloud-border-strong,rgba(255,255,255,0.12))",
-      "box-shadow:0 6px 20px rgba(0,0,0,0.35)",
-      "font-size:13px",
-      "color:var(--cloud-text,#fafafa)",
-      "font-family:var(--font-sans),system-ui,sans-serif",
-    ].join(";"),
-  );
+  chip.className = "bestrong-install-chip";
 
   const action = document.createElement("button");
   action.type = "button";

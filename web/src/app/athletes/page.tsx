@@ -532,7 +532,7 @@ export default function AthletesPage() {
     <div style={{ padding: "var(--cloud-s5)" }}>
       <div className="flex flex-col" style={{ gap: "var(--cloud-s4)" }}>
         {}
-        <div className="flex items-start justify-between" style={{ gap: "var(--cloud-s3)" }}>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ gap: "var(--cloud-s3)" }}>
           <div className="min-w-0">
             <h1
               className="font-semibold cloud-text"
@@ -540,7 +540,17 @@ export default function AthletesPage() {
             >
               Athletes
             </h1>
-            <p className="cloud-text-muted" style={{ fontSize: 13, marginTop: 4 }}>
+            <p
+              className="cloud-text-muted"
+              style={{
+                fontSize: 13,
+                marginTop: 4,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
               {isLoading ? "Loading…" : (subtitleParts.join(" · ") || "—")}
             </p>
           </div>
@@ -1058,7 +1068,7 @@ function StatCard({
         className="cloud-stat-label"
         style={
           labelAccessory
-            ? { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }
+            ? { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }
             : undefined
         }
       >

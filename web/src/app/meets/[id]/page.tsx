@@ -313,7 +313,7 @@ export default function MeetDetailPage() {
       >
         {}
         <div
-          className="flex items-center justify-between"
+          className="flex flex-col md:flex-row md:items-center md:justify-between"
           style={{ gap: 16 }}
         >
           <div
@@ -412,8 +412,8 @@ export default function MeetDetailPage() {
 
         {}
         <div
-          className="grid"
-          style={{ gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}
+          className="grid grid-cols-2 md:grid-cols-4"
+          style={{ gap: 12 }}
         >
           <StatTile
             label="Federation"

@@ -236,7 +236,7 @@ function ProfileStatusPills({
     <div className="flex flex-wrap items-center gap-2">
       {}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+        className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border"
         style={{
           backgroundColor: "var(--cloud-surface-raised)",
           borderColor: "var(--cloud-border)",
@@ -7625,7 +7625,7 @@ export default function AthleteDetailPage() {
 
       <div className="flex flex-col" style={{ gap: "var(--cloud-s4)" }}>
         {}
-        <div className="flex items-start justify-between" style={{ gap: "var(--cloud-s3)" }}>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ gap: "var(--cloud-s3)" }}>
           <div className="flex items-start min-w-0" style={{ gap: "var(--cloud-s3)" }}>
             <button
               type="button"
