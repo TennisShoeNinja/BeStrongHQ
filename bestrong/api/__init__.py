@@ -237,6 +237,13 @@ def create_app():
         pass
 
 
+    try:
+        from bestrong_cloud.api import register_middlewares as _plugin_middlewares
+        _plugin_middlewares(app)
+    except ImportError:
+        pass
+
+
     _apply_stricter_limit(app, limiter, "/api/auth/login", "5/minute")
 
     return app
