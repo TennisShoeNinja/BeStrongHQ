@@ -521,6 +521,23 @@ body {
     color: var(--cloud-text-muted);
     flex-shrink: 0;
   }
+  @media (max-width: 767px) {
+    .cloud-kbd {
+      display: none;
+    }
+    .cloud-breadcrumbs {
+      display: none;
+    }
+    .cloud-topbar-search {
+      margin-left: 0;
+      max-width: none;
+      width: auto;
+      flex: 1;
+    }
+    .cloud-topbar {
+      padding-left: 56px;
+    }
+  }
   .cloud-topbar-actions {
     display: flex;
     align-items: center;
@@ -631,6 +648,12 @@ body {
     font-variant-numeric: tabular-nums;
     color: var(--cloud-text);
     line-height: 1.05;
+    white-space: nowrap;
+  }
+  @media (max-width: 600px) {
+    .cloud-stat-value {
+      font-size: 28px;
+    }
   }
   .cloud-stat-foot {
     display: flex;
