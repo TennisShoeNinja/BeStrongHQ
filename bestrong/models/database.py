@@ -142,6 +142,9 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("equipment", "VARCHAR(50)"),
         ("goal_bodyweight_lbs", "REAL"),
         ("body_metrics_hidden", "INTEGER DEFAULT 0 NOT NULL"),
+        ("price", "REAL"),
+        ("product_name", "VARCHAR(200)"),
+        ("billing_customer_id", "VARCHAR(200)"),
     ],
     "programs": [
         ("google_sheet_url", "VARCHAR(500)"),
