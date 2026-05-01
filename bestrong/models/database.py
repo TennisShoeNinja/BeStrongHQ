@@ -470,6 +470,13 @@ def migrate_db(db_path: Path | str | None = None) -> None:
     """
     engine = get_engine(db_path)
 
+    column_migrations = {table: list(cols) for table, cols in _COLUMN_MIGRATIONS.items()}
+    try:
+        from bestrong_cloud.migrations import extend_column_migrations
+        extend_column_migrations(column_migrations)
+    except ImportError:
+        pass
+
     with engine.connect() as conn:
 
         for table, create_sql in _TABLE_CREATES.items():
@@ -480,7 +487,7 @@ def migrate_db(db_path: Path | str | None = None) -> None:
             _rename_columns(conn, table, renames)
 
 
-        for table, columns in _COLUMN_MIGRATIONS.items():
+        for table, columns in column_migrations.items():
             _ensure_columns(conn, table, columns)
 
 
