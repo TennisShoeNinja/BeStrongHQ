@@ -568,66 +568,42 @@ def _update_athlete_emails_from_sharing(
     sheets: list[dict],
     db_path: Path | None = None,
 ) -> None:
-    """Look up Google Drive sharing permissions on athlete sheets and
-    update the athlete's email if we find a non-owner shared email.
+    """Best-effort: fill in blank athlete emails using sharing on this run's sheets.
 
-    Checks the most recently modified sheet per athlete folder first.
-    If that sheet isn't shared, walks backwards through older sheets
-    until it finds one with a shared email.
+    Only touches athletes whose ``email`` is currently None — once set,
+    the field is never re-checked here (use the CLI for that).
     """
-    from ..models.orm import Athlete
-
-
     from collections import defaultdict
-    athlete_sheets: dict[str, list[dict]] = defaultdict(list)
+    from .email_scrape import find_athlete_by_folder, scrape_for_athlete
+
+    sheets_by_folder: dict[str, list[dict]] = defaultdict(list)
     for sheet in sheets:
         fname = sheet.get("_folder_name", "")
         if fname:
-            athlete_sheets[fname].append(sheet)
+            sheets_by_folder[fname].append(sheet)
 
+    if not sheets_by_folder:
+        return
 
-    for fname in athlete_sheets:
-        athlete_sheets[fname].sort(
-            key=lambda s: s.get("modifiedTime", ""),
-            reverse=True,
-        )
+    coach_email = client.get_connected_email(db=db, db_path=db_path)
 
-    logger.info("Checking %d athlete folders for shared emails", len(athlete_sheets))
+    for folder_name, folder_sheets in sheets_by_folder.items():
+        athlete = find_athlete_by_folder(db, folder_name)
+        if not athlete or athlete.email:
+            continue
 
-    for folder_name, folder_sheets in athlete_sheets.items():
+        folder_sheets.sort(key=lambda s: s.get("modifiedTime", ""), reverse=True)
+        file_ids = [s["id"] for s in folder_sheets if s.get("id")]
+
         try:
-            athlete_email = None
-
-
-            for sheet in folder_sheets:
-                sheet_id = sheet.get("id")
-                if not sheet_id:
-                    continue
-
-                shared = client.get_shared_emails(sheet_id, db=db, db_path=db_path)
-                if shared:
-                    athlete_email = shared[0]["email"]
-                    break
-
-            if not athlete_email:
-                continue
-
-
-            clean_name = folder_name.strip()
-            athlete = db.query(Athlete).filter(
-                Athlete.name.ilike(f"%{clean_name}%")
-            ).first()
-
-            if not athlete:
-                logger.warning("No athlete matched for folder '%s', skipping email update", sanitize(folder_name))
-                continue
-
-            if athlete.email != athlete_email:
-                athlete.email = athlete_email
+            if scrape_for_athlete(db, athlete, file_ids, coach_email, db_path=db_path):
                 db.commit()
-                logger.info("Updated %s email to %s (from GDrive sharing)", sanitize(athlete.name), athlete_email)
         except Exception as exc:
-            logger.warning("Failed to update email for '%s': %s", sanitize(folder_name), exc)
+            db.rollback()
+            logger.warning(
+                "Failed to update email for '%s': %s",
+                sanitize(folder_name), exc,
+            )
 
 
 def get_import_history(

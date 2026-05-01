@@ -357,6 +357,81 @@ def backfill_prs(
         session.close()
 
 
+@app.command("get-athlete-emails")
+def get_athlete_emails(
+    db: Path | None = typer.Option(None, help="Database path"),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Re-detect for every athlete, including those who already have an email set",
+    ),
+):
+    """Fill in athlete emails by reading Drive sharing on their program sheets.
+
+    By default, only athletes with no email set are touched. Use --force to
+    re-resolve for everyone (e.g. after a sharing change). A new email is
+    only written when a single non-coach address resolves; ambiguous or
+    empty results never overwrite what's already there.
+    """
+    from .models.database import init_db, get_session
+    from .models.orm import Athlete, GDriveImport, Program
+    from .gdrive import client as gdrive_client
+    from .gdrive.email_scrape import scrape_for_athlete
+
+    init_db(db)
+    session = get_session(db)
+    try:
+        if not gdrive_client.is_authenticated(db=session):
+            console.print("[red]Drive is not connected. Connect it first.[/red]")
+            raise typer.Exit(code=1)
+
+        coach_email = gdrive_client.get_connected_email(db=session)
+
+        query = session.query(Athlete)
+        if not force:
+            query = query.filter(Athlete.email.is_(None))
+        athletes = query.all()
+
+        if not athletes:
+            console.print("[green]Nothing to do — every athlete already has an email.[/green]")
+            return
+
+        updated = 0
+        unresolved = 0
+        for athlete in athletes:
+            file_ids = [
+                imp.gdrive_file_id
+                for imp in (
+                    session.query(GDriveImport)
+                    .join(Program, GDriveImport.program_id == Program.id)
+                    .filter(Program.athlete_id == athlete.id)
+                    .order_by(GDriveImport.imported_at.desc())
+                    .all()
+                )
+            ]
+            if not file_ids:
+                unresolved += 1
+                continue
+
+            try:
+                if scrape_for_athlete(
+                    session, athlete, file_ids, coach_email, force=force
+                ):
+                    session.commit()
+                    updated += 1
+                else:
+                    unresolved += 1
+            except Exception as exc:
+                session.rollback()
+                console.print(f"[yellow]{athlete.name}: {exc}[/yellow]")
+                unresolved += 1
+
+        console.print(
+            f"[green]Updated {updated} athletes.[/green] {unresolved} unresolved."
+        )
+    finally:
+        session.close()
+
+
 @app.command("reset-db")
 def reset_db(
     db: Path | None = typer.Option(None, help="Database path"),
