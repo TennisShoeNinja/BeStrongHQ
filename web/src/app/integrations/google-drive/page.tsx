@@ -598,8 +598,10 @@ export default function GoogleDriveSyncPage() {
     try {
       const { auth_url } = await apiClient.getGDriveAuthUrl();
       window.location.href = auth_url;
-    } catch {
-      alert('Failed to start Google Drive authorization. Check that the server is running.');
+    } catch (err) {
+      const apiErr = err as { data?: { detail?: string } };
+      const detail = apiErr.data?.detail;
+      alert(detail || 'Failed to start Google Drive authorization. Check that the server is running.');
     }
   };
 
