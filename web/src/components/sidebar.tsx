@@ -7,6 +7,7 @@ import {
   Inbox,
   Users,
   Trophy,
+  CreditCard,
   ChevronDown,
   ChevronRight,
   Menu,
@@ -124,6 +125,14 @@ function SidebarContent({
             label="Meets"
             isActive={isActive}
           />
+          {features.includes("billing") && (
+            <NavLink
+              href="/billing"
+              icon={CreditCard}
+              label="Billing"
+              isActive={isActive}
+            />
+          )}
         </div>
 
         <div className="cloud-nav-section">
@@ -160,6 +169,16 @@ function SidebarContent({
                 <Calendar className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
                 <span>Google Calendar</span>
               </Link>
+              {features.includes("billing") && (
+                <Link
+                  href="/integrations/stripe"
+                  className="cloud-nav-item cloud-nav-item-sub"
+                  data-active={isActive("/integrations/stripe") ? "true" : undefined}
+                >
+                  <CreditCard className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
+                  <span>Stripe</span>
+                </Link>
+              )}
             </div>
           )}
         </div>
