@@ -17,6 +17,17 @@ from ..models.orm import AllowedUser, AuthSession, OAuthState
 from .deps import get_db, require_admin
 from .security_logging import security_log
 
+
+try:
+    from bestrong_cloud import get_enabled_features as _plugin_features
+    from bestrong_cloud import is_platform_admin as _plugin_is_admin
+    from bestrong_cloud.registry import lookup_tenant as _plugin_lookup_tenant
+except ImportError:
+    _plugin_features = None
+    _plugin_is_admin = None
+    _plugin_lookup_tenant = None
+
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -173,7 +184,7 @@ class TenantPublicInfo(BaseModel):
     """Non-sensitive instance metadata for the current request.
 
     Populated in hosted mode from the subdomain stamped on
-    request.state by bestrong_cloud.resolver. db_path is intentionally
+    request.state by the optional resolver. db_path is intentionally
     excluded: it's host filesystem internals, not coach-facing info.
     """
 
@@ -213,7 +224,7 @@ def _resolve_tenant_settings(db: Session) -> TenantSettings:
 def _resolve_tenant_info(request: Request) -> TenantPublicInfo | None:
     """Look up the current request's instance from the control-plane registry.
 
-    Returns None in local mode or when bestrong_cloud isn't installed.
+    Returns None in local mode or when the optional resolver isn't wired in.
     The subdomain was stamped on request.state by the resolver running
     inside the get_db dependency.
     """
@@ -224,12 +235,10 @@ def _resolve_tenant_info(request: Request) -> TenantPublicInfo | None:
     if not subdomain:
         return None
 
-    try:
-        from bestrong_cloud.registry import lookup_tenant
-    except ImportError:
+    if _plugin_lookup_tenant is None:
         return None
 
-    tenant = lookup_tenant(subdomain)
+    tenant = _plugin_lookup_tenant(subdomain)
     if tenant is None:
         return None
 
@@ -243,10 +252,10 @@ def _resolve_tenant_info(request: Request) -> TenantPublicInfo | None:
 def _resolve_features(
     request: Request, user_email: str | None = None
 ) -> list[str]:
-    """Return cloud-provided feature flags for the current instance.
+    """Return optional feature flags for the current instance.
 
     Pass ``user_email`` once the session has been authenticated so the
-    cloud plugin can add user-specific flags (e.g. platform_admin).
+    resolver can add user-specific flags (e.g. platform_admin).
     """
     if _deployment_mode() != "cloud":
         return []
@@ -255,14 +264,11 @@ def _resolve_features(
     if not subdomain:
         return []
 
-    try:
-        from bestrong_cloud import get_enabled_features
-        from bestrong_cloud.registry import lookup_tenant
-    except ImportError:
+    if _plugin_features is None or _plugin_lookup_tenant is None:
         return []
 
-    tenant = lookup_tenant(subdomain)
-    return get_enabled_features(tenant, user_email=user_email)
+    tenant = _plugin_lookup_tenant(subdomain)
+    return _plugin_features(tenant, user_email=user_email)
 
 
 @router.get("/branding")
@@ -473,12 +479,7 @@ def callback(
     )
 
 
-    _is_platform_admin = False
-    try:
-        from bestrong_cloud import is_platform_admin
-        _is_platform_admin = is_platform_admin(email)
-    except ImportError:
-        pass
+    _is_platform_admin = bool(_plugin_is_admin and _plugin_is_admin(email))
 
     if not allowed:
         if _is_platform_admin:
@@ -670,14 +671,10 @@ def remove_allowed_user(
     if user.is_admin and _deployment_mode() == "cloud":
         admin_count = db.query(AllowedUser).filter(AllowedUser.is_admin == True).count()  # noqa: E712
         if admin_count <= 1:
-            requester_is_platform_admin = False
-            try:
-                from bestrong_cloud import is_platform_admin
-                requester_email = getattr(request.state, "user_email", None)
-                if requester_email:
-                    requester_is_platform_admin = is_platform_admin(requester_email)
-            except ImportError:
-                pass
+            requester_email = getattr(request.state, "user_email", None)
+            requester_is_platform_admin = bool(
+                _plugin_is_admin and requester_email and _plugin_is_admin(requester_email)
+            )
             if not requester_is_platform_admin:
                 raise HTTPException(
                     status_code=400,

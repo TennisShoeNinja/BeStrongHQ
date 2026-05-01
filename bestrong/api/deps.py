@@ -16,16 +16,17 @@ from ..models.orm import AllowedUser, AuthSession
 
 try:
     from bestrong_cloud import resolve_tenant_db as _plugin_resolver
+    from bestrong_cloud import is_platform_admin as _plugin_is_admin
 except ImportError:
     _plugin_resolver = None
+    _plugin_is_admin = None
 
 
 def get_db(request: Request) -> Generator[Session, None, None]:
     """Yield a database session, closing it when done.
 
-    In hosted mode with bestrong_cloud installed, resolves the instance
-    database from the request's Host header. Otherwise uses the default
-    single-instance database path.
+    Resolves a per-request database when an optional resolver is wired in,
+    otherwise falls back to the default single-instance database path.
     """
     cloud_mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip() == "cloud"
     if cloud_mode and _plugin_resolver is not None:
@@ -80,13 +81,9 @@ def require_admin(request: Request, db: Session) -> AllowedUser | None:
 
 
     if not allowed or not allowed.is_admin:
-        _is_platform_admin = False
-        try:
-            from bestrong_cloud import is_platform_admin
-            _is_platform_admin = is_platform_admin(session.email)
-        except ImportError:
-            pass
-
+        _is_platform_admin = bool(
+            _plugin_is_admin and _plugin_is_admin(session.email)
+        )
         if not _is_platform_admin:
             raise HTTPException(status_code=403, detail="Admin access required")
 

@@ -25,12 +25,6 @@ from ..models.orm import AllowedUser, AuthSession
 from .security_logging import security_log
 
 
-try:
-    from bestrong_cloud import resolve_tenant_db as _plugin_resolver
-except ImportError:
-    _plugin_resolver = None
-
-
 def _deployment_mode() -> str:
     """Return the current deployment mode: 'local' or 'cloud'."""
     return os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
@@ -48,10 +42,13 @@ AUTH_EXEMPT_PATHS: tuple[str, ...] = (
 
 
 try:
+    from bestrong_cloud import resolve_tenant_db as _plugin_resolver
+    from bestrong_cloud import is_platform_admin as _plugin_is_admin
     from bestrong_cloud.api import AUTH_EXEMPT_PATHS as _plugin_exempt
     AUTH_EXEMPT_PATHS = AUTH_EXEMPT_PATHS + _plugin_exempt
-except ImportError:
-    pass
+except (ImportError, AttributeError):
+    _plugin_resolver = None
+    _plugin_is_admin = None
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -145,12 +142,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
             if not allowed:
 
-                _is_platform_admin = False
-                try:
-                    from bestrong_cloud import is_platform_admin
-                    _is_platform_admin = is_platform_admin(session.email)
-                except ImportError:
-                    pass
+                _is_platform_admin = bool(
+                    _plugin_is_admin and _plugin_is_admin(session.email)
+                )
 
                 if not _is_platform_admin:
                     security_log(
