@@ -254,21 +254,13 @@ def _resolve_features(
 ) -> list[str]:
     """Return optional feature flags for the current instance.
 
-    Pass ``user_email`` once the session has been authenticated so the
-    resolver can add user-specific flags (e.g. platform_admin).
+    Defers entirely to the optional plugin's resolver when present.
+    Returns an empty list when no plugin is installed.
     """
-    if _deployment_mode() != "cloud":
+    if _plugin_features is None:
         return []
-
-    subdomain = getattr(request.state, "tenant_subdomain", None)
-    if not subdomain:
-        return []
-
-    if _plugin_features is None or _plugin_lookup_tenant is None:
-        return []
-
-    tenant = _plugin_lookup_tenant(subdomain)
-    return _plugin_features(tenant, user_email=user_email)
+    result = _plugin_features(request, user_email=user_email)
+    return result if result is not None else []
 
 
 @router.get("/branding")
