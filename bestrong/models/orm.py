@@ -101,6 +101,11 @@ class Athlete(Base):
     goal_bodyweight_lbs: Mapped[float | None] = mapped_column(Float, nullable=True)
     body_metrics_hidden: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
     archived: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
+
+
+    portal_last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    portal_disabled: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -328,6 +333,30 @@ class AuthSession(Base):
 
     def __repr__(self) -> str:
         return f"<AuthSession(email='{self.email}')>"
+
+
+class AthleteSession(Base):
+    """Active athlete-side login sessions (cookie-based).
+
+    Parallel to ``AuthSession`` but keyed to an ``Athlete`` row instead of
+    an ``AllowedUser`` (coach) row. Lets athletes log in to view their own
+    profile, program, and progression without ever seeing roster-wide data.
+
+    Sessions live in the same per-database scope as the athlete record they
+    point to, so a token issued for one database is meaningless in another.
+    """
+
+    __tablename__ = "athlete_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_token: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    athlete_id: Mapped[int] = mapped_column(Integer, ForeignKey("athletes.id"), nullable=False)
+    email: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<AthleteSession(athlete_id={self.athlete_id}, email='{self.email}')>"
 
 
 class OAuthState(Base):

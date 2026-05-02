@@ -145,6 +145,8 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("price", "REAL"),
         ("product_name", "VARCHAR(200)"),
         ("billing_customer_id", "VARCHAR(200)"),
+        ("portal_last_login_at", "DATETIME"),
+        ("portal_disabled", "INTEGER NOT NULL DEFAULT 0"),
     ],
     "programs": [
         ("google_sheet_url", "VARCHAR(500)"),
@@ -195,6 +197,16 @@ _TABLE_CREATES: dict[str, str] = {
             email VARCHAR(200) NOT NULL,
             name VARCHAR(200),
             picture VARCHAR(500),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL
+        )
+    """,
+    "athlete_sessions": """
+        CREATE TABLE athlete_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_token VARCHAR(200) NOT NULL UNIQUE,
+            athlete_id INTEGER NOT NULL REFERENCES athletes(id),
+            email VARCHAR(200) NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             expires_at DATETIME NOT NULL
         )
