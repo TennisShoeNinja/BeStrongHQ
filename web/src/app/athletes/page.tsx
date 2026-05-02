@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -180,7 +180,7 @@ function daysUntil(dateStr: string | null | undefined): number | null {
   return Math.ceil((target.getTime() - now.getTime()) / 86_400_000);
 }
 
-export default function AthletesPage() {
+function AthletesPageInner() {
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view") as ViewType | null;
   const searchQuery = searchParams.get("q") ?? "";
@@ -1434,5 +1434,13 @@ function UpcomingMeetsPanel({
         })
       )}
     </div>
+  );
+}
+
+export default function AthletesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AthletesPageInner />
+    </Suspense>
   );
 }
