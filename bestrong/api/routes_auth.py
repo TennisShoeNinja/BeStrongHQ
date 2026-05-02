@@ -28,6 +28,12 @@ except ImportError:
     _plugin_lookup_tenant = None
 
 
+try:
+    from bestrong_cloud import handle_unallowed_email as _plugin_handle_unallowed
+except ImportError:
+    _plugin_handle_unallowed = None
+
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -503,6 +509,14 @@ def callback(
                         url=f"{frontend_url}/login?error=not_allowed"
                     )
         else:
+
+            if _plugin_handle_unallowed is not None:
+                fallback = _plugin_handle_unallowed(
+                    db, email=email, request=request, frontend_url=frontend_url
+                )
+                if fallback is not None:
+                    return fallback
+
             import logging as _logging
 
             security_log(

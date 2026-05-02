@@ -103,6 +103,7 @@ class AthleteBase(BaseModel):
     goal_bodyweight_lbs: float | None = None
     body_metrics_hidden: bool = False
     archived: bool = False
+    portal_disabled: bool = False
 
     @field_validator("lifting_db_link", mode="before")
     @classmethod
@@ -176,6 +177,7 @@ class AthleteUpdate(BaseModel):
     goal_bodyweight_lbs: float | None = None
     body_metrics_hidden: bool | None = None
     archived: bool | None = None
+    portal_disabled: bool | None = None
 
 
 class PendingMeetResults(BaseModel):
@@ -207,6 +209,7 @@ class AthleteResponse(AthleteBase):
     latest_block_type: str | None = None
     pending_meet_results: PendingMeetResults | None = None
     last_synced_at: datetime | None = None
+    portal_last_login_at: datetime | None = None
 
     @model_validator(mode="after")
     def clear_past_meet(self):
@@ -223,6 +226,7 @@ class AthleteListResponse(AthleteBase):
     latest_program_sheet_url: str | None = None
     latest_block_type: str | None = None
     latest_bodyweight_lbs: float | None = None
+    portal_last_login_at: datetime | None = None
 
     @model_validator(mode="after")
     def clear_past_meet(self):

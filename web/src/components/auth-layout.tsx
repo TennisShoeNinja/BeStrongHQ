@@ -39,7 +39,12 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     return <div className="w-full">{children}</div>;
   }
 
-  
+
+  if (pathname.startsWith('/athlete')) {
+    return <div className="w-full">{children}</div>;
+  }
+
+
   if (loading) {
     return <AuthSpinner />;
   }
