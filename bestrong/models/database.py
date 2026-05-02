@@ -286,6 +286,47 @@ _TABLE_CREATES: dict[str, str] = {
             error_message TEXT
         )
     """,
+    "opl_links": """
+        CREATE TABLE opl_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            athlete_id INTEGER NOT NULL UNIQUE REFERENCES athletes(id),
+            slug VARCHAR(200) NOT NULL,
+            display_name VARCHAR(200),
+            last_synced_at DATETIME,
+            last_sync_error TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """,
+    "opl_meets": """
+        CREATE TABLE opl_meets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            athlete_id INTEGER NOT NULL REFERENCES athletes(id),
+            meet_path VARCHAR(300) NOT NULL,
+            meet_name VARCHAR(300),
+            federation VARCHAR(80),
+            parent_federation VARCHAR(80),
+            meet_date VARCHAR(20),
+            meet_country VARCHAR(80),
+            meet_state VARCHAR(80),
+            event VARCHAR(20),
+            equipment VARCHAR(40),
+            division VARCHAR(120),
+            age_class VARCHAR(40),
+            weight_class_kg VARCHAR(40),
+            bodyweight_kg REAL,
+            squat_kg REAL,
+            bench_kg REAL,
+            deadlift_kg REAL,
+            total_kg REAL,
+            place VARCHAR(20),
+            dots REAL,
+            tested INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (athlete_id, meet_path)
+        )
+    """,
 }
 
 

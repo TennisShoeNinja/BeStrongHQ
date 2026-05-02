@@ -126,6 +126,7 @@ def create_app():
     from .routes_gdrive import router as gdrive_router
     from .routes_meets import router as meets_router
     from .routes_meet_results import router as meet_results_router
+    from .routes_opl import router as opl_router
     from .routes_programs import router as programs_router
     from .routes_notifications import router as notifications_router
     from .routes_search import router as search_router
@@ -217,6 +218,7 @@ def create_app():
     app.include_router(athletes_router)
     app.include_router(meets_router)
     app.include_router(meet_results_router)
+    app.include_router(opl_router)
     app.include_router(programs_router)
     app.include_router(sessions_router)
     app.include_router(analytics_router)

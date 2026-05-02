@@ -1381,7 +1381,51 @@ class APIClient {
   
   
 
-  
+  // ---------- OpenPowerlifting integration ----------
+
+  async searchOpenPowerlifting(query: string): Promise<Types.OplSearchResponse> {
+    const response = await this.client.get<Types.OplSearchResponse>("/opl/search", {
+      params: { q: query },
+    });
+    return response.data;
+  }
+
+  async getOpenPowerliftingStatus(athleteId: number): Promise<Types.OplStatusResponse> {
+    const response = await this.client.get<Types.OplStatusResponse>(
+      `/opl/athletes/${athleteId}/status`,
+    );
+    return response.data;
+  }
+
+  async linkOpenPowerlifting(
+    athleteId: number,
+    slug: string,
+    displayName?: string,
+  ): Promise<Types.OplLinkResult> {
+    const response = await this.client.post<Types.OplLinkResult>(
+      `/opl/athletes/${athleteId}/link`,
+      { slug, display_name: displayName ?? null },
+      // Lifter CSV fetch can be slow when OpenPowerlifting is under load;
+      // give it a generous ceiling rather than hitting the 30s default.
+      { timeout: 60000 },
+    );
+    return response.data;
+  }
+
+  async refreshOpenPowerlifting(athleteId: number): Promise<Types.OplLinkResult> {
+    const response = await this.client.post<Types.OplLinkResult>(
+      `/opl/athletes/${athleteId}/refresh`,
+      null,
+      { timeout: 60000 },
+    );
+    return response.data;
+  }
+
+  async unlinkOpenPowerlifting(athleteId: number): Promise<void> {
+    await this.client.delete(`/opl/athletes/${athleteId}/link`);
+  }
+
+
   async submitFeedback(payload: {
     type: "bug" | "feedback" | "question";
     text: string;

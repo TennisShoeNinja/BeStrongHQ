@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -280,6 +290,90 @@ class MeetResult(Base):
 
     def __repr__(self) -> str:
         return f"<MeetResult(athlete={self.athlete_id}, {self.lift} #{self.attempt_number}: {self.weight_lbs} {'✓' if self.made else '✗'})>"
+
+
+class OplLink(Base):
+    """At most one row per athlete linked to an OpenPowerlifting profile.
+
+    Source-of-truth for the link itself; meet rows live in OplMeet and are
+    refreshed from the OpenPowerlifting public dataset on demand. Imported
+    fields stay separate from the coach's own per-attempt entries in
+    ``meet_results`` because the OPL feed is summary-level (best of three
+    per lift) and would otherwise pollute that table.
+    """
+
+    __tablename__ = "opl_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    athlete_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("athletes.id"), nullable=False, unique=True
+    )
+    slug: Mapped[str] = mapped_column(String(200), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    athlete: Mapped[Athlete] = relationship("Athlete", foreign_keys=[athlete_id])
+
+    def __repr__(self) -> str:
+        return f"<OplLink(athlete={self.athlete_id}, slug='{self.slug}')>"
+
+
+class OplMeet(Base):
+    """One row per imported OpenPowerlifting meet result for a linked athlete.
+
+    Identity is (athlete_id, meet_path); refresh upserts on the pair so
+    rerunning import doesn't double-insert and doesn't lose row ids the
+    UI keys off. Weights stored in kg (OPL's canonical unit); the UI
+    converts on render to whatever the coach's display unit is.
+    """
+
+    __tablename__ = "opl_meets"
+    __table_args__ = (
+        UniqueConstraint("athlete_id", "meet_path", name="uq_opl_meets_athlete_meet"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    athlete_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("athletes.id"), nullable=False, index=True
+    )
+    meet_path: Mapped[str] = mapped_column(String(300), nullable=False)
+    meet_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    federation: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    parent_federation: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    meet_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    meet_country: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    meet_state: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    event: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    equipment: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    division: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    age_class: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    weight_class_kg: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    bodyweight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    squat_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bench_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    deadlift_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    place: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    dots: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tested: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    athlete: Mapped[Athlete] = relationship("Athlete", foreign_keys=[athlete_id])
+
+    def __repr__(self) -> str:
+        return f"<OplMeet(athlete={self.athlete_id}, meet='{self.meet_name}', total={self.total_kg})>"
 
 
 class WorkLog(Base):

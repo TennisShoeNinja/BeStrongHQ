@@ -837,3 +837,69 @@ export interface AllowedUserResponse {
   is_admin: boolean;
   added_at: string;
 }
+
+export interface OplCandidate {
+  slug: string;
+  name: string;
+  federation: string | null;
+  country: string | null;
+  state: string | null;
+  sex: string | null;
+  equipment: string | null;
+  age_class: string | null;
+  division: string | null;
+  best_total_lbs: number | null;
+  best_dots: number | null;
+  weight_class_lbs: string | null;
+  last_meet_date: string | null;
+}
+
+export interface OplSearchResponse {
+  query: string;
+  candidates: OplCandidate[];
+}
+
+export interface OplMeetResponse {
+  id: number;
+  meet_path: string;
+  meet_name: string | null;
+  federation: string | null;
+  parent_federation: string | null;
+  meet_date: string | null;
+  meet_country: string | null;
+  meet_state: string | null;
+  event: string | null;
+  equipment: string | null;
+  division: string | null;
+  age_class: string | null;
+  weight_class_kg: string | null;
+  bodyweight_kg: number | null;
+  squat_kg: number | null;
+  bench_kg: number | null;
+  deadlift_kg: number | null;
+  total_kg: number | null;
+  place: string | null;
+  dots: number | null;
+  tested: boolean | null;
+}
+
+export interface OplLinkInfo {
+  slug: string;
+  display_name: string | null;
+  last_synced_at: string | null;
+  last_sync_error: string | null;
+  profile_url: string;
+}
+
+export interface OplStatusResponse {
+  linked: boolean;
+  link?: OplLinkInfo | null;
+  meets?: OplMeetResponse[];
+}
+
+export interface OplLinkResult {
+  linked: boolean;
+  imported: number;
+  link?: OplLinkInfo | null;
+  meets?: OplMeetResponse[];
+}

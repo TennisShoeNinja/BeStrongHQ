@@ -8564,6 +8564,15 @@ export default function AthleteDetailPage() {
             >
               {showCompMaxes ? "Hide comp maxes" : "Show comp maxes"}
             </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/athletes/${athleteId}/competition-history`)}
+              className="cloud-text-muted hover:cloud-text underline decoration-dotted underline-offset-2"
+              style={{ fontSize: 12 }}
+              title="View this athlete's OpenPowerlifting meet history"
+            >
+              Competition history
+            </button>
           </div>
         </div>
         <div className="cloud-stats" style={{ marginBottom: "var(--cloud-s5)" }}>
