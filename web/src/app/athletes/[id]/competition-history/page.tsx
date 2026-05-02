@@ -320,11 +320,11 @@ function MeetsTable({
   return (
     <>
       {/* Mobile: stacked cards. The 10-column desktop table is unreadable
-          below ~720px; cards keep the same data without horizontal scroll. */}
-      <div
-        className="opl-meets-mobile"
-        style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
-      >
+          below ~720px; cards keep the same data without horizontal scroll.
+          Visibility is controlled by the styled-jsx block below. We avoid
+          setting `display` inline because inline styles outrank media
+          queries and would force both layouts on at once. */}
+      <div className="opl-meets-mobile">
         {meets.map((m) => (
           <MeetCardMobile key={m.id} meet={m} unit={unit} />
         ))}
@@ -387,6 +387,8 @@ function MeetsTable({
       <style jsx>{`
         .opl-meets-mobile {
           display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
         .opl-meets-desktop {
           display: none;
