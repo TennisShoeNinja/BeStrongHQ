@@ -83,6 +83,8 @@ import {
   Minus,
   X,
   CalendarOff,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import {
   LineChart,
@@ -7192,7 +7194,9 @@ export default function AthleteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
+  const { features } = useAuth();
   const athleteId = parseInt(params.id as string, 10);
+  const portalAvailable = features.includes("portal");
 
   
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -7729,6 +7733,21 @@ export default function AthleteDetailPage() {
                   <CalendarOff className="w-3.5 h-3.5" />
                   Set availability
                 </DropdownMenuItem>
+                {portalAvailable && (athlete.portal_disabled ? (
+                  <DropdownMenuItem
+                    onClick={() => handleInlineUpdate("portal_disabled", false)}
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    Enable portal access
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => handleInlineUpdate("portal_disabled", true)}
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    Disable portal access
+                  </DropdownMenuItem>
+                ))}
                 {athlete.body_metrics_hidden ? (
                   <DropdownMenuItem
                     onClick={() => handleInlineUpdate("body_metrics_hidden", false)}

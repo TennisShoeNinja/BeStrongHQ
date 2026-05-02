@@ -111,6 +111,7 @@ export interface AthleteBase {
   goal_bodyweight_lbs?: number | null;
   body_metrics_hidden?: boolean;
   archived?: boolean;
+  portal_disabled?: boolean;
 }
 
 export type AthleteCreate = AthleteBase;
@@ -125,6 +126,7 @@ export interface AthleteListResponse extends AthleteBase {
   latest_program_sheet_url?: string | null;
   latest_block_type?: string | null;
   latest_bodyweight_lbs?: number | null;
+  portal_last_login_at?: string | null;
 }
 
 export interface PendingMeetResults {
@@ -145,6 +147,7 @@ export interface AthleteResponse extends AthleteBase {
   latest_block_type?: string | null;
   pending_meet_results?: PendingMeetResults | null;
   last_synced_at?: string | null;
+  portal_last_login_at?: string | null;
 }
 
 
