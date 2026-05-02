@@ -156,13 +156,17 @@ def is_auth_enabled(db: Session) -> bool:
     at startup via BOOTSTRAP_ADMIN_EMAIL, so there is never an
     unprotected window.
 
-    In local mode, auth is only enabled once at least one allowed user
-    has been added, preserving the easy local dev experience.
+    In local mode, auth is ALWAYS disabled. A local install is the
+    coach's own machine; the database is the access boundary, not a
+    login screen. The earlier behavior turned auth on as soon as any
+    allowed_user row existed, which fired accidentally if the operator
+    ever clicked "Sign in with Google" (the OAuth callback used to
+    auto-create the first admin and flip the table from empty to
+    non-empty), permanently locking the local install behind login.
     """
     if _deployment_mode() == "cloud":
         return True
-    count = db.query(AllowedUser).count()
-    return count > 0
+    return False
 
 
 class UserInfo(BaseModel):
