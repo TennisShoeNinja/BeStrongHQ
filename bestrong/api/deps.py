@@ -14,12 +14,31 @@ from ..models.database import get_session_factory, init_db
 from ..models.orm import AllowedUser, AuthSession
 
 
-try:
-    from bestrong_cloud import resolve_tenant_db as _plugin_resolver
-    from bestrong_cloud import is_platform_admin as _plugin_is_admin
-except ImportError:
-    _plugin_resolver = None
-    _plugin_is_admin = None
+def _lazy_plugin_resolver():
+    """Look up the optional tenant resolver at request time.
+
+    Imported lazily (instead of at module load) because the optional
+    plugin may import from this module during its own initialization;
+    a top-level import here would fail silently in that startup window
+    and leave the resolver permanently unset.
+    """
+    try:
+        from bestrong_cloud import resolve_tenant_db
+        return resolve_tenant_db
+    except ImportError:
+        return None
+
+
+def _lazy_plugin_is_admin():
+    """Look up the optional platform-admin check at request time.
+
+    Same lazy pattern as ``_lazy_plugin_resolver`` and for the same reason.
+    """
+    try:
+        from bestrong_cloud import is_platform_admin
+        return is_platform_admin
+    except ImportError:
+        return None
 
 
 def get_db(request: Request) -> Generator[Session, None, None]:
@@ -29,8 +48,9 @@ def get_db(request: Request) -> Generator[Session, None, None]:
     otherwise falls back to the default single-instance database path.
     """
     cloud_mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip() == "cloud"
-    if cloud_mode and _plugin_resolver is not None:
-        db = _plugin_resolver(request)
+    resolver = _lazy_plugin_resolver() if cloud_mode else None
+    if resolver is not None:
+        db = resolver(request)
         try:
             yield db
         finally:
@@ -81,8 +101,9 @@ def require_admin(request: Request, db: Session) -> AllowedUser | None:
 
 
     if not allowed or not allowed.is_admin:
+        plugin_is_admin = _lazy_plugin_is_admin()
         _is_platform_admin = bool(
-            _plugin_is_admin and _plugin_is_admin(session.email)
+            plugin_is_admin and plugin_is_admin(session.email)
         )
         if not _is_platform_admin:
             raise HTTPException(status_code=403, detail="Admin access required")
