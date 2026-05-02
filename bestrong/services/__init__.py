@@ -105,37 +105,58 @@ def import_file(
 
     program_data = parse_file(path, parser_id=parser_id)
 
-
-    if title:
+    # Resolve the adapter once and reuse for the title re-extract and the
+    # multi-program dispatch below.
+    adapter = None
+    wb = None
+    if title or _adapter_may_be_multi(parser_id):
         import openpyxl
         wb = openpyxl.load_workbook(path, data_only=True)
         from ..parser.adapters import find_adapter, find_adapter_by_id
         adapter = (
             find_adapter_by_id(parser_id) if parser_id is not None else find_adapter(wb)
         )
-        if adapter:
-            program_data = adapter.extract(wb, filename=title + ".xlsx")
+
+    if title and adapter is not None:
+        program_data = adapter.extract(wb, filename=title + ".xlsx")
+
+    # Capability dispatch: an adapter may expose ``extract_all`` to yield
+    # multiple Program records from a single workbook (e.g. when each tab
+    # is a separate program). Adapters without the method stay on the
+    # legacy single-program path untouched.
+    #
+    # Multi-program dispatch is suppressed when the caller is targeting a
+    # specific Program (resync's existing_program_id) or overriding the
+    # program_number; both are inherently single-record operations.
+    multi_extract = (
+        adapter is not None
+        and hasattr(adapter, "extract_all")
+        and existing_program_id is None
+        and program_number is None
+    )
+    if multi_extract:
+        if wb is None:
+            import openpyxl
+            wb = openpyxl.load_workbook(path, data_only=True)
+        ext_filename = (title + ".xlsx") if title else Path(path).name
+        program_data_list = adapter.extract_all(wb, filename=ext_filename)
+        # Fall back to the single-program path when extract_all returns
+        # 0 or 1 programs — preserves error semantics
+        # (EmptyParserOutputError) and the existing return shape.
+        if len(program_data_list) > 1:
+            return _import_many(
+                program_data_list,
+                source_filename=title or Path(path).name,
+                athlete_name=athlete_name,
+                db=db,
+                db_path=db_path,
+                candidate_name=candidate_name,
+            )
 
     if program_number is not None:
         program_data.program_number = program_number
 
-
-    if athlete_name and athlete_name.strip():
-        override = athlete_name.strip()
-        parsed = (program_data.athlete.name or "").strip()
-        if not parsed:
-            program_data.athlete.name = override
-        else:
-            override_lc = override.lower()
-            parsed_lc = parsed.lower()
-            keep_parsed = (
-                parsed_lc == override_lc
-                or parsed_lc.startswith(override_lc + " ")
-                or (len(parsed) > len(override) and override_lc in parsed_lc)
-            )
-            if not keep_parsed:
-                program_data.athlete.name = override
-
+    _apply_athlete_name_override(program_data, athlete_name)
 
     total_exercises = sum(len(s.exercises) for s in program_data.sessions)
     if program_data.sessions and total_exercises == 0:
@@ -170,6 +191,138 @@ def import_file(
         raise
     finally:
         owned_db.close()
+
+
+def _adapter_may_be_multi(parser_id: str | None) -> bool:
+    """Cheap pre-check: load the workbook only when the adapter could be
+    multi-program. Avoids opening every workbook twice for the public
+    one-program adapters.
+    """
+    if parser_id is None:
+        # Unknown parser: assume single-program. Auto-detect path runs
+        # ``parse_file`` which already chose an adapter; the only way to
+        # reach extract_all from auto-detect is to re-resolve, which the
+        # caller does explicitly via ``title``.
+        return False
+    try:
+        from ..parser.adapters import find_adapter_by_id
+    except ImportError:
+        return False
+    adapter = find_adapter_by_id(parser_id)
+    return adapter is not None and hasattr(adapter, "extract_all")
+
+
+def _apply_athlete_name_override(
+    program_data: ProgramData, athlete_name: str | None
+) -> None:
+    if not (athlete_name and athlete_name.strip()):
+        return
+    override = athlete_name.strip()
+    parsed = (program_data.athlete.name or "").strip()
+    if not parsed:
+        program_data.athlete.name = override
+        return
+    override_lc = override.lower()
+    parsed_lc = parsed.lower()
+    keep_parsed = (
+        parsed_lc == override_lc
+        or parsed_lc.startswith(override_lc + " ")
+        or (len(parsed) > len(override) and override_lc in parsed_lc)
+    )
+    if not keep_parsed:
+        program_data.athlete.name = override
+
+
+def _import_many(
+    program_data_list: list[ProgramData],
+    *,
+    source_filename: str,
+    athlete_name: str | None,
+    db: DBSession | None,
+    db_path: str | Path | None,
+    candidate_name: str,
+) -> dict:
+    """Write multiple ProgramData records from one workbook.
+
+    Each record is upserted via ``_write_to_db`` under the same db
+    transaction (atomic per workbook). Returns an aggregated summary
+    plus the per-program write results under ``programs``.
+    """
+    if db is not None:
+        return _write_many(
+            db, program_data_list,
+            source_filename=source_filename,
+            athlete_name=athlete_name,
+            candidate_name=candidate_name,
+        )
+
+    init_db(db_path)
+    owned_db = get_session(db_path)
+    try:
+        result = _write_many(
+            owned_db, program_data_list,
+            source_filename=source_filename,
+            athlete_name=athlete_name,
+            candidate_name=candidate_name,
+        )
+        owned_db.commit()
+        return result
+    except Exception:
+        owned_db.rollback()
+        raise
+    finally:
+        owned_db.close()
+
+
+def _write_many(
+    db: DBSession,
+    program_data_list: list[ProgramData],
+    *,
+    source_filename: str,
+    athlete_name: str | None,
+    candidate_name: str,
+) -> dict:
+    written: list[dict] = []
+    for program_data in program_data_list:
+        _apply_athlete_name_override(program_data, athlete_name)
+        total_exercises = sum(len(s.exercises) for s in program_data.sessions)
+        if program_data.sessions and total_exercises == 0:
+            raise EmptyParserOutputError(
+                f"Parsed {len(program_data.sessions)} sessions but zero "
+                f"exercises from {candidate_name!r}; not a recognized program."
+            )
+        result = _write_to_db(
+            db, program_data,
+            source_filename=source_filename,
+            existing_program_id=None,
+        )
+        written.append(result)
+
+    if not written:
+        # Multi-extract returned a non-empty list but every entry was
+        # filtered out — surface as EmptyParserOutputError so callers
+        # treat it like the single-program empty case.
+        raise EmptyParserOutputError(
+            f"extract_all yielded no usable programs from {candidate_name!r}."
+        )
+
+    primary = written[-1]  # latest block — the headline program for UI
+    program_ids = [r["program_id"] for r in written if r.get("program_id")]
+    return {
+        "athlete_name": primary["athlete_name"],
+        "athlete_id": primary["athlete_id"],
+        "athlete_created": any(r.get("athlete_created") for r in written),
+        "program_id": primary["program_id"],
+        "program_name": primary["program_name"],
+        "program_updated": any(r.get("program_updated") for r in written),
+        "sessions_imported": sum(r.get("sessions_imported", 0) for r in written),
+        "exercises_imported": sum(r.get("exercises_imported", 0) for r in written),
+        "days_fixed": sum(r.get("days_fixed", 0) for r in written),
+        "wellness_entries": sum(r.get("wellness_entries", 0) for r in written),
+        "prs_logged": sum(r.get("prs_logged", 0) for r in written),
+        "programs": written,
+        "program_ids": program_ids,
+    }
 
 
 def _build_program_display_name(
