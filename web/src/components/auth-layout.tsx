@@ -40,7 +40,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   }
 
 
-  if (pathname.startsWith('/athlete')) {
+  if (pathname === '/athlete' || pathname.startsWith('/athlete/')) {
     return <div className="w-full">{children}</div>;
   }
 
