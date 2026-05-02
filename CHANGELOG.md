@@ -3,6 +3,31 @@
 What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
 `-beta` suffix while we're still in beta.
 
+## [1.2.0 Public Beta], 2026-05-02
+
+### Added
+
+- **Athlete-side login data model.** New `athlete_sessions` table plus
+  `portal_last_login_at` and `portal_disabled` columns on `athletes`,
+  with a matching migration. Schema only on the public side; the
+  runtime that uses it is provided by an optional plugin and is not
+  reachable from a self-hosted install. Existing instances upgrade
+  in place on the next startup with no data loss.
+
+- **Optional auth-callback delegation hook.** When an optional plugin
+  is installed, the OAuth callback offers it a chance to handle emails
+  that are not on the coach allowlist. Without the plugin, the
+  callback's behavior is unchanged.
+
+- **Cloud Features sidebar entry.** A new sub-link under Configuration
+  surfaces hosted-tier toggles. Gated on a feature flag the optional
+  plugin emits; renders nothing on a self-hosted install.
+
+- **Coach roster: portal access toggle.** The athlete profile's
+  three-dot menu can enable or disable per-athlete portal access. Gated
+  on the same plugin flag, so the menu item only appears for instances
+  where the optional plugin is active.
+
 ## [1.1.0 Public Beta], 2026-04-29
 
 ### Added
