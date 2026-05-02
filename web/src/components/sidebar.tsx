@@ -18,6 +18,7 @@ import {
   User,
   SlidersHorizontal,
   Server,
+  Cloud,
 } from "lucide-react";
 import {
   Sheet,
@@ -217,6 +218,16 @@ function SidebarContent({
                 <SlidersHorizontal className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
                 <span>Features</span>
               </Link>
+              {features.includes("cloud-features") && (
+                <Link
+                  href="/configuration/cloud-features"
+                  className="cloud-nav-item cloud-nav-item-sub"
+                  data-active={isActive("/configuration/cloud-features") ? "true" : undefined}
+                >
+                  <Cloud className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
+                  <span>Cloud Features</span>
+                </Link>
+              )}
               {deploymentMode === "cloud" && (
                 <Link
                   href="/configuration/access"
