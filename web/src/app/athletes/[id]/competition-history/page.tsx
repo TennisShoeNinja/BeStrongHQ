@@ -14,7 +14,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
-import * as Types from '@/lib/types';
+import { useAuth } from '@/lib/auth-provider';
 import {
   kgToLbs,
   resolveWeightUnit,
@@ -32,6 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import '../../../_cloud/cloud-api';
+import type {
+  OplCandidate,
+  OplLinkInfo,
+  OplMeetResponse,
+  OplStatusResponse,
+} from '../../../_cloud/cloud-api';
 
 const PAGE_TITLE_STYLE: CSSProperties = {
   fontSize: 20,
@@ -64,8 +71,8 @@ function CandidateRow({
   onPick,
   busy,
 }: {
-  candidate: Types.OplCandidate;
-  onPick: (c: Types.OplCandidate) => void;
+  candidate: OplCandidate;
+  onPick: (c: OplCandidate) => void;
   busy: boolean;
 }) {
   const meta = [
@@ -95,13 +102,7 @@ function CandidateRow({
         </div>
         <div
           className="cloud-text-muted"
-          style={{
-            fontSize: 12,
-            marginTop: 2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
+          style={{ fontSize: 12, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
           {meta || candidate.slug}
         </div>
@@ -128,7 +129,7 @@ function LinkedHeader({
   refreshing,
   unlinking,
 }: {
-  link: Types.OplLinkInfo;
+  link: OplLinkInfo;
   athleteName: string | undefined;
   onRefresh: () => void;
   onUnlink: () => void;
@@ -204,13 +205,7 @@ function LinkedHeader({
   );
 }
 
-function MeetCardMobile({
-  meet,
-  unit,
-}: {
-  meet: Types.OplMeetResponse;
-  unit: WeightUnit;
-}) {
+function MeetCardMobile({ meet, unit }: { meet: OplMeetResponse; unit: WeightUnit }) {
   return (
     <div className="cloud-panel" style={{ padding: 14 }}>
       <div
@@ -292,12 +287,18 @@ function MeetsTable({
   meets,
   unit,
 }: {
-  meets: Types.OplMeetResponse[];
+  meets: OplMeetResponse[];
   unit: WeightUnit;
 }) {
   if (meets.length === 0) {
     return (
-      <div className="cloud-panel" style={{ padding: 32, textAlign: 'center' }}>
+      <div
+        className="cloud-panel"
+        style={{
+          padding: 32,
+          textAlign: 'center',
+        }}
+      >
         <Trophy
           style={{
             width: 28,
@@ -320,11 +321,11 @@ function MeetsTable({
   return (
     <>
       {/* Mobile: stacked cards. The 10-column desktop table is unreadable
-          below ~720px; cards keep the same data without horizontal scroll.
-          Visibility is controlled by the styled-jsx block below. We avoid
-          setting `display` inline because inline styles outrank media
-          queries and would force both layouts on at once. */}
-      <div className="opl-meets-mobile">
+          below ~720px; cards keep the same data without horizontal scroll. */}
+      <div
+        className="opl-meets-mobile"
+        style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+      >
         {meets.map((m) => (
           <MeetCardMobile key={m.id} meet={m} unit={unit} />
         ))}
@@ -387,8 +388,6 @@ function MeetsTable({
       <style jsx>{`
         .opl-meets-mobile {
           display: flex;
-          flex-direction: column;
-          gap: 10px;
         }
         .opl-meets-desktop {
           display: none;
@@ -409,6 +408,7 @@ function MeetsTable({
 export default function CompetitionHistoryPage() {
   const params = useParams();
   const queryClient = useQueryClient();
+  const { features, loading: authLoading } = useAuth();
   const localUnit = useLocalWeightUnit();
   const unit: WeightUnit = resolveWeightUnit(localUnit, null);
 
@@ -421,22 +421,24 @@ export default function CompetitionHistoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
 
+  const featureEnabled = features.includes('openpowerlifting');
+
   const athleteQuery = useQuery({
     queryKey: ['athlete', athleteId],
     queryFn: () => apiClient.getAthlete(athleteId as number),
-    enabled: athleteId != null,
+    enabled: athleteId != null && featureEnabled,
   });
 
-  const statusQuery = useQuery<Types.OplStatusResponse>({
+  const statusQuery = useQuery<OplStatusResponse>({
     queryKey: ['opl', 'status', athleteId],
     queryFn: () => apiClient.getOpenPowerliftingStatus(athleteId as number),
-    enabled: athleteId != null,
+    enabled: athleteId != null && featureEnabled,
   });
 
   const searchQuery = useQuery({
     queryKey: ['opl', 'search', searchSubmitted],
     queryFn: () => apiClient.searchOpenPowerlifting(searchSubmitted),
-    enabled: searchSubmitted.length >= 2,
+    enabled: featureEnabled && searchSubmitted.length >= 2,
   });
 
   const linkMutation = useMutation({
@@ -463,6 +465,25 @@ export default function CompetitionHistoryPage() {
     },
   });
 
+  if (authLoading) {
+    return null;
+  }
+
+  if (!featureEnabled) {
+    return (
+      <div className="min-h-screen" style={{ padding: 'var(--cloud-s5)' }}>
+        <div className="cloud-panel" style={{ padding: 24, maxWidth: 480 }}>
+          <h1 className="cloud-text" style={{ ...PAGE_TITLE_STYLE, marginBottom: 6 }}>
+            Competition history unavailable
+          </h1>
+          <p className="cloud-text-muted" style={{ fontSize: 13 }}>
+            This workspace does not have the OpenPowerlifting integration enabled.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (athleteId == null) {
     return (
       <div style={{ padding: 'var(--cloud-s5)' }}>
@@ -479,16 +500,13 @@ export default function CompetitionHistoryPage() {
     setSearchSubmitted(searchTerm.trim());
   };
 
-  const handlePick = (c: Types.OplCandidate) => {
+  const handlePick = (c: OplCandidate) => {
     linkMutation.mutate({ slug: c.slug, displayName: c.name });
   };
 
   const handleRefresh = () => refreshMutation.mutate();
   const handleUnlink = () => {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm('Remove the OpenPowerlifting link and clear imported meets?')
-    ) {
+    if (typeof window !== 'undefined' && !window.confirm('Remove the OpenPowerlifting link and clear imported meets?')) {
       return;
     }
     unlinkMutation.mutate();
