@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const webRoot = path.resolve(path.dirname(__filename), "..");
 const appRoot = path.join(webRoot, "src", "app");
 const srcRoot = path.join(webRoot, "src");
+const configRoot = path.join(webRoot, "src", "config");
 
 const PLUGIN_PACKAGE = process.env.PLUGIN_PACKAGE_NAME || "bestrong_cloud";
 const PLUGIN_BUNDLE_DIR = process.env.PLUGIN_BUNDLE_DIR || "cloud_pkg";
@@ -132,6 +133,22 @@ function discoverAppMappings(pluginRoot) {
 }
 
 
+function discoverConfigMappings(pluginRoot) {
+  const overlayConfigRoot = path.join(pluginRoot, "web_overlay", "config");
+  if (!fs.existsSync(overlayConfigRoot)) return [];
+
+  const mappings = [];
+  for (const entry of fs.readdirSync(overlayConfigRoot, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    mappings.push({
+      source: ["web_overlay", "config", entry.name],
+      target: path.join(configRoot, entry.name),
+    });
+  }
+  return mappings;
+}
+
+
 const prevManifest = readManifest();
 
 
@@ -146,7 +163,11 @@ if (!pluginRoot) {
   process.exit(0);
 }
 
-const mappings = [...staticMappings(), ...discoverAppMappings(pluginRoot)];
+const mappings = [
+  ...staticMappings(),
+  ...discoverAppMappings(pluginRoot),
+  ...discoverConfigMappings(pluginRoot),
+];
 const copiedTargets = [];
 
 for (const mapping of mappings) {

@@ -29,9 +29,9 @@ except ImportError:
 
 
 try:
-    from bestrong_cloud import handle_unallowed_email as _plugin_handle_unallowed
+    from bestrong_cloud import post_deny_hook as _plugin_post_deny
 except ImportError:
-    _plugin_handle_unallowed = None
+    _plugin_post_deny = None
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -514,8 +514,8 @@ def callback(
                     )
         else:
 
-            if _plugin_handle_unallowed is not None:
-                fallback = _plugin_handle_unallowed(
+            if _plugin_post_deny is not None:
+                fallback = _plugin_post_deny(
                     db, email=email, request=request, frontend_url=frontend_url
                 )
                 if fallback is not None:
