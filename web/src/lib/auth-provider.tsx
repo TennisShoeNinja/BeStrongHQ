@@ -11,6 +11,20 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import * as Types from '@/lib/types';
+import { EXTRA_REDIRECT_EXEMPT_PREFIXES } from '@/config/auth-redirect-config';
+
+
+const REDIRECT_EXEMPT_PREFIXES = [
+  '/login',
+  '/configuration',
+  ...EXTRA_REDIRECT_EXEMPT_PREFIXES,
+];
+
+function isRedirectExempt(pathname: string): boolean {
+  return REDIRECT_EXEMPT_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
+  );
+}
 
 const DEFAULT_TENANT_SETTINGS: Types.TenantSettings = {
   tracks_rpe: true,
@@ -107,12 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           
           
-          if (
-            status.auth_enabled &&
-            pathname !== '/login' &&
-            !pathname.startsWith('/configuration') &&
-            !pathname.startsWith('/athlete')
-          ) {
+          if (status.auth_enabled && !isRedirectExempt(pathname)) {
             const target =
               pathname && pathname !== '/'
                 ? `/login?next=${encodeURIComponent(pathname)}`

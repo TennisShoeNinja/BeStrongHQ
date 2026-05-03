@@ -18,7 +18,6 @@ import {
   User,
   SlidersHorizontal,
   Server,
-  Cloud,
 } from "lucide-react";
 import {
   Sheet,
@@ -27,6 +26,62 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-provider";
 import { DISPLAY_VERSION } from "@/lib/version";
+import {
+  ACCOUNT_EXTRAS,
+  CONFIGURATION_EXTRAS,
+  DATA_INTEGRATION_EXTRAS,
+  SidebarExtra,
+  WORKSPACE_EXTRAS,
+} from "@/config/sidebar-config";
+
+
+function ExtraItem({
+  item,
+  features,
+  isActive,
+}: {
+  item: SidebarExtra;
+  features: string[];
+  isActive: (href: string) => boolean;
+}) {
+  if (item.feature && !features.includes(item.feature)) return null;
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className="cloud-nav-item cloud-nav-item-sub"
+      data-active={isActive(item.href) ? "true" : undefined}
+    >
+      <Icon className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
+      <span>{item.label}</span>
+    </Link>
+  );
+}
+
+
+function ExtraTopLevelItem({
+  item,
+  features,
+  isActive,
+}: {
+  item: SidebarExtra;
+  features: string[];
+  isActive: (href: string) => boolean;
+}) {
+  if (item.feature && !features.includes(item.feature)) return null;
+  const Icon = item.icon;
+  const active = isActive(item.href);
+  return (
+    <Link
+      href={item.href}
+      className="cloud-nav-item"
+      data-active={active ? "true" : undefined}
+    >
+      <Icon className="w-4 h-4 shrink-0 cloud-nav-icon" />
+      <span className="flex-1 text-left">{item.label}</span>
+    </Link>
+  );
+}
 
 interface SidebarProps {
   notificationCount?: number;
@@ -134,6 +189,14 @@ function SidebarContent({
               isActive={isActive}
             />
           )}
+          {WORKSPACE_EXTRAS.map((item) => (
+            <ExtraTopLevelItem
+              key={item.href}
+              item={item}
+              features={features}
+              isActive={isActive}
+            />
+          ))}
         </div>
 
         <div className="cloud-nav-section">
@@ -180,12 +243,28 @@ function SidebarContent({
                   <span>Stripe</span>
                 </Link>
               )}
+              {DATA_INTEGRATION_EXTRAS.map((item) => (
+                <ExtraItem
+                  key={item.href}
+                  item={item}
+                  features={features}
+                  isActive={isActive}
+                />
+              ))}
             </div>
           )}
         </div>
 
         <div className="cloud-nav-section">
           <div className="cloud-nav-label">Account</div>
+          {ACCOUNT_EXTRAS.map((item) => (
+            <ExtraTopLevelItem
+              key={item.href}
+              item={item}
+              features={features}
+              isActive={isActive}
+            />
+          ))}
           <button
             type="button"
             className="cloud-nav-item w-full"
@@ -218,16 +297,14 @@ function SidebarContent({
                 <SlidersHorizontal className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
                 <span>Features</span>
               </Link>
-              {features.includes("cloud-features") && (
-                <Link
-                  href="/configuration/cloud-features"
-                  className="cloud-nav-item cloud-nav-item-sub"
-                  data-active={isActive("/configuration/cloud-features") ? "true" : undefined}
-                >
-                  <Cloud className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
-                  <span>Cloud Features</span>
-                </Link>
-              )}
+              {CONFIGURATION_EXTRAS.map((item) => (
+                <ExtraItem
+                  key={item.href}
+                  item={item}
+                  features={features}
+                  isActive={isActive}
+                />
+              ))}
               {deploymentMode === "cloud" && (
                 <Link
                   href="/configuration/access"
