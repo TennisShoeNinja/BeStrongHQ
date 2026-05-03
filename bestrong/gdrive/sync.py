@@ -104,13 +104,25 @@ class SyncResult:
         }
 
 
-def _needs_import(db: DBSession, file_id: str, modified_time: str) -> bool:
-    """Check if a file needs importing (new or modified since last import)."""
-    existing = (
+def _latest_import(db: DBSession, file_id: str) -> GDriveImport | None:
+    """Most-recent gdrive_imports row for a file_id.
+
+    Per-file dedup, not per-row. The schema enforces one row per file_id,
+    but ordering by ``imported_at`` keeps the dedup decision stable if a
+    duplicate ever sneaks in (e.g., partial migration, manual repair) so
+    the freshest stored modified_time always wins.
+    """
+    return (
         db.query(GDriveImport)
         .filter(GDriveImport.gdrive_file_id == file_id)
+        .order_by(GDriveImport.imported_at.desc())
         .first()
     )
+
+
+def _needs_import(db: DBSession, file_id: str, modified_time: str) -> bool:
+    """Check if a file needs importing (new or modified since last import)."""
+    existing = _latest_import(db, file_id)
     if existing is None:
         return True
 
@@ -132,11 +144,7 @@ def _record_import(
     error_message: str | None = None,
 ) -> None:
     """Record an import attempt (upsert by file_id)."""
-    existing = (
-        db.query(GDriveImport)
-        .filter(GDriveImport.gdrive_file_id == file_id)
-        .first()
-    )
+    existing = _latest_import(db, file_id)
     if existing:
         existing.gdrive_file_name = file_name
         existing.gdrive_modified_time = modified_time
@@ -287,6 +295,7 @@ def sync_folder(
     folder_id: str | None = None,
     db_path: Path | None = None,
     db: DBSession | None = None,
+    force: bool = False,
 ) -> SyncResult:
     """
     Scan a Google Drive folder's subfolders for Google Sheets and import new/updated ones.
@@ -298,6 +307,9 @@ def sync_folder(
     Args:
         folder_id: Google Drive folder ID. If None, uses the saved watched folder.
         db_path: Optional database path override.
+        force: When True, bypass the modifiedTime dedup check and re-import
+               every program file. Useful when content changed but Drive's
+               modifiedTime didn't bump (rare with API-mediated edits).
 
     Returns:
         SyncResult with details of what was imported, skipped, or errored.
@@ -420,7 +432,7 @@ def sync_folder(
                 continue
 
 
-            if not _needs_import(db, file_id, modified_time):
+            if not force and not _needs_import(db, file_id, modified_time):
                 result.skipped.append({
                     "id": file_id,
                     "name": file_name,
@@ -481,11 +493,7 @@ def sync_folder(
 
                     existing_program_id = None
                     resolved_athlete_name = folder_name
-                    prev_import = (
-                        db.query(GDriveImport)
-                        .filter(GDriveImport.gdrive_file_id == file_id)
-                        .first()
-                    )
+                    prev_import = _latest_import(db, file_id)
                     if prev_import and prev_import.program_id:
                         existing_program_id = prev_import.program_id
 
