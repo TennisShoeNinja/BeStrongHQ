@@ -550,15 +550,24 @@ def list_sheets(request: Request, folder_id: str | None = None, db: Session = De
 
 
 @router.post("/sync", response_model=SyncResponse)
-def trigger_sync(request: Request, folder_id: str | None = None, db: Session = Depends(get_db)):
+def trigger_sync(
+    request: Request,
+    folder_id: str | None = None,
+    force: bool = False,
+    db: Session = Depends(get_db),
+):
     """Scan the watched folder and import any new/updated Google Sheets.
 
     If folder_id is provided, it must match a configured watched folder.
+
+    Pass ``force=true`` to re-import every program file regardless of
+    Drive's modifiedTime — escape hatch for cases where content changed
+    but modifiedTime didn't bump.
     """
     require_admin(request, db)
     _validate_folder_id(db, folder_id)
     try:
-        result = sync.sync_folder(folder_id=folder_id, db=db)
+        result = sync.sync_folder(folder_id=folder_id, db=db, force=force)
         client.mark_sync_success(db=db)
         return SyncResponse(**result.to_dict())
     except ValueError as e:

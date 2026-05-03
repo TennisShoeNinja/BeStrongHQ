@@ -125,13 +125,15 @@ def import_file(
     # is a separate program). Adapters without the method stay on the
     # legacy single-program path untouched.
     #
-    # Multi-program dispatch is suppressed when the caller is targeting a
-    # specific Program (resync's existing_program_id) or overriding the
-    # program_number; both are inherently single-record operations.
+    # ``program_number`` overrides force a single-record interpretation
+    # (CLI flag), so we still suppress multi-extract there. ``existing_program_id``
+    # used to suppress too — that broke resync of multi-program workbooks
+    # because only the targeted block got refreshed while the others went
+    # stale. We now run multi-extract anyway and use existing_program_id
+    # purely to pick the headline result for the response.
     multi_extract = (
         adapter is not None
         and hasattr(adapter, "extract_all")
-        and existing_program_id is None
         and program_number is None
     )
     if multi_extract:
@@ -151,6 +153,7 @@ def import_file(
                 db=db,
                 db_path=db_path,
                 candidate_name=candidate_name,
+                targeted_program_id=existing_program_id,
             )
 
     if program_number is not None:
@@ -241,12 +244,19 @@ def _import_many(
     db: DBSession | None,
     db_path: str | Path | None,
     candidate_name: str,
+    targeted_program_id: int | None = None,
 ) -> dict:
     """Write multiple ProgramData records from one workbook.
 
     Each record is upserted via ``_write_to_db`` under the same db
     transaction (atomic per workbook). Returns an aggregated summary
     plus the per-program write results under ``programs``.
+
+    ``targeted_program_id`` is the resync caller's "this is the program I
+    care about" hint. When matched in the written list, it becomes the
+    headline result so the resync response refers to the program the
+    caller asked for, even though every block in the workbook was
+    refreshed atomically.
     """
     if db is not None:
         return _write_many(
@@ -254,6 +264,7 @@ def _import_many(
             source_filename=source_filename,
             athlete_name=athlete_name,
             candidate_name=candidate_name,
+            targeted_program_id=targeted_program_id,
         )
 
     init_db(db_path)
@@ -264,6 +275,7 @@ def _import_many(
             source_filename=source_filename,
             athlete_name=athlete_name,
             candidate_name=candidate_name,
+            targeted_program_id=targeted_program_id,
         )
         owned_db.commit()
         return result
@@ -281,6 +293,7 @@ def _write_many(
     source_filename: str,
     athlete_name: str | None,
     candidate_name: str,
+    targeted_program_id: int | None = None,
 ) -> dict:
     written: list[dict] = []
     for program_data in program_data_list:
@@ -306,14 +319,20 @@ def _write_many(
             f"extract_all yielded no usable programs from {candidate_name!r}."
         )
 
-    primary = written[-1]  # latest block — the headline program for UI
+    headline = written[-1]  # latest block by default
+    if targeted_program_id is not None:
+        for r in written:
+            if r.get("program_id") == targeted_program_id:
+                headline = r
+                break
+
     program_ids = [r["program_id"] for r in written if r.get("program_id")]
     return {
-        "athlete_name": primary["athlete_name"],
-        "athlete_id": primary["athlete_id"],
+        "athlete_name": headline["athlete_name"],
+        "athlete_id": headline["athlete_id"],
         "athlete_created": any(r.get("athlete_created") for r in written),
-        "program_id": primary["program_id"],
-        "program_name": primary["program_name"],
+        "program_id": headline["program_id"],
+        "program_name": headline["program_name"],
         "program_updated": any(r.get("program_updated") for r in written),
         "sessions_imported": sum(r.get("sessions_imported", 0) for r in written),
         "exercises_imported": sum(r.get("exercises_imported", 0) for r in written),
