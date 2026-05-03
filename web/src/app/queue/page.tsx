@@ -161,11 +161,12 @@ export default function WorkQueuePage() {
   const [undoAction, setUndoAction] = useState<UndoState | null>(null);
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  
-  
-  
-  
-  const autoStartAfterRef = useRef<number | null>(null);
+  // After completing one athlete, hold the just-completed notification id
+  // until the queue refetch lands and `current` advances to the next one,
+  // then fire startTimer. State (not ref) so the effect reacts to it.
+  const [pendingAutoStartAfterId, setPendingAutoStartAfterId] = useState<
+    number | null
+  >(null);
 
   
   const [statsOpen, setStatsOpen] = useState(false);
@@ -389,21 +390,19 @@ export default function WorkQueuePage() {
     };
   }, []);
 
-  
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (
-      autoStartAfterRef.current !== null &&
+      pendingAutoStartAfterId !== null &&
       current &&
-      current.id !== autoStartAfterRef.current &&
+      current.id !== pendingAutoStartAfterId &&
       !timerRunning
     ) {
-      autoStartAfterRef.current = null;
-      const t = setTimeout(() => {
-        startTimer(current.athlete_id, current.id);
-      }, 100);
-      return () => clearTimeout(t);
+      setPendingAutoStartAfterId(null);
+      startTimer(current.athlete_id, current.id);
     }
-  }, [current, timerRunning, startTimer]);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [pendingAutoStartAfterId, current, timerRunning, startTimer]);
 
   
   const completeMutation = useMutation({
@@ -469,7 +468,7 @@ export default function WorkQueuePage() {
       
       
       resetTimer();
-      autoStartAfterRef.current = notificationId ?? null;
+      setPendingAutoStartAfterId(notificationId ?? null);
       setConfirmingDate(false);
       setProposedDate('');
 

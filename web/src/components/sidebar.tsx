@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Home,
   Inbox,
@@ -269,6 +269,12 @@ export function Sidebar({
   const [configurationOpen, setConfigurationOpen] = useState(
     () => pathname?.startsWith("/configuration") ?? false,
   );
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMobileOpen(false);
+  }, [pathname]);
 
   const isActive = (href: string) => pathname === href;
 
@@ -289,7 +295,7 @@ export function Sidebar({
 
       {}
       <div className="md:hidden">
-        <Sheet>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger className="fixed top-4 left-4 z-40 inline-flex items-center justify-center rounded-md p-2 cloud-text-hover hover:bg-white/[0.06]">
             <Menu className="w-6 h-6" />
           </SheetTrigger>
