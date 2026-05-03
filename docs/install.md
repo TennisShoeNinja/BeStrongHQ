@@ -10,13 +10,13 @@ You need Python 3.10+ and Node.js 20+ installed, then:
 git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
 cd BeStrongHQ
 pip install -e .
-cd web && npm install && cd ..
+cd web && npm install && npm run build && cd ..
 bestrong run
 ```
 
-Open **http://localhost:3000** in your browser.
+Open **http://127.0.0.1:3000** in your browser.
 
-> First run will prompt you to set up Google OAuth credentials before sign-in works. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
+> Drive sync is the only way to import program spreadsheets — there's no manual file upload. You'll need to set up Google Drive OAuth credentials before your first sync. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
 
 ## Installation Guides
 
@@ -32,7 +32,7 @@ Each install guide covers everything you need: prerequisites, Google setup, and 
 
 ## Google Setup
 
-BeStrong HQ uses Google for sign-in, Google Drive sync, and Google Calendar push. You'll need to create your own OAuth credentials and organize your athletes' programs into a folder BeStrong HQ can watch before the app will work end to end. See the [Google Setup guide](google-setup.md) for the step-by-step.
+BeStrong HQ Community Edition uses Google Drive to import program spreadsheets, and (optionally) Google Calendar to push meet schedules. There's no built-in user login — your local machine is the access boundary — so the only OAuth client you need to create is for Drive (and Calendar if you want it). See the [Google Setup guide](google-setup.md) for the step-by-step.
 
 ## The Parser
 

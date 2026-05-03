@@ -2,6 +2,8 @@
 
 This guide walks you through setting up BeStrong HQ on a Mac from scratch. No programming experience required.
 
+> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup in Step 7.
+
 ## Step 1: Open Terminal
 
 Press **Cmd + Space**, type **Terminal**, and hit Enter. A black (or white) window will open. This is where you'll type all the commands below.
@@ -71,18 +73,18 @@ cd BeStrongHQ
 
 ## Step 6: Install BeStrong HQ
 
-Run these two commands:
+Run these commands:
 
 ```bash
 pip3 install -e .
-cd web && npm install && cd ..
+cd web && npm install && npm run build && cd ..
 ```
 
-This will take a minute or two. You'll see a lot of text scrolling by. That's normal.
+This will take a few minutes. You'll see a lot of text scrolling by. That's normal. The `npm run build` step at the end is optional but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
 
-## Step 7: Google setup
+## Step 7: Google setup (required)
 
-BeStrong HQ uses Google for sign-in and Google Drive sync. You'll need to create your own OAuth credentials and tidy up your Drive folder layout before the app will work end to end. Follow the [Google Setup guide](google-setup.md), then come back here.
+BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder. Come back here when you're done.
 
 ## Step 8: Start BeStrong HQ
 
@@ -90,7 +92,9 @@ BeStrong HQ uses Google for sign-in and Google Drive sync. You'll need to create
 bestrong run
 ```
 
-Open your browser and go to **http://localhost:3000**. You should see the BeStrong HQ dashboard.
+Open your browser and go to **http://127.0.0.1:3000**. You should see the BeStrong HQ dashboard.
+
+> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, so sticking with `127.0.0.1` everywhere keeps things consistent with the redirect URIs you registered in Step 7.
 
 ## Stopping and Restarting
 
@@ -113,7 +117,7 @@ When a new version is available:
 cd ~/BeStrongHQ
 git pull
 pip3 install -e .
-cd web && npm install && cd ..
+cd web && npm install && npm run build && cd ..
 bestrong run
 ```
 

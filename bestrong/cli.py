@@ -114,6 +114,7 @@ def run(
     host: str = typer.Option("127.0.0.1", help="Host to bind to (use 0.0.0.0 for network access)"),
 ):
     """Start both the API server and Next.js UI in one command."""
+    import os as _os
     import subprocess
     import sys
     import time
@@ -121,6 +122,10 @@ def run(
     from .models.database import init_db
 
     init_db()
+
+    _is_windows = _os.name == "nt"
+    _npx = "npx.cmd" if _is_windows else "npx"
+    _node = "node.exe" if _is_windows else "node"
 
     console.print(f"\n[bold green]BeStrong[/bold green] is running at [bold cyan]http://{host}:{ui_port}[/bold cyan]\n")
 
@@ -138,7 +143,7 @@ def run(
     overlay_sync = web_dir / "scripts" / "sync-cloud-routes.mjs"
 
     if overlay_sync.exists():
-        subprocess.run(["node", str(overlay_sync)], cwd=str(web_dir), check=True)
+        subprocess.run([_node, str(overlay_sync)], cwd=str(web_dir), check=True)
 
     ui_proc = None
     try:
@@ -154,19 +159,19 @@ def run(
         }
 
         if standalone_flat.exists():
-            next_cmd = ["node", str(standalone_flat)]
+            next_cmd = [_node, str(standalone_flat)]
             next_cwd = str(web_dir)
             ui_env = {**base_env, "PORT": str(ui_port), "HOSTNAME": host}
         elif standalone_nested.exists():
-            next_cmd = ["node", "server.js"]
+            next_cmd = [_node, "server.js"]
             next_cwd = str(standalone_nested.parent)
             ui_env = {**base_env, "PORT": str(ui_port), "HOSTNAME": host}
         elif build_id.exists():
-            next_cmd = ["npx", "next", "start", "--port", str(ui_port), "--hostname", host]
+            next_cmd = [_npx, "next", "start", "--port", str(ui_port), "--hostname", host]
             next_cwd = str(web_dir)
             ui_env = base_env
         else:
-            next_cmd = ["npx", "next", "dev", "--port", str(ui_port), "--hostname", host]
+            next_cmd = [_npx, "next", "dev", "--port", str(ui_port), "--hostname", host]
             next_cwd = str(web_dir)
             ui_env = base_env
 

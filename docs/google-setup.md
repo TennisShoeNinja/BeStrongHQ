@@ -1,15 +1,17 @@
 # Google Setup
 
-BeStrong HQ needs two things from your Google account before your first sync will work:
+BeStrong HQ (Community Edition) needs two things from your Google account before your first sync will work:
 
-1. **OAuth credentials** so you can sign in and grant BeStrong HQ access to your Drive.
+1. **OAuth credentials** for Google Drive, so the app can read your athletes' program spreadsheets.
 2. **A tidy Drive folder layout** so the parser can map spreadsheets to athletes.
 
-Work through both before starting BeStrong HQ for the first time.
+Drive sync is **required** to get program data into the app, so plan to work through both before starting BeStrong HQ for the first time.
+
+> Self-hosted Community Edition does not use Google for sign-in. The local SQLite database is the access boundary. You only need a Drive OAuth client.
 
 ## OAuth credentials
 
-Without this, the first login fails with `invalid_client`.
+Without this, your first Drive sync fails with `invalid_client`.
 
 ### Step 1: Create a Google Cloud project
 
@@ -30,42 +32,52 @@ Testing mode is fine for personal use. You do not need to submit for verificatio
 Under **APIs & Services → Library**, enable:
 
 - **Google Drive API** (required, for spreadsheet syncing)
-- **Google Calendar API** (optional, if you want meet calendar sync)
+- **Google Calendar API** (optional, only if you want meet calendar sync)
 
 ### Step 4: Create OAuth client credentials
 
 Under **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
 
 - Choose **Web application**.
-- Add these **Authorized redirect URIs**:
-  - `http://127.0.0.1:8080/api/auth/callback`
+- Add this **Authorized redirect URI**:
   - `http://127.0.0.1:8080/api/gdrive/auth/callback`
-  - `http://127.0.0.1:8080/api/calendar/auth/callback` *(only if you'll use Calendar sync)*
+  - Plus `http://127.0.0.1:8080/api/calendar/auth/callback` *(only if you'll use Calendar sync)*
 
-If you're running on a domain instead of localhost, replace `http://127.0.0.1:8080` with your origin (e.g. `https://bestrong.example.com`). The Calendar callback path is `/api/calendar/auth/callback`.
+Use `127.0.0.1`, not `localhost`. Google treats them as different origins, and Drive will only accept the `127.0.0.1` form.
+
+If you're running on a domain instead of localhost, replace `http://127.0.0.1:8080` with your origin (e.g. `https://bestrong.example.com`).
 
 For the full official walkthrough, see Google's guide: [Setting up OAuth 2.0](https://support.google.com/cloud/answer/6158849).
 
 ### Step 5: Copy credentials into `.env`
 
-From the `BeStrongHQ` folder:
+From the `BeStrongHQ` folder, make a copy of the example env file.
 
+**macOS / Linux:**
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and paste in your client ID and secret:
+**Windows (Command Prompt):**
+```
+copy .env.example .env
+```
+
+Then open `.env` in a text editor and paste in your client ID and secret.
+
+**Windows:** `notepad .env` opens it in Notepad.
+**macOS:** `open -e .env` opens it in TextEdit.
 
 ```
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
-Restart `bestrong run` so the new values are picked up.
+Save the file, then restart `bestrong run` so the new values are picked up.
 
 ### Heads-up on Testing mode
 
-Google expires refresh tokens after 7 days while your consent screen is in Testing. You'll see a "renew" banner in the app when that happens, just sign in again. Flip `GOOGLE_OAUTH_TESTING_MODE=false` in `.env` only after you publish your consent screen.
+Google expires refresh tokens after 7 days while your consent screen is in Testing. You'll see a "renew" banner in the app when that happens — just sign in again. Flip `GOOGLE_OAUTH_TESTING_MODE=false` in `.env` only after you publish your consent screen.
 
 ## Recommended Drive layout
 

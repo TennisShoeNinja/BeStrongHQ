@@ -2,6 +2,8 @@
 
 This guide walks you through setting up BeStrong HQ on Windows from scratch. No programming experience required.
 
+> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup in Step 6.
+
 ## Step 1: Install Python
 
 1. Go to [python.org/downloads](https://www.python.org/downloads/)
@@ -58,14 +60,17 @@ cd BeStrongHQ
 
 ```
 pip install -e .
-cd web && npm install && cd ..
+cd web
+npm install
+npm run build
+cd ..
 ```
 
-This will take a minute or two. You'll see a lot of text scrolling by. That's normal.
+This takes a few minutes. You'll see a lot of text scrolling by — that's normal. The `npm run build` step at the end is optional but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
 
-## Step 6: Google setup
+## Step 6: Google setup (required)
 
-BeStrong HQ uses Google for sign-in and Google Drive sync. You'll need to create your own OAuth credentials and tidy up your Drive folder layout before the app will work end to end. Follow the [Google Setup guide](google-setup.md), then come back here.
+BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder. Come back here when you're done.
 
 ## Step 7: Start BeStrong HQ
 
@@ -73,7 +78,9 @@ BeStrong HQ uses Google for sign-in and Google Drive sync. You'll need to create
 bestrong run
 ```
 
-Open your browser and go to **http://localhost:3000**. You should see the BeStrong HQ dashboard.
+Open your browser and go to **http://127.0.0.1:3000**. You should see the BeStrong HQ dashboard.
+
+> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, so sticking with `127.0.0.1` everywhere keeps things consistent with the redirect URIs you registered in Step 6.
 
 ## Stopping and Restarting
 
@@ -96,16 +103,23 @@ When a new version is available:
 cd %USERPROFILE%\BeStrongHQ
 git pull
 pip install -e .
-cd web && npm install && cd ..
+cd web
+npm install
+npm run build
+cd ..
 bestrong run
 ```
+
+Your database and `.env` are preserved across updates — only the app code changes.
 
 ## Troubleshooting
 
 **"python is not recognized"**. You missed the "Add to PATH" checkbox during Python install. Uninstall Python, reinstall it, and make sure to check that box. Then restart your computer.
 
-**"bestrong is not recognized"**. Close Command Prompt and open a new one. If that doesn't work, try running `pip install -e .` again from the BeStrongHQ folder.
+**"bestrong is not recognized"**. Close Command Prompt and open a new one. If that doesn't work, the Python `Scripts\` folder probably isn't on your PATH — this can happen with per-user Python installs. Run `python -m pip install -e .` from the BeStrongHQ folder and then try `python -m bestrong run` instead, or reinstall Python with "Add to PATH" checked.
 
 **"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another Command Prompt window.
 
 **npm install fails**. Try running Command Prompt as Administrator (right-click, "Run as administrator"), then run the install commands again.
+
+**"FileNotFoundError" or the UI doesn't start**. Make sure you ran `npm install` inside the `web` folder. If you're on a fresh checkout and only the API starts, run `cd web && npm install && npm run build && cd ..` and try `bestrong run` again.

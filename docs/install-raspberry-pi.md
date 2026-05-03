@@ -69,18 +69,17 @@ cd BeStrongHQ
 
 ```bash
 pip3 install -e . --break-system-packages
-cd web && npm install && cd ..
+cd web && npm install && npm run build && cd ..
 ```
 
-The `--break-system-packages` flag is needed on newer versions of Raspberry Pi OS. The `npm install` step may take several minutes on a Pi since it's compiling some packages from source.
+The `--break-system-packages` flag is needed on newer versions of Raspberry Pi OS. The `npm install` and `npm run build` steps can take 10+ minutes on a Pi since it's compiling some packages from source. The build step is optional but strongly recommended on a Pi: without it, every page load will recompile on demand and feel painfully slow.
 
-## Step 7: Google setup
+## Step 7: Google setup (required)
 
-BeStrong HQ uses Google for sign-in and Google Drive sync. You'll need to create your own OAuth credentials and tidy up your Drive folder layout before the app will work end to end. Follow the [Google Setup guide](google-setup.md), then come back here.
+BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder. Come back here when you're done.
 
 If you're running headless and plan to access the app over your LAN at `http://YOUR_PI_IP:3000`, register these as additional redirect URIs on your Google OAuth client:
 
-- `http://YOUR_PI_IP:8080/api/auth/callback`
 - `http://YOUR_PI_IP:8080/api/gdrive/auth/callback`
 - `http://YOUR_PI_IP:8080/api/calendar/auth/callback` *(only if you'll use Calendar sync)*
 
@@ -90,7 +89,7 @@ If you're running headless and plan to access the app over your LAN at `http://Y
 bestrong run
 ```
 
-Open a browser on your Pi (or any device on the same network) and go to **http://localhost:3000**.
+Open a browser on your Pi (or any device on the same network) and go to **http://127.0.0.1:3000**.
 
 If you want to access BeStrong HQ from another device on your network (like your phone or laptop), use your Pi's IP address instead:
 
@@ -159,7 +158,7 @@ Your data is saved automatically. Nothing is lost when you stop the app.
 cd ~/BeStrongHQ
 git pull
 pip3 install -e . --break-system-packages
-cd web && npm install && cd ..
+cd web && npm install && npm run build && cd ..
 bestrong run
 ```
 
