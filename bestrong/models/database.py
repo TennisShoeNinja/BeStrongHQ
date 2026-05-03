@@ -178,6 +178,10 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("last_successful_sync_at", "DATETIME"),
         ("refresh_token_issued_at", "DATETIME"),
     ],
+    "meet_results": [
+        ("source", "VARCHAR(16) NOT NULL DEFAULT 'manual'"),
+        ("external_meet_path", "VARCHAR(300)"),
+    ],
 }
 
 
@@ -274,6 +278,8 @@ _TABLE_CREATES: dict[str, str] = {
             weight_lbs REAL NOT NULL,
             made INTEGER NOT NULL DEFAULT 1,
             notes TEXT,
+            source VARCHAR(16) NOT NULL DEFAULT 'manual',
+            external_meet_path VARCHAR(300),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """,

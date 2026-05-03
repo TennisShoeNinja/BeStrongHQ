@@ -288,6 +288,20 @@ class MeetResult(Base):
     weight_lbs: Mapped[float] = mapped_column(Float, nullable=False)
     made: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # 'manual' for coach-entered rows (legacy; entry surface removed),
+    # 'opl' for rows imported from OpenPowerlifting. Lets refresh and
+    # unlink target only the OPL-sourced rows without touching anything
+    # the coach typed in. Defaults to 'manual' so any pre-existing row
+    # in a self-hosted DB stays correctly tagged after the migration.
+    source: Mapped[str] = mapped_column(String(16), nullable=False, server_default="manual")
+
+    # Stable per-meet identifier from OpenPowerlifting (federation+date+name
+    # synthesized in the OPL client). Null for non-OPL rows. Lets the
+    # importer upsert by (athlete_id, external_meet_path, lift, attempt)
+    # so re-syncs don't duplicate rows.
+    external_meet_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     athlete: Mapped[Athlete] = relationship("Athlete", back_populates="meet_results")

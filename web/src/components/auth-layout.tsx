@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-provider';
 import { SidebarWithNotifications } from '@/components/sidebar-with-notifications';
@@ -42,6 +43,7 @@ function AuthSpinner() {
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, authEnabled, loading } = useAuth();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
 
 
@@ -69,9 +71,12 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   
   return (
     <>
-      <SidebarWithNotifications />
+      <SidebarWithNotifications
+        mobileOpen={mobileNavOpen}
+        onMobileOpenChange={setMobileNavOpen}
+      />
       <main className="flex-1 overflow-auto flex flex-col min-w-0">
-        <Topbar />
+        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
         <DriveStatusBanner />
         <div className="flex-1">{children}</div>
       </main>

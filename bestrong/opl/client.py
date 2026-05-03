@@ -200,12 +200,55 @@ def search_lifters(query: str, limit: int = 10) -> list[dict[str, Any]]:
     return out
 
 
+_ATTEMPT_LIFTS = ("squat", "bench", "deadlift")
+_ATTEMPT_NUMBERS = (1, 2, 3)
+_LBS_PER_KG = 2.2046226218
+
+
+def _kg_to_lbs(kg: float) -> float:
+    return kg * _LBS_PER_KG
+
+
+def _attempts_for_lift(row: dict[str, str], lift: str) -> list[dict[str, Any]]:
+    """Pull the three attempts for one lift from a CSV row.
+
+    OpenPowerlifting encodes a missed attempt as a negative weight and
+    a made attempt as a positive weight. An empty cell means the
+    attempt wasn't taken (either skipped, or the lifter only competed
+    one or two lifts on the day). Returns one dict per attempt that
+    was actually taken; skipped attempts are omitted entirely so the
+    importer doesn't write zero-weight rows.
+
+    The 4th-attempt column is for record-attempts only and is ignored
+    here: the meet_results model is per-attempt 1-3 and adding a 4th
+    would mean changing validation everywhere it's consumed.
+    """
+    csv_prefix = {"squat": "Squat", "bench": "Bench", "deadlift": "Deadlift"}[lift]
+    out: list[dict[str, Any]] = []
+    for n in _ATTEMPT_NUMBERS:
+        raw_kg = _maybe_float(row.get(f"{csv_prefix}{n}Kg"))
+        if raw_kg is None or raw_kg == 0:
+            continue
+        out.append(
+            {
+                "lift": lift,
+                "attempt_number": n,
+                "weight_lbs": round(_kg_to_lbs(abs(raw_kg)), 2),
+                "made": raw_kg > 0,
+            }
+        )
+    return out
+
+
 def _row_to_meet(row: dict[str, str]) -> dict[str, Any]:
     """Translate a CSV row into our normalized meet dict.
 
     OPL uses ``Yes``/``No`` for boolean-like columns, so we convert
-    ``Tested`` to a real bool. Other fields are passed through as-is
-    after empty-string-to-None normalization, except numeric weights.
+    ``Tested`` to a real bool. Per-attempt weights are split into a
+    list of attempt dicts under ``attempts`` so the importer can
+    write one meet_results row per attempt directly. Best-of-three
+    fields are no longer surfaced because the UI derives best from
+    the made attempts.
     """
     def s(key: str) -> str | None:
         v = row.get(key)
@@ -213,13 +256,14 @@ def _row_to_meet(row: dict[str, str]) -> dict[str, Any]:
             return None
         return v
 
-    def f(key: str) -> float | None:
-        return _maybe_float(row.get(key))
-
     tested_raw = (row.get("Tested") or "").strip().lower()
     tested = True if tested_raw == "yes" else (False if tested_raw == "no" else None)
 
     meet_name = s("MeetName") or "Unknown meet"
+
+    attempts: list[dict[str, Any]] = []
+    for lift in _ATTEMPT_LIFTS:
+        attempts.extend(_attempts_for_lift(row, lift))
 
     return {
         "meet_path": _meet_path(row),
@@ -234,14 +278,11 @@ def _row_to_meet(row: dict[str, str]) -> dict[str, Any]:
         "division": s("Division"),
         "age_class": s("AgeClass"),
         "weight_class_kg": s("WeightClassKg"),
-        "bodyweight_kg": f("BodyweightKg"),
-        "squat_kg": f("Best3SquatKg"),
-        "bench_kg": f("Best3BenchKg"),
-        "deadlift_kg": f("Best3DeadliftKg"),
-        "total_kg": f("TotalKg"),
+        "bodyweight_kg": _maybe_float(row.get("BodyweightKg")),
         "place": s("Place"),
-        "dots": f("Dots"),
+        "dots": _maybe_float(row.get("Dots")),
         "tested": tested,
+        "attempts": attempts,
     }
 
 

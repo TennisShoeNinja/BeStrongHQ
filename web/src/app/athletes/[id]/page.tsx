@@ -27,12 +27,6 @@ import {
   weightClassCapKg,
   type AthleteSex,
 } from "@/lib/weight-classes";
-import {
-  CUSTOM_DIVISIONS_KEY,
-  combinedDivisions,
-  parseCustomDivisions,
-  serializeCustomDivisions,
-} from "@/lib/divisions";
 import { useTheme } from "@/lib/theme-provider";
 import { useAuth } from "@/lib/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -975,69 +969,6 @@ function CompMaxLine({
 }
 
 
-function PostMeetBanner({
-  athlete,
-  onLog,
-}: {
-  athlete: Types.AthleteResponse;
-  onLog: () => void;
-}) {
-  
-  
-  
-  const pending = athlete.pending_meet_results;
-  const meetDate = pending?.meet_date;
-  if (!pending || !meetDate) return null;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const daysAgo = (() => {
-    try {
-      const then = new Date(meetDate + "T00:00:00").getTime();
-      const now = new Date(today + "T00:00:00").getTime();
-      return Math.max(0, Math.round((now - then) / 86400000));
-    } catch {
-      return null;
-    }
-  })();
-
-  return (
-    <div
-      className="mb-6 p-4 rounded-md border flex items-start gap-3"
-      style={{
-        background: "rgba(245, 158, 11, 0.1)",
-        borderColor: "rgba(245, 158, 11, 0.35)",
-      }}
-    >
-      <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#fcd34d" }} />
-      <div className="flex-1 min-w-0">
-        <div className="cloud-text font-medium" style={{ fontSize: 13 }}>
-          {pending.meet_name ? `${pending.meet_name} · ` : "Meet on "}
-          {meetDate}
-          {daysAgo != null && (
-            <span className="cloud-text-dim"> — {daysAgo} day{daysAgo === 1 ? "" : "s"} ago</span>
-          )}
-        </div>
-        <div className="cloud-text-muted mt-0.5" style={{ fontSize: 12 }}>
-          Record meet results so competition maxes stay up to date.
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onLog}
-        className="cloud-btn shrink-0"
-        style={{
-          background: "rgba(245, 158, 11, 0.18)",
-          color: "#fcd34d",
-          borderColor: "rgba(245, 158, 11, 0.4)",
-        }}
-      >
-        Log results
-      </button>
-    </div>
-  );
-}
-
-
 function NewPRsBanner({
   athleteId,
   unit,
@@ -1346,497 +1277,306 @@ function NewPRsBanner({
   );
 }
 
-type AttemptCell = { weight: string; made: boolean };
-type AttemptGrid = Record<"squat" | "bench" | "deadlift", Record<1 | 2 | 3, AttemptCell>>;
-
-const EMPTY_ATTEMPT_GRID: AttemptGrid = {
-  squat: {
-    1: { weight: "", made: true },
-    2: { weight: "", made: true },
-    3: { weight: "", made: true },
-  },
-  bench: {
-    1: { weight: "", made: true },
-    2: { weight: "", made: true },
-    3: { weight: "", made: true },
-  },
-  deadlift: {
-    1: { weight: "", made: true },
-    2: { weight: "", made: true },
-    3: { weight: "", made: true },
-  },
-};
-
-
-function hydrateGridFromResults(
-  results: Types.MeetResultEntry[],
-  meetId: number | null | undefined,
-  meetDate: string | null | undefined,
-  unit: WeightUnit
-): AttemptGrid {
-  const grid: AttemptGrid = JSON.parse(JSON.stringify(EMPTY_ATTEMPT_GRID));
-  for (const r of results) {
-    const matches =
-      meetId != null
-        ? r.meet_id === meetId
-        : meetDate != null && r.meet_date === meetDate && r.meet_id == null;
-    if (!matches) continue;
-    if (r.lift !== "squat" && r.lift !== "bench" && r.lift !== "deadlift") continue;
-    if (r.attempt_number !== 1 && r.attempt_number !== 2 && r.attempt_number !== 3) continue;
-    const display = convertWeight(r.weight_lbs, unit);
-    grid[r.lift][r.attempt_number as 1 | 2 | 3] = {
-      weight: String(Math.round(display * 10) / 10),
-      made: r.made,
-    };
-  }
-  return grid;
-}
-
-
-function LogMeetResultsDialog({
+// OPL link dialog — single entry point for the OpenPowerlifting integration.
+// Coaches open it from the three-dot menu. Renders the search-and-pick flow
+// when no profile is linked, or the linked-state metadata + refresh/unlink
+// actions when one is. The actual meets land in meet_results on the server,
+// so on success this dialog only invalidates the meet-results query for the
+// athlete and the linked component reflects the new rows automatically.
+function OplLinkDialog({
   open,
   onOpenChange,
-  athlete,
-  meetResults,
-  editingGroup,
-  unit,
-  onSaved,
-  settingsData,
-  onAddCustomWeightClass,
-  onAddCustomDivision,
+  athleteId,
+  athleteName,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  athlete: Types.AthleteResponse;
-  meetResults: Types.MeetResultEntry[];
-  editingGroup: MeetGroup | null;
-  unit: WeightUnit;
-  onSaved: () => void;
-  settingsData?: Record<string, string | null>;
-  onAddCustomWeightClass: (sex: AthleteSex, value: string) => void;
-  onAddCustomDivision: (value: string) => void;
+  athleteId: number;
+  athleteName: string | null | undefined;
 }) {
-  const meetIdForWrite = editingGroup
-    ? editingGroup.meet_id
-    : athlete.next_meet_id ?? athlete.pending_meet_results?.meet_id ?? null;
-  const [meetName, setMeetName] = useState<string>("");
-  const [meetDate, setMeetDate] = useState<string>("");
-  const [weightClass, setWeightClass] = useState<string>("");
-  const [division, setDivision] = useState<string>("");
-  const [addingDivision, setAddingDivision] = useState(false);
-  const [divisionDraft, setDivisionDraft] = useState("");
-  const [grid, setGrid] = useState<AttemptGrid>(EMPTY_ATTEMPT_GRID);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchSubmitted, setSearchSubmitted] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  
-  
-  
-  
-  
-  const meetDateEnd = !editingGroup
-    ? athlete.pending_meet_results?.meet_date_end ?? null
-    : null;
-  const dayRange = useMemo(() => {
-    if (!meetDateEnd || !athlete.pending_meet_results?.meet_date) return null;
-    const start = athlete.pending_meet_results.meet_date;
-    if (start === meetDateEnd) return null;
-    try {
-      const days: string[] = [];
-      const startDt = new Date(start + "T00:00:00");
-      const endDt = new Date(meetDateEnd + "T00:00:00");
-      if (Number.isNaN(startDt.getTime()) || Number.isNaN(endDt.getTime())) return null;
-      const cursor = new Date(startDt);
-      while (cursor.getTime() <= endDt.getTime()) {
-        days.push(cursor.toISOString().slice(0, 10));
-        cursor.setDate(cursor.getDate() + 1);
-      }
-      return days.length > 1 ? days : null;
-    } catch {
-      return null;
-    }
-  }, [meetDateEnd, athlete.pending_meet_results?.meet_date]);
+  const statusQuery = useQuery<Types.OplStatusResponse>({
+    queryKey: ["opl", "status", athleteId],
+    queryFn: () => apiClient.getOpenPowerliftingStatus(athleteId),
+    enabled: open,
+  });
 
-  
-  
-  
-  useEffect(() => {
-    if (!open) return;
-    if (editingGroup) {
-      setMeetName(editingGroup.meet_name ?? "");
-      setMeetDate(editingGroup.meet_date ?? "");
-      setWeightClass(editingGroup.weight_class ?? "");
-      setDivision(editingGroup.division ?? "");
-      setGrid(
-        hydrateGridFromResults(
-          editingGroup.rows,
-          editingGroup.meet_id,
-          editingGroup.meet_date,
-          unit
-        )
-      );
-    } else {
-      const pending = athlete.pending_meet_results;
-      const fallbackName = athlete.next_meet_name ?? pending?.meet_name ?? "";
-      const fallbackDate = athlete.meet_date ?? pending?.meet_date ?? "";
-      setMeetName(fallbackName);
-      setMeetDate(fallbackDate);
-      setWeightClass(athlete.weight_class ?? "");
-      setDivision(athlete.division ?? "");
-      setGrid(hydrateGridFromResults(meetResults, meetIdForWrite, fallbackDate, unit));
-    }
-    setError(null);
-    setAddingDivision(false);
-    setDivisionDraft("");
-  }, [open, athlete, meetResults, editingGroup, meetIdForWrite, unit]);
+  const searchQuery = useQuery({
+    queryKey: ["opl", "search", searchSubmitted],
+    queryFn: () => apiClient.searchOpenPowerlifting(searchSubmitted),
+    enabled: open && searchSubmitted.length >= 2,
+  });
 
-  const updateCell = (
-    lift: "squat" | "bench" | "deadlift",
-    attempt: 1 | 2 | 3,
-    patch: Partial<AttemptCell>
-  ) => {
-    setGrid((prev) => ({
-      ...prev,
-      [lift]: {
-        ...prev[lift],
-        [attempt]: { ...prev[lift][attempt], ...patch },
-      },
-    }));
+  const invalidateAthlete = () => {
+    queryClient.invalidateQueries({ queryKey: ["opl", "status", athleteId] });
+    queryClient.invalidateQueries({ queryKey: ["meet-results", athleteId] });
+    queryClient.invalidateQueries({ queryKey: ["competition-maxes", athleteId] });
+    queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] });
   };
 
-  const handleSave = async () => {
-    setError(null);
-    if (!meetIdForWrite && (!meetName.trim() || !meetDate.trim())) {
-      setError("Meet name and date are required when there's no linked meet.");
+  const linkMutation = useMutation({
+    mutationFn: ({ slug, displayName }: { slug: string; displayName?: string }) =>
+      apiClient.linkOpenPowerlifting(athleteId, slug, displayName),
+    onSuccess: () => {
+      setActionError(null);
+      invalidateAthlete();
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to link profile.";
+      setActionError(msg);
+    },
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () => apiClient.refreshOpenPowerlifting(athleteId),
+    onSuccess: () => {
+      setActionError(null);
+      invalidateAthlete();
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to refresh.";
+      setActionError(msg);
+    },
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => apiClient.unlinkOpenPowerlifting(athleteId),
+    onSuccess: () => {
+      setActionError(null);
+      setSearchTerm("");
+      setSearchSubmitted("");
+      invalidateAthlete();
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Failed to unlink.";
+      setActionError(msg);
+    },
+  });
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionError(null);
+    setSearchSubmitted(searchTerm.trim());
+  };
+
+  const handlePick = (c: Types.OplCandidate) => {
+    setActionError(null);
+    linkMutation.mutate({ slug: c.slug, displayName: c.name });
+  };
+
+  const handleUnlink = () => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Remove the OpenPowerlifting link and clear imported meet rows?"
+      )
+    ) {
       return;
     }
-
-    const attempts: Types.MeetAttemptInput[] = [];
-    for (const lift of ["squat", "bench", "deadlift"] as const) {
-      for (const n of [1, 2, 3] as const) {
-        const cell = grid[lift][n];
-        const raw = cell.weight.trim();
-        if (!raw) continue;
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-          setError(`${lift} attempt ${n}: enter a positive number or leave blank.`);
-          return;
-        }
-        
-        
-        const lbs = unit === "kg" ? Math.round(parsed * 2.20462 * 10) / 10 : parsed;
-        attempts.push({
-          lift,
-          attempt_number: n,
-          weight_lbs: lbs,
-          made: cell.made,
-        });
-      }
-    }
-
-    setSaving(true);
-    try {
-      await apiClient.saveMeetResults(athlete.id, {
-        athlete_id: athlete.id,
-        meet_id: meetIdForWrite,
-        meet_name: meetIdForWrite ? null : meetName.trim() || null,
-        meet_date: meetDate.trim() || null,
-        weight_class: weightClass.trim() || null,
-        division: division.trim() || null,
-        attempts,
-        replace_existing: true,
-      });
-      onSaved();
-      onOpenChange(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to save results.";
-      setError(msg);
-    } finally {
-      setSaving(false);
-    }
+    setActionError(null);
+    unlinkMutation.mutate();
   };
 
-  const fieldLabelStyle: CSSProperties = {
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    fontWeight: 500,
-    marginBottom: 6,
-  };
+  const status = statusQuery.data;
+  const linked = status?.linked === true && status.link;
+  const link = status?.link;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] max-w-lg">
+        <DialogHeader>
           <DialogTitle style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.015em" }}>
-            Log meet results
+            OpenPowerlifting profile
           </DialogTitle>
           <DialogDescription className="cloud-text-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>
-            {meetIdForWrite
-              ? "Attempts for the linked meet. Blank cells are ignored. Saving replaces any previously logged results for this meet."
-              : "Attempts for a meet that isn't linked yet. Blank cells are ignored."}
+            {linked
+              ? "Linked. Refreshing pulls the latest meet history; unlinking removes the imported rows from this athlete's meet history."
+              : "Search OpenPowerlifting by name, then pick the right lifter. Their meet history will appear under Meet History on this profile."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 overflow-y-auto cloud-thin-scroll flex-1 pr-1">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-            <div>
-              <label className="cloud-text-dim block" style={fieldLabelStyle}>
-                Meet
-              </label>
-              <input
-                value={meetName}
-                onChange={(e) => setMeetName(e.target.value)}
-                disabled={!!meetIdForWrite}
-                placeholder="e.g. USAPL Nationals 2025"
-                className="cloud-input w-full"
-                style={{ opacity: meetIdForWrite ? 0.6 : 1 }}
-              />
-            </div>
-            <div>
-              <label className="cloud-text-dim block" style={fieldLabelStyle}>
-                {dayRange ? "Competition day" : "Date"}
-              </label>
-              {dayRange ? (
-                <select
-                  value={meetDate}
-                  onChange={(e) => setMeetDate(e.target.value)}
-                  className="cloud-input w-full cursor-pointer"
-                  title={`Meet runs ${dayRange[0]} to ${dayRange[dayRange.length - 1]}`}
-                >
-                  {dayRange.map((d, i) => (
-                    <option key={d} value={d}>
-                      Day {i + 1} — {d}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="date"
-                  value={meetDate}
-                  onChange={(e) => setMeetDate(e.target.value)}
-                  className="cloud-input w-full"
-                />
-              )}
-            </div>
-            <div>
-              <label className="cloud-text-dim block" style={fieldLabelStyle}>
-                Weight class
-              </label>
-              {athlete.sex === "M" || athlete.sex === "F" ? (
-                <WeightClassSelect
-                  sex={athlete.sex as AthleteSex}
-                  customRaw={settingsData?.[customWeightClassesKey(athlete.sex as AthleteSex)]}
-                  value={weightClass}
-                  onChange={setWeightClass}
-                  onAddCustom={(value) => {
-                    onAddCustomWeightClass(athlete.sex as AthleteSex, value);
-                    setWeightClass(value);
-                  }}
-                />
-              ) : (
-                <input
-                  value={weightClass}
-                  onChange={(e) => setWeightClass(e.target.value)}
-                  placeholder="Set athlete sex to enable dropdown"
-                  className="cloud-input w-full"
-                />
-              )}
-            </div>
-            <div>
-              <label className="cloud-text-dim block" style={fieldLabelStyle}>
-                Division
-              </label>
-              {addingDivision ? (
-                <div className="flex gap-2">
-                  <input
-                    autoFocus
-                    value={divisionDraft}
-                    onChange={(e) => setDivisionDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const trimmed = divisionDraft.trim();
-                        if (trimmed) {
-                          onAddCustomDivision(trimmed);
-                          setDivision(trimmed);
-                        }
-                        setDivisionDraft("");
-                        setAddingDivision(false);
-                      } else if (e.key === "Escape") {
-                        setAddingDivision(false);
-                        setDivisionDraft("");
-                      }
-                    }}
-                    placeholder="e.g. Master 2 Equipped"
-                    className="cloud-input flex-1"
-                  />
-                  <button
-                    type="button"
-                    className="cloud-btn cloud-btn-primary"
-                    onClick={() => {
-                      const trimmed = divisionDraft.trim();
-                      if (trimmed) {
-                        onAddCustomDivision(trimmed);
-                        setDivision(trimmed);
-                      }
-                      setDivisionDraft("");
-                      setAddingDivision(false);
-                    }}
-                  >
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    className="cloud-btn cloud-btn-ghost"
-                    onClick={() => {
-                      setAddingDivision(false);
-                      setDivisionDraft("");
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={division || ""}
-                  onChange={(e) => {
-                    if (e.target.value === "__add__") {
-                      setAddingDivision(true);
-                      return;
-                    }
-                    setDivision(e.target.value);
-                  }}
-                  className="cloud-input w-full cursor-pointer"
-                >
-                  <option value="">Select division…</option>
-                  {combinedDivisions(settingsData?.[CUSTOM_DIVISIONS_KEY], division).map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                  <option value="__add__">+ Add new…</option>
-                </select>
-              )}
-            </div>
+        {actionError && (
+          <div
+            className="cloud-panel"
+            style={{
+              padding: 10,
+              borderColor: "rgba(248, 113, 113, 0.3)",
+              color: "#fca5a5",
+              fontSize: 12,
+            }}
+          >
+            {actionError}
           </div>
+        )}
 
-          <div className="pt-4" style={{ borderTop: "1px solid var(--cloud-border)" }}>
-            <div
-              className="grid grid-cols-[72px_1fr_1fr_1fr] gap-2 items-center mb-2 cloud-text-dim"
-              style={{
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                fontWeight: 500,
-              }}
-            >
-              <div />
-              <div className="text-center">Attempt 1</div>
-              <div className="text-center">Attempt 2</div>
-              <div className="text-center">Attempt 3</div>
-            </div>
-            {(["squat", "bench", "deadlift"] as const).map((lift) => (
-              <div
-                key={lift}
-                className="grid grid-cols-[72px_1fr_1fr_1fr] gap-2 items-start mb-2.5"
-              >
-                <div
-                  className="cloud-text capitalize pt-1.5"
-                  style={{ fontSize: 13, fontWeight: 500 }}
-                >
-                  {lift}
-                </div>
-                {([1, 2, 3] as const).map((n) => {
-                  const cell = grid[lift][n];
-                  return (
-                    <div key={n} className="flex flex-col gap-1">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={cell.weight}
-                        onChange={(e) =>
-                          updateCell(lift, n, { weight: e.target.value })
-                        }
-                        placeholder={unit}
-                        className="cloud-input w-full text-center"
-                      />
-                      <div
-                        className="inline-flex rounded-md overflow-hidden"
-                        style={{ border: "1px solid var(--cloud-border)" }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => updateCell(lift, n, { made: true })}
-                          className="flex-1 transition-colors"
-                          style={{
-                            fontSize: 11,
-                            padding: "4px 0",
-                            background: cell.made ? "rgba(34, 197, 94, 0.15)" : "transparent",
-                            color: cell.made ? "#86efac" : "var(--cloud-text-dim)",
-                            fontWeight: cell.made ? 500 : 400,
-                          }}
-                        >
-                          Made
-                        </button>
-                        <div style={{ width: 1, background: "var(--cloud-border)" }} />
-                        <button
-                          type="button"
-                          onClick={() => updateCell(lift, n, { made: false })}
-                          className="flex-1 transition-colors"
-                          style={{
-                            fontSize: 11,
-                            padding: "4px 0",
-                            background: !cell.made ? "rgba(220, 38, 38, 0.15)" : "transparent",
-                            color: !cell.made ? "#fca5a5" : "var(--cloud-text-dim)",
-                            fontWeight: !cell.made ? 500 : 400,
-                          }}
-                        >
-                          Miss
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+        {statusQuery.isLoading ? (
+          <p className="cloud-text-muted" style={{ fontSize: 13 }}>Loading…</p>
+        ) : linked && link ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="cloud-panel" style={{ padding: 14 }}>
+              <div className="cloud-text" style={{ fontSize: 14, fontWeight: 600 }}>
+                {link.display_name || athleteName || link.slug}
               </div>
-            ))}
-          </div>
-
-          {error && (
-            <div
-              className="flex items-start gap-2 rounded-md px-3 py-2"
-              style={{
-                background: "rgba(220, 38, 38, 0.08)",
-                border: "1px solid rgba(220, 38, 38, 0.3)",
-                color: "#fca5a5",
-                fontSize: 12,
-              }}
-            >
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span>{error}</span>
+              <a
+                href={link.profile_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cloud-text-muted"
+                style={{
+                  fontSize: 12,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 4,
+                }}
+              >
+                openpowerlifting.org/u/{link.slug}
+                <ExternalLink style={{ width: 12, height: 12 }} />
+              </a>
+              <div className="cloud-text-dim" style={{ fontSize: 11, marginTop: 6 }}>
+                Last synced:{" "}
+                {link.last_synced_at
+                  ? new Date(link.last_synced_at).toLocaleString()
+                  : "Never"}
+                {link.last_sync_error && (
+                  <span style={{ color: "#f87171" }}> · {link.last_sync_error}</span>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="cloud-btn cloud-btn-ghost"
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending || unlinkMutation.isPending}
+              >
+                <RefreshCw style={{ width: 14, height: 14, marginRight: 6 }} />
+                {refreshMutation.isPending ? "Refreshing…" : "Refresh now"}
+              </button>
+              <button
+                type="button"
+                className="cloud-btn cloud-btn-ghost"
+                onClick={handleUnlink}
+                disabled={refreshMutation.isPending || unlinkMutation.isPending}
+              >
+                <X style={{ width: 14, height: 14, marginRight: 6 }} />
+                {unlinkMutation.isPending ? "Unlinking…" : "Unlink"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <form
+              onSubmit={handleSearch}
+              style={{ display: "flex", gap: 8, alignItems: "center" }}
+            >
+              <input
+                type="text"
+                placeholder="e.g. Brandon Lilly"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="cloud-input"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="submit"
+                className="cloud-btn cloud-btn-primary"
+                disabled={searchTerm.trim().length < 2 || linkMutation.isPending}
+              >
+                <Search style={{ width: 14, height: 14, marginRight: 6 }} />
+                Search
+              </button>
+            </form>
 
-        <DialogFooter
-          className="flex-shrink-0 !mt-2 !-mx-4 !-mb-4 !p-4 !border-t !bg-transparent"
-          style={{ borderColor: "var(--cloud-border)" }}
-        >
+            {searchQuery.isFetching && (
+              <p className="cloud-text-muted" style={{ fontSize: 12 }}>Searching…</p>
+            )}
+
+            {searchQuery.data && !searchQuery.isFetching && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+                {searchQuery.data.candidates.length === 0 ? (
+                  <p className="cloud-text-muted" style={{ fontSize: 12 }}>
+                    No lifters matched &ldquo;{searchSubmitted}&rdquo;.
+                  </p>
+                ) : (
+                  searchQuery.data.candidates.map((c) => {
+                    const meta = [
+                      c.federation,
+                      c.state || c.country,
+                      c.equipment,
+                      c.weight_class_lbs ? `${c.weight_class_lbs} lbs` : null,
+                      c.last_meet_date ? `last: ${c.last_meet_date}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div
+                        key={c.slug}
+                        className="cloud-panel"
+                        style={{
+                          padding: 10,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div className="cloud-text" style={{ fontWeight: 600, fontSize: 13 }}>
+                            {c.name}
+                          </div>
+                          <div
+                            className="cloud-text-muted"
+                            style={{
+                              fontSize: 11,
+                              marginTop: 2,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {meta || c.slug}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                          {c.best_total_lbs != null && (
+                            <span
+                              className="cloud-text-muted"
+                              style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
+                            >
+                              {Math.round(c.best_total_lbs)} lbs
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="cloud-btn cloud-btn-primary"
+                            style={{ padding: "4px 10px", fontSize: 12 }}
+                            disabled={linkMutation.isPending}
+                            onClick={() => handlePick(c)}
+                          >
+                            {linkMutation.isPending ? "Linking…" : "Link"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
           <button
             type="button"
             className="cloud-btn cloud-btn-ghost"
             onClick={() => onOpenChange(false)}
-            disabled={saving}
           >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="cloud-btn cloud-btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save results"}
+            Close
           </button>
         </DialogFooter>
       </DialogContent>
@@ -5602,14 +5342,11 @@ function MeetHistoryCard({
   athleteId,
   athlete,
   unit,
-  onEditMeet,
 }: {
   athleteId: number;
   athlete: Types.AthleteResponse;
   unit: WeightUnit;
-  onEditMeet: (group: MeetGroup) => void;
 }) {
-  const queryClient = useQueryClient();
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["meet-results", athleteId],
     queryFn: () => apiClient.listMeetResults(athleteId),
@@ -5618,16 +5355,6 @@ function MeetHistoryCard({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => groupMeetResults(rows), [rows]);
-
-  const deleteGroupMutation = useMutation({
-    mutationFn: async (group: MeetGroup) => {
-      await Promise.all(group.rows.map((r) => apiClient.deleteMeetResult(r.id)));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["meet-results", athleteId] });
-      queryClient.invalidateQueries({ queryKey: ["competition-maxes", athleteId] });
-    },
-  });
 
   if (isLoading) {
     return (
@@ -5649,8 +5376,8 @@ function MeetHistoryCard({
           <h2>Meet History</h2>
         </div>
         <p className="cloud-text-muted" style={{ padding: "var(--cloud-s4)", fontSize: 13 }}>
-          No meet results logged yet. Use &ldquo;Log meet results&rdquo; above the
-          metrics cards to record a meet.
+          No meet history yet. Use the three-dot menu above to link this athlete&apos;s
+          OpenPowerlifting profile and their meet history will populate here.
         </p>
       </div>
     );
@@ -5823,36 +5550,6 @@ function MeetHistoryCard({
                     );
                   })}
 
-                  <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-[color:var(--cloud-border)]">
-                    <button
-                      type="button"
-                      className="cloud-btn cloud-btn-ghost"
-                      onClick={() => onEditMeet(g)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="cloud-btn cloud-btn-ghost"
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Delete all ${g.rows.length} attempts for ${g.meet_name ?? "this meet"}?`
-                          )
-                        ) {
-                          deleteGroupMutation.mutate(g);
-                        }
-                      }}
-                      disabled={deleteGroupMutation.isPending}
-                      style={{
-                        color: "#fca5a5",
-                        borderColor: "rgba(220, 38, 38, 0.3)",
-                        background: "rgba(220, 38, 38, 0.08)",
-                      }}
-                    >
-                      {deleteGroupMutation.isPending ? "Deleting…" : "Delete"}
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -7309,11 +7006,10 @@ export default function AthleteDetailPage() {
     ).length;
   })();
 
-  
-  const [isLoggingMeetResults, setIsLoggingMeetResults] = useState(false);
-  
-  
-  const [editingMeetGroup, setEditingMeetGroup] = useState<MeetGroup | null>(null);
+  // Single OPL link/manage dialog. The legacy "Log Meet Results" modal
+  // (LogMeetResultsDialog further up in the file) is no longer rendered;
+  // OpenPowerlifting is now the canonical source for meet history.
+  const [isOplDialogOpen, setIsOplDialogOpen] = useState(false);
   
   
   
@@ -7328,12 +7024,6 @@ export default function AthleteDetailPage() {
     window.localStorage.setItem("bestrong.showCompMaxes", String(next));
     window.dispatchEvent(new Event("bestrong:compMaxesPrefChanged"));
   }, [showCompMaxes]);
-
-  const { data: meetResults = [] } = useQuery({
-    queryKey: ["meet-results", athleteId],
-    queryFn: () => apiClient.listMeetResults(athleteId),
-    enabled: !!athlete,
-  });
 
   const { data: compMaxes = [] } = useQuery({
     queryKey: ["competition-maxes", athleteId],
@@ -7714,9 +7404,9 @@ export default function AthleteDetailPage() {
                   <ArrowUpDown className="w-3.5 h-3.5" />
                   Update Maxes
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsLoggingMeetResults(true)}>
+                <DropdownMenuItem onClick={() => setIsOplDialogOpen(true)}>
                   <Trophy className="w-3.5 h-3.5" />
-                  Log meet results
+                  OpenPowerlifting profile
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => addToQueueMutation.mutate()}
@@ -7819,36 +7509,14 @@ export default function AthleteDetailPage() {
           onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
         />
 
-        {}
-        <LogMeetResultsDialog
-          open={isLoggingMeetResults}
-          onOpenChange={(v) => {
-            setIsLoggingMeetResults(v);
-            if (!v) setEditingMeetGroup(null);
-          }}
-          athlete={athlete}
-          meetResults={meetResults}
-          editingGroup={editingMeetGroup}
-          unit={unit}
-          settingsData={settingsData}
-          onAddCustomWeightClass={addCustomWeightClass}
-          onAddCustomDivision={(value) => {
-            const trimmed = value.trim();
-            if (!trimmed) return;
-            const existing = parseCustomDivisions(settingsData?.[CUSTOM_DIVISIONS_KEY]);
-            if (existing.includes(trimmed)) return;
-            const next = serializeCustomDivisions([...existing, trimmed]);
-            saveCustomWeightClasses.mutate({ [CUSTOM_DIVISIONS_KEY]: next });
-          }}
-          onSaved={() => {
-            queryClient.invalidateQueries({ queryKey: ["meet-results", athleteId] });
-            queryClient.invalidateQueries({ queryKey: ["competition-maxes", athleteId] });
-            
-            
-            queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] });
-            setSuccessMessage("Meet results saved");
-            setTimeout(() => setSuccessMessage(null), 3000);
-          }}
+        {/* OpenPowerlifting link/manage dialog. Replaces the old
+            LogMeetResultsDialog; OPL is the source of truth for meet
+            history now. */}
+        <OplLinkDialog
+          open={isOplDialogOpen}
+          onOpenChange={setIsOplDialogOpen}
+          athleteId={athleteId}
+          athleteName={athlete.name}
         />
 
         {}
@@ -8522,11 +8190,10 @@ export default function AthleteDetailPage() {
           </DialogContent>
         </Dialog>
 
-        {}
-        <PostMeetBanner
-          athlete={athlete}
-          onLog={() => setIsLoggingMeetResults(true)}
-        />
+        {/* PostMeetBanner removed: it nudged the coach to log meet
+            results manually after a meet date passed. With OPL as the
+            canonical source, results land automatically once the
+            federation publishes; no nudge needed. */}
 
         {}
         <NewPRsBanner
@@ -8582,15 +8249,6 @@ export default function AthleteDetailPage() {
               }
             >
               {showCompMaxes ? "Hide comp maxes" : "Show comp maxes"}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push(`/athletes/${athleteId}/competition-history`)}
-              className="cloud-text-muted hover:cloud-text underline decoration-dotted underline-offset-2"
-              style={{ fontSize: 12 }}
-              title="View this athlete's OpenPowerlifting meet history"
-            >
-              Competition history
             </button>
           </div>
         </div>
@@ -8748,10 +8406,6 @@ export default function AthleteDetailPage() {
           athleteId={athleteId}
           athlete={athlete}
           unit={unit}
-          onEditMeet={(g) => {
-            setEditingMeetGroup(g);
-            setIsLoggingMeetResults(true);
-          }}
         />
 
         {}
