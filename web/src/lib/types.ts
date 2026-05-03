@@ -862,30 +862,6 @@ export interface OplSearchResponse {
   candidates: OplCandidate[];
 }
 
-export interface OplMeetResponse {
-  id: number;
-  meet_path: string;
-  meet_name: string | null;
-  federation: string | null;
-  parent_federation: string | null;
-  meet_date: string | null;
-  meet_country: string | null;
-  meet_state: string | null;
-  event: string | null;
-  equipment: string | null;
-  division: string | null;
-  age_class: string | null;
-  weight_class_kg: string | null;
-  bodyweight_kg: number | null;
-  squat_kg: number | null;
-  bench_kg: number | null;
-  deadlift_kg: number | null;
-  total_kg: number | null;
-  place: string | null;
-  dots: number | null;
-  tested: boolean | null;
-}
-
 export interface OplLinkInfo {
   slug: string;
   display_name: string | null;
@@ -894,15 +870,17 @@ export interface OplLinkInfo {
   profile_url: string;
 }
 
+// OPL meets land in the existing meet_results table (with source='opl')
+// rather than a separate OPL-only table; the athlete profile renders
+// them via the same MeetHistoryCard the manual entry surface used to
+// feed. So the OPL status payload only carries link metadata now.
 export interface OplStatusResponse {
   linked: boolean;
   link?: OplLinkInfo | null;
-  meets?: OplMeetResponse[];
 }
 
 export interface OplLinkResult {
   linked: boolean;
-  imported: number;
+  imported_attempts: number;
   link?: OplLinkInfo | null;
-  meets?: OplMeetResponse[];
 }
