@@ -12,6 +12,7 @@ import {
   Settings,
   Trophy,
   User,
+  X,
 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
@@ -83,12 +84,18 @@ function matchPages(query: string) {
   );
 }
 
-export function Topbar() {
+interface TopbarProps {
+  onOpenMobileNav?: () => void;
+}
+
+export function Topbar({ onOpenMobileNav }: TopbarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, authEnabled, logout } = useAuth();
   const searchWrapRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchExpanded, setSearchExpanded] = useState(false);
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -190,6 +197,23 @@ export function Topbar() {
 
   return (
     <header className="cloud-topbar">
+      {onOpenMobileNav && (
+        <button
+          type="button"
+          className="cloud-topbar-mobile-brand"
+          aria-label="Open navigation menu"
+          onClick={onOpenMobileNav}
+        >
+          <Image
+            src="/logo-lockup.svg"
+            alt="BeStrong{HQ}"
+            width={110}
+            height={16}
+            priority
+            style={{ height: 18, width: "auto" }}
+          />
+        </button>
+      )}
       <nav className="cloud-breadcrumbs" aria-label="Breadcrumb">
         <Link href="/" className="cloud-breadcrumb-home">{teamName}</Link>
         {crumbs.map((c, i) => (
@@ -202,17 +226,55 @@ export function Topbar() {
         ))}
       </nav>
 
-      <div className="cloud-topbar-search relative" ref={searchWrapRef}>
-        <Search className="w-3.5 h-3.5 cloud-text-muted" />
+      <div
+        className={`cloud-topbar-search${searchExpanded ? " cloud-topbar-search-expanded" : ""}`}
+        ref={searchWrapRef}
+      >
+        <button
+          type="button"
+          className="cloud-topbar-search-icon-btn"
+          aria-label="Search"
+          onClick={() => {
+            setSearchExpanded(true);
+            requestAnimationFrame(() => searchInputRef.current?.focus());
+          }}
+        >
+          <Search className="w-3.5 h-3.5 cloud-text-muted" />
+        </button>
         <input
+          ref={searchInputRef}
           type="text"
           placeholder="Search athletes, meets, pages…"
           value={localSearch}
-          onFocus={() => localSearch.trim() && setSearchOpen(true)}
+          onFocus={() => {
+            setSearchExpanded(true);
+            if (localSearch.trim()) setSearchOpen(true);
+          }}
+          onBlur={() => {
+            if (!localSearch.trim()) setSearchExpanded(false);
+          }}
           onChange={(e) => handleSearchChange(e.target.value)}
           aria-label="Search"
         />
         <kbd className="cloud-kbd">⌘K</kbd>
+        {searchExpanded && (
+          <button
+            type="button"
+            className="cloud-topbar-search-close"
+            aria-label="Close search"
+            onClick={() => {
+              setLocalSearch("");
+              setSearchExpanded(false);
+              setSearchOpen(false);
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("q");
+              const qs = params.toString();
+              router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+            }}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
 
         {searchOpen && debouncedSearch.trim() && (
           <div

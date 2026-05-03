@@ -4,7 +4,15 @@ import { Sidebar } from "./sidebar";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
 
-export function SidebarWithNotifications() {
+interface SidebarWithNotificationsProps {
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
+}
+
+export function SidebarWithNotifications({
+  mobileOpen,
+  onMobileOpenChange,
+}: SidebarWithNotificationsProps) {
   const { features } = useAuth();
   const { data: notificationCount = 0 } = useQuery({
     queryKey: ["notification-count"],
@@ -18,6 +26,8 @@ export function SidebarWithNotifications() {
     <Sidebar
       notificationCount={notificationCount}
       features={features}
+      mobileOpen={mobileOpen}
+      onMobileOpenChange={onMobileOpenChange}
     />
   );
 }

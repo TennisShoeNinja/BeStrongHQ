@@ -10,7 +10,6 @@ import {
   CreditCard,
   ChevronDown,
   ChevronRight,
-  Menu,
   Calendar,
   HardDrive,
   CheckCircle,
@@ -22,7 +21,6 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-provider";
 import { DISPLAY_VERSION } from "@/lib/version";
@@ -86,6 +84,8 @@ function ExtraTopLevelItem({
 interface SidebarProps {
   notificationCount?: number;
   features?: string[];
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
 interface SidebarContentProps {
@@ -338,6 +338,8 @@ function SidebarContent({
 export function Sidebar({
   notificationCount = 0,
   features = [],
+  mobileOpen: mobileOpenProp,
+  onMobileOpenChange,
 }: SidebarProps) {
   const pathname = usePathname();
   const [integrationsOpen, setIntegrationsOpen] = useState(
@@ -346,12 +348,13 @@ export function Sidebar({
   const [configurationOpen, setConfigurationOpen] = useState(
     () => pathname?.startsWith("/configuration") ?? false,
   );
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+  const mobileOpen = mobileOpenProp ?? internalMobileOpen;
+  const setMobileOpen = onMobileOpenChange ?? setInternalMobileOpen;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
-  }, [pathname]);
+  }, [pathname, setMobileOpen]);
 
   const isActive = (href: string) => pathname === href;
 
@@ -373,9 +376,6 @@ export function Sidebar({
       {}
       <div className="md:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger className="fixed top-4 left-4 z-40 inline-flex items-center justify-center rounded-md p-2 cloud-text-hover hover:bg-white/[0.06]">
-            <Menu className="w-6 h-6" />
-          </SheetTrigger>
           <SheetContent side="left" className="p-0 w-60">
             <SidebarContent
               notificationCount={notificationCount}

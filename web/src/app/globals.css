@@ -492,6 +492,7 @@ body {
     width: 340px;
     max-width: 40vw;
     transition: border-color 0.15s;
+    position: relative;
   }
   .cloud-topbar-search:focus-within {
     border-color: rgba(12, 92, 171, 0.5);
@@ -521,6 +522,58 @@ body {
     color: var(--cloud-text-muted);
     flex-shrink: 0;
   }
+  .cloud-topbar-mobile-brand {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 4px 6px;
+    border-radius: var(--cloud-r-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cloud-topbar-mobile-brand:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  @media (max-width: 767px) {
+    .cloud-topbar-mobile-brand {
+      display: inline-flex;
+    }
+  }
+  .cloud-topbar-search-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--cloud-text-muted);
+    cursor: text;
+    flex-shrink: 0;
+  }
+  .cloud-topbar-search-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: var(--cloud-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cloud-topbar-search-close:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--cloud-text);
+  }
+  @media (min-width: 768px) {
+    .cloud-topbar-search-close {
+      display: none;
+    }
+  }
   @media (max-width: 767px) {
     .cloud-kbd {
       display: none;
@@ -528,14 +581,52 @@ body {
     .cloud-breadcrumbs {
       display: none;
     }
-    .cloud-topbar-search {
-      margin-left: 0;
-      max-width: none;
-      width: auto;
-      flex: 1;
-    }
     .cloud-topbar {
-      padding-left: 56px;
+      padding-left: 0;
+      padding-right: var(--cloud-s3);
+    }
+    .cloud-topbar-search:not(.cloud-topbar-search-expanded) {
+      margin-left: auto;
+      flex: 0 0 auto;
+      width: 36px;
+      height: 32px;
+      padding: 0;
+      background: transparent;
+      border: 1px solid transparent;
+    }
+    .cloud-topbar-search:not(.cloud-topbar-search-expanded):hover {
+      border-color: var(--cloud-border);
+      background: var(--cloud-panel);
+    }
+    .cloud-topbar-search:not(.cloud-topbar-search-expanded) .cloud-topbar-search-icon-btn {
+      width: 36px;
+      height: 32px;
+      cursor: pointer;
+    }
+    .cloud-topbar-search:not(.cloud-topbar-search-expanded) input {
+      display: none;
+    }
+    .cloud-topbar-search.cloud-topbar-search-expanded {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      margin: 0;
+      width: auto;
+      max-width: none;
+      padding: var(--cloud-s3) var(--cloud-s4);
+      background: rgba(9, 9, 11, 0.96);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: none;
+      border-bottom: 1px solid var(--cloud-border);
+      border-radius: 0;
+      gap: var(--cloud-s2);
+    }
+    .cloud-topbar-search.cloud-topbar-search-expanded input {
+      flex: 1;
+      font-size: 15px;
     }
   }
   .cloud-topbar-actions {
