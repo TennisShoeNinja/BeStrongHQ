@@ -110,7 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (
             status.auth_enabled &&
             pathname !== '/login' &&
-            !pathname.startsWith('/configuration')
+            !pathname.startsWith('/configuration') &&
+            !pathname.startsWith('/athlete')
           ) {
             const target =
               pathname && pathname !== '/'
