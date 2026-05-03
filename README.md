@@ -17,6 +17,8 @@
 
 <br />
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/TennisShoeNinja)
+
 </div>
 
 <br />
