@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from ..utils.dates import compute_days_out, compute_weeks_out
 
@@ -880,14 +878,8 @@ class MeetPrepResponse(BaseModel):
 class WorkLogCreate(BaseModel):
     athlete_id: int
     notification_id: int | None = None
-    # Duration is bounded so a runaway timer or hand-crafted payload can't
-    # corrupt dashboard totals. 24h is a generous ceiling for any single
-    # work-queue session.
-    duration_seconds: int = Field(ge=0, le=86_400)
-    # Restrict to known actions so the dashboard summaries don't have to
-    # treat unknown strings as a fallback. Add new values here as the
-    # frontend adds buttons.
-    action: Literal["complete", "skip", "snooze"] = "complete"
+    duration_seconds: int
+    action: str = "complete"
     note: str | None = None
 
 
