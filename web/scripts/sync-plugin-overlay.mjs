@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const webRoot = path.resolve(path.dirname(__filename), "..");
+const repoRoot = path.resolve(webRoot, "..");
 const appRoot = path.join(webRoot, "src", "app");
 const srcRoot = path.join(webRoot, "src");
 const configRoot = path.join(webRoot, "src", "config");
@@ -36,13 +37,68 @@ function writeManifest(targets) {
   fs.writeFileSync(MANIFEST_PATH, JSON.stringify({ targets }, null, 2));
 }
 
-function removeTarget(target) {
-  if (!fs.existsSync(target) && !fs.existsSync(target + "")) return;
+function isTrackedInGit(absPath) {
+  const rel = path.relative(repoRoot, absPath);
+  if (rel.startsWith("..")) return false;
+  try {
+    execFileSync("git", ["ls-files", "--error-unmatch", "--", rel], {
+      cwd: repoRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isDirtyInGit(absPath) {
+  const rel = path.relative(repoRoot, absPath);
+  if (rel.startsWith("..")) return false;
+  try {
+    const out = execFileSync("git", ["status", "--porcelain", "--", rel], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function restoreFromGit(absPath) {
+  const rel = path.relative(repoRoot, absPath);
+  try {
+    execFileSync("git", ["checkout", "HEAD", "--", rel], {
+      cwd: repoRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function deleteTarget(target) {
+  if (!fs.existsSync(target)) return;
   try {
     fs.rmSync(target, { recursive: true, force: true });
   } catch {
-    
+
   }
+}
+
+// Reconcile a stale manifest target that the new overlay no longer provides.
+// - If the file is tracked in git, restore the public stub instead of deleting.
+//   Skip restore when the user has uncommitted edits, so we don't trample work.
+// - Otherwise it's a generated overlay artifact, safe to remove.
+function reconcileObsolete(target) {
+  if (isTrackedInGit(target)) {
+    if (isDirtyInGit(target)) return;
+    restoreFromGit(target);
+    return;
+  }
+  deleteTarget(target);
 }
 
 function tryResolvePluginRoot() {
@@ -159,35 +215,38 @@ function discoverConfigMappings(pluginRoot) {
 
 
 const prevManifest = readManifest();
-
-
-for (const target of prevManifest.targets) {
-  removeTarget(target);
-}
-
 const pluginRoot = tryResolvePluginRoot();
 
-if (!pluginRoot) {
-  writeManifest([]);
-  process.exit(0);
+const mappings = pluginRoot
+  ? [
+      ...staticMappings(),
+      ...discoverAppMappings(pluginRoot),
+      ...discoverConfigMappings(pluginRoot),
+    ]
+  : [];
+
+const plannedTargets = new Set();
+const copyMappings = [];
+for (const mapping of mappings) {
+  const source = pluginRoot ? path.join(pluginRoot, ...mapping.source) : null;
+  if (!source || !fs.existsSync(source)) continue;
+  copyMappings.push({ source, target: mapping.target });
+  plannedTargets.add(mapping.target);
 }
 
-const mappings = [
-  ...staticMappings(),
-  ...discoverAppMappings(pluginRoot),
-  ...discoverConfigMappings(pluginRoot),
-];
+// Reconcile targets the previous run produced that we will not re-produce now.
+// This must run before the copy pass so a tracked-stub restore doesn't get
+// clobbered by anything (and so we don't fight ourselves).
+for (const target of prevManifest.targets) {
+  if (plannedTargets.has(target)) continue;
+  reconcileObsolete(target);
+}
+
 const copiedTargets = [];
-
-for (const mapping of mappings) {
-  const source = path.join(pluginRoot, ...mapping.source);
-  if (!fs.existsSync(source)) continue;
-
-  fs.mkdirSync(path.dirname(mapping.target), { recursive: true });
-  
-  
-  fs.cpSync(source, mapping.target, { recursive: true, force: true });
-  copiedTargets.push(mapping.target);
+for (const { source, target } of copyMappings) {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.cpSync(source, target, { recursive: true, force: true });
+  copiedTargets.push(target);
 }
 
 writeManifest(copiedTargets);
