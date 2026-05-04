@@ -5376,9 +5376,10 @@ function MeetHistoryCard({
   const chartTooltipBorder = resolvedMode === "dark" ? "rgba(255,255,255,0.18)" : "#e2e8f0";
   const chartLine = "#22d3ee";
 
-  const [chartMetric, setChartMetric] = useState<"total" | "dots" | "gl">(
-    "total"
-  );
+  const [scorePrimary, setScorePrimary] = useState<"gl" | "dots">("gl");
+  // TEMP design picker — Alex is choosing between layouts. Remove once
+  // a winner is locked in along with the unused variant block.
+  const [designVariant, setDesignVariant] = useState<"B" | "C">("B");
 
   const totalsChartData = useMemo(() => {
     const points: Array<{
@@ -5424,11 +5425,6 @@ function MeetHistoryCard({
     return points.sort((a, b) => a.ts - b.ts);
   }, [groups, unit]);
 
-  const visibleChartData = useMemo(() => {
-    if (chartMetric === "total") return totalsChartData;
-    return totalsChartData.filter((p) => p[chartMetric] != null);
-  }, [totalsChartData, chartMetric]);
-
   const bestDots = useMemo(() => {
     let max = 0;
     for (const p of totalsChartData) {
@@ -5445,16 +5441,11 @@ function MeetHistoryCard({
     return max > 0 ? max : null;
   }, [totalsChartData]);
 
-  const metricLabel: Record<typeof chartMetric, string> = {
-    total: "Total progression",
-    dots: "DOTS progression",
-    gl: "IPF GL progression",
-  };
-
-  const formatChartValue = (v: number): string => {
-    if (chartMetric === "total") return `${Math.round(v)} ${unit}`;
-    return v.toFixed(2);
-  };
+  // Default to GL primary when both exist; if only one is available, force
+  // it as the primary so the user can't toggle to a missing value.
+  const effectivePrimary: "gl" | "dots" =
+    bestGl == null ? "dots" : bestDots == null ? "gl" : scorePrimary;
+  const canToggleScore = bestGl != null && bestDots != null;
 
   if (isLoading) {
     return (
@@ -5502,47 +5493,122 @@ function MeetHistoryCard({
       </div>
       {totalsChartData.length >= 2 && (
         <div style={{ padding: "var(--cloud-s4) var(--cloud-s4) 0" }}>
-          {(bestDots != null || bestGl != null) && (
-            <div
-              className="flex gap-3 mb-3"
-              style={{ fontSize: 11 }}
+          {/* TEMP: design picker — remove once Alex chooses B vs C */}
+          <div className="flex items-center justify-end gap-1 mb-2" style={{ fontSize: 10 }}>
+            <span className="cloud-text-dim" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              layout:
+            </span>
+            {(["B", "C"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setDesignVariant(v)}
+                className="px-1.5 py-0.5 rounded transition-colors"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: designVariant === v ? "#22d3ee" : "var(--cloud-text-muted)",
+                  background: designVariant === v ? "rgba(34, 211, 238, 0.12)" : "transparent",
+                  border: "1px solid var(--cloud-border)",
+                  cursor: "pointer",
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+
+          {/* Option B: slim horizontal bar above the chart */}
+          {designVariant === "B" && (bestDots != null || bestGl != null) && (
+            <button
+              type="button"
+              onClick={() =>
+                canToggleScore &&
+                setScorePrimary((p) => (p === "gl" ? "dots" : "gl"))
+              }
+              disabled={!canToggleScore}
+              className="flex items-center gap-3 mb-3 rounded-md px-3 py-1.5 transition-colors w-full text-left"
+              style={{
+                border: "1px solid var(--cloud-border)",
+                background: "rgba(255,255,255,0.02)",
+                cursor: canToggleScore ? "pointer" : "default",
+              }}
+              title={canToggleScore ? "Swap primary score" : undefined}
             >
-              {bestDots != null && (
-                <div
-                  className="rounded-md px-3 py-2"
-                  style={{
-                    border: "1px solid var(--cloud-border)",
-                    background: "rgba(255,255,255,0.02)",
-                  }}
-                >
-                  <div
-                    className="cloud-text-dim"
-                    style={{
-                      fontSize: 9,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      fontWeight: 500,
-                    }}
+              <span
+                className="cloud-text-dim shrink-0"
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  fontWeight: 500,
+                }}
+              >
+                Best {effectivePrimary === "gl" ? "IPF GL" : "DOTS"}
+              </span>
+              <span
+                className="cloud-text font-semibold shrink-0"
+                style={{ fontSize: 18, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
+              >
+                {(effectivePrimary === "gl" ? bestGl : bestDots)?.toFixed(2)}
+              </span>
+              {((effectivePrimary === "gl" && bestDots != null) ||
+                (effectivePrimary === "dots" && bestGl != null)) && (
+                <>
+                  <span className="cloud-text-dim" style={{ fontSize: 11 }}>·</span>
+                  <span
+                    className="cloud-text-dim shrink-0"
+                    style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
                   >
-                    Best DOTS
-                  </div>
-                  <div
-                    className="cloud-text font-semibold"
-                    style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {bestDots.toFixed(2)}
-                  </div>
-                </div>
+                    {(effectivePrimary === "gl" ? bestDots : bestGl)?.toFixed(2)}{" "}
+                    {effectivePrimary === "gl" ? "DOTS" : "IPF GL"}
+                  </span>
+                </>
               )}
-              {bestGl != null && (
-                <div
-                  className="rounded-md px-3 py-2"
-                  style={{
-                    border: "1px solid var(--cloud-border)",
-                    background: "rgba(255,255,255,0.02)",
-                  }}
+              {canToggleScore && (
+                <span
+                  className="cloud-text-dim ml-auto shrink-0"
+                  style={{ fontSize: 12 }}
+                  aria-hidden
                 >
-                  <div
+                  ⇄
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Option C: inline with the chart heading */}
+          {designVariant === "C" ? (
+            <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
+              <div
+                className="cloud-text-dim"
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  fontWeight: 500,
+                }}
+              >
+                Total progression
+              </div>
+              {(bestDots != null || bestGl != null) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    canToggleScore &&
+                    setScorePrimary((p) => (p === "gl" ? "dots" : "gl"))
+                  }
+                  disabled={!canToggleScore}
+                  className="flex items-center gap-2 transition-colors"
+                  style={{
+                    cursor: canToggleScore ? "pointer" : "default",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                  }}
+                  title={canToggleScore ? "Swap primary score" : undefined}
+                >
+                  <span
                     className="cloud-text-dim"
                     style={{
                       fontSize: 9,
@@ -5551,21 +5617,38 @@ function MeetHistoryCard({
                       fontWeight: 500,
                     }}
                   >
-                    Best IPF GL
-                  </div>
-                  <div
+                    Best {effectivePrimary === "gl" ? "IPF GL" : "DOTS"}
+                  </span>
+                  <span
                     className="cloud-text font-semibold"
-                    style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}
+                    style={{ fontSize: 14, fontVariantNumeric: "tabular-nums" }}
                   >
-                    {bestGl.toFixed(2)}
-                  </div>
-                </div>
+                    {(effectivePrimary === "gl" ? bestGl : bestDots)?.toFixed(2)}
+                  </span>
+                  {((effectivePrimary === "gl" && bestDots != null) ||
+                    (effectivePrimary === "dots" && bestGl != null)) && (
+                    <>
+                      <span className="cloud-text-dim" style={{ fontSize: 11 }}>/</span>
+                      <span
+                        className="cloud-text-dim"
+                        style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {(effectivePrimary === "gl" ? bestDots : bestGl)?.toFixed(2)}{" "}
+                        {effectivePrimary === "gl" ? "DOTS" : "IPF GL"}
+                      </span>
+                    </>
+                  )}
+                  {canToggleScore && (
+                    <span className="cloud-text-dim" style={{ fontSize: 12 }} aria-hidden>
+                      ⇄
+                    </span>
+                  )}
+                </button>
               )}
             </div>
-          )}
-          <div className="flex items-center justify-between mb-2">
+          ) : (
             <div
-              className="cloud-text-dim"
+              className="cloud-text-dim mb-2"
               style={{
                 fontSize: 10,
                 letterSpacing: "0.06em",
@@ -5573,48 +5656,12 @@ function MeetHistoryCard({
                 fontWeight: 500,
               }}
             >
-              {metricLabel[chartMetric]}
+              Total progression
             </div>
-            <div
-              className="inline-flex rounded-md overflow-hidden"
-              style={{ border: "1px solid var(--cloud-border)" }}
-            >
-              {(["total", "dots", "gl"] as const).map((m) => {
-                const disabled =
-                  (m === "dots" && bestDots == null) ||
-                  (m === "gl" && bestGl == null);
-                const active = chartMetric === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => !disabled && setChartMetric(m)}
-                    disabled={disabled}
-                    className="px-2.5 py-1 transition-colors"
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 500,
-                      color: active
-                        ? "#22d3ee"
-                        : disabled
-                          ? "var(--cloud-text-dim)"
-                          : "var(--cloud-text-muted)",
-                      background: active
-                        ? "rgba(34, 211, 238, 0.12)"
-                        : "transparent",
-                      cursor: disabled ? "not-allowed" : "pointer",
-                      opacity: disabled ? 0.4 : 1,
-                    }}
-                  >
-                    {m === "total" ? "Total" : m === "dots" ? "DOTS" : "IPF GL"}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          )}
           <div className="h-56">
             <ResponsiveContainer width="100%" height={224}>
-              <LineChart data={visibleChartData}>
+              <LineChart data={totalsChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
                 <XAxis
                   dataKey="ts"
@@ -5634,11 +5681,7 @@ function MeetHistoryCard({
                   tick={{ fontSize: 11, fill: chartText }}
                   tickLine={false}
                   domain={["auto", "auto"]}
-                  tickFormatter={(v: number) =>
-                    chartMetric === "total"
-                      ? `${Math.round(v)}`
-                      : v.toFixed(0)
-                  }
+                  tickFormatter={(v: number) => `${Math.round(v)}`}
                 />
                 <Tooltip
                   contentStyle={{
@@ -5665,31 +5708,26 @@ function MeetHistoryCard({
                   formatter={(value, _name, item) => {
                     const v = Number(value);
                     const point = item?.payload as
-                      | {
-                          total?: number;
-                          dots?: number | null;
-                          gl?: number | null;
-                        }
+                      | { dots?: number | null; gl?: number | null }
                       | undefined;
-                    if (chartMetric === "total") {
-                      const extras: string[] = [];
-                      if (point?.dots != null) extras.push(`DOTS ${point.dots.toFixed(2)}`);
-                      if (point?.gl != null) extras.push(`GL ${point.gl.toFixed(2)}`);
-                      const suffix = extras.length ? ` · ${extras.join(" · ")}` : "";
-                      return [`${formatChartValue(v)}${suffix}`, "Total"];
-                    }
-                    if (chartMetric === "dots") return [v.toFixed(2), "DOTS"];
-                    return [v.toFixed(2), "IPF GL"];
+                    const score =
+                      effectivePrimary === "gl" ? point?.gl : point?.dots;
+                    const scoreLabel =
+                      effectivePrimary === "gl" ? "IPF GL" : "DOTS";
+                    const suffix =
+                      score != null
+                        ? ` · ${scoreLabel} ${score.toFixed(2)}`
+                        : "";
+                    return [`${Math.round(v)} ${unit}${suffix}`, "Total"];
                   }}
                 />
                 <Line
                   type="monotone"
-                  dataKey={chartMetric}
+                  dataKey="total"
                   stroke={chartLine}
                   strokeWidth={2}
                   dot={{ r: 3, fill: chartLine }}
                   activeDot={{ r: 5 }}
-                  connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
