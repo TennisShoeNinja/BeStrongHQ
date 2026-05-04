@@ -140,6 +140,16 @@ def _import_meets_to_meet_results(
 
     from ..scoring import gl_points
 
+    # Backfill athlete.sex from OPL data if it's missing locally — coaches
+    # rarely fill the sex field on profile creation but OPL always has it,
+    # and we need it to compute IPF GL Points.
+    if not athlete.sex:
+        for meet in meets:
+            meet_sex = meet.get("sex")
+            if meet_sex:
+                athlete.sex = meet_sex
+                break
+
     written = 0
     for meet in meets:
         meet_path = meet.get("meet_path")
