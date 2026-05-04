@@ -1090,8 +1090,8 @@ function FeaturedChartPanel({
 }: {
   athlete: Types.AthleteListResponse | null;
 }) {
-  const { tenantSettings } = useAuth();
-  const tracksRpe = tenantSettings.tracks_rpe;
+  const { instanceSettings } = useAuth();
+  const tracksRpe = instanceSettings.tracks_rpe;
   const { data: trends, isLoading } = useQuery({
     queryKey: ["e1rm-trends-featured", athlete?.id],
     queryFn: () =>
