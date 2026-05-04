@@ -582,6 +582,7 @@ export interface MeetResultEntry {
   bodyweight_kg: number | null;
   dots_score: number | null;
   gl_points: number | null;
+  place: string | null;
   created_at: string;
 }
 

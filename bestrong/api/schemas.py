@@ -838,6 +838,7 @@ class MeetResultEntry(BaseModel):
     bodyweight_kg: float | None = None
     dots_score: float | None = None
     gl_points: float | None = None
+    place: str | None = None
     created_at: datetime
 
 

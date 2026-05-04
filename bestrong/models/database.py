@@ -185,6 +185,7 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("bodyweight_kg", "REAL"),
         ("dots_score", "REAL"),
         ("gl_points", "REAL"),
+        ("place", "VARCHAR(20)"),
     ],
 }
 
@@ -287,6 +288,7 @@ _TABLE_CREATES: dict[str, str] = {
             bodyweight_kg REAL,
             dots_score REAL,
             gl_points REAL,
+            place VARCHAR(20),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """,

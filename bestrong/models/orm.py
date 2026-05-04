@@ -310,6 +310,10 @@ class MeetResult(Base):
     bodyweight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     dots_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     gl_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Final placing as recorded by the federation (string because OPL uses
+    # "1"/"2"/"3" for podium, but also "DQ", "G" for guest, "DD" for did-not-
+    # deadlift). UI medal-render only triggers on the numeric podium values.
+    place: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
