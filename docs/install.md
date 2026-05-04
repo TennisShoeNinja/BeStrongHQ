@@ -1,53 +1,38 @@
 # Install BeStrong HQ (Community Edition)
 
-Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine and your data stays local. Nothing is uploaded to us, nothing leaks to a third party — your athletes' data lives in a SQLite file on your own disk.
+Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine and your data stays local. Nothing is uploaded to us, nothing leaks to a third party, your athletes' data lives in a SQLite file on your own disk.
 
-## One-line install
+## Quick Start
 
-Open a terminal and paste the line for your platform. The installer downloads its own dependencies (Python, Node.js, Git), clones the repo into your home folder, and builds the app. Walk away for 10–15 minutes.
-
-### Windows (Command Prompt)
-
-```
-curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
-```
-
-### macOS
+You need Python 3.10+ and Node.js 20+ installed, then:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
-```
-
-### Linux / Raspberry Pi
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
-```
-
-When it finishes, set up Google Drive (see [Google Setup](google-setup.md)) and then start the app:
-
-```bash
-cd ~/BeStrongHQ      # or %USERPROFILE%\BeStrongHQ on Windows
+git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
+cd BeStrongHQ
+pip install -e .
+cd web && npm install && cd ..
 bestrong run
 ```
 
-Open **http://127.0.0.1:3000** in your browser.
+Open **http://localhost:3000** in your browser.
 
-> **Drive sync is the only way to import program spreadsheets** — there's no manual file upload. You'll need to set up Google Drive OAuth credentials before your first sync. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
+> First run will prompt you to set up Google OAuth credentials before sign-in works. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
 
-## Step-by-step guides
+## Installation Guides
 
-If you'd rather see what's happening at each step, hit an error the script doesn't recover from, or want to install somewhere other than your home folder, follow the platform-specific guide:
+New to this? Follow the step-by-step guide for your platform:
 
 - [macOS](install-mac.md)
 - [Windows](install-windows.md)
 - [Raspberry Pi](install-raspberry-pi.md)
 
-> **On a non-Debian Linux distro?** The Raspberry Pi guide works for any apt-based distribution (Ubuntu, Debian, Pop!_OS). For other distros, follow the macOS guide and substitute your package manager (`dnf`, `pacman`, etc.) for `brew`.
+Each install guide covers everything you need: prerequisites, Google setup, and first run.
+
+> **On Linux?** The Raspberry Pi guide works for any Debian-based Linux distribution (Ubuntu, Debian, Pop!_OS, etc.). The commands are identical.
 
 ## Google Setup
 
-BeStrong HQ Community Edition uses Google Drive to import program spreadsheets, and (optionally) Google Calendar to push meet schedules. There's no built-in user login — your local machine is the access boundary — so the only OAuth client you need to create is for Drive (and Calendar if you want it). See the [Google Setup guide](google-setup.md) for the step-by-step.
+BeStrong HQ uses Google for sign-in, Google Drive sync, and Google Calendar push. You'll need to create your own OAuth credentials and organize your athletes' programs into a folder BeStrong HQ can watch before the app will work end to end. See the [Google Setup guide](google-setup.md) for the step-by-step.
 
 ## The Parser
 

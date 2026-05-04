@@ -69,19 +69,9 @@ Everything you need on open:
 
 ## Community Edition
 
-Install BeStrong HQ on your own machine. Free forever, community supported. One terminal command does everything — installs Python, Node, Git, clones the repo, and builds the app:
+Install BeStrong HQ on your own machine. Free forever, community supported.
 
-**Windows (Command Prompt):**
-```
-curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
-```
-
-**macOS / Linux / Raspberry Pi:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
-```
-
-[Full install guide →](docs/install.md)
+[Install guide →](docs/install.md)
 
 ## How It Works
 

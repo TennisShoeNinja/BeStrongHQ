@@ -13,7 +13,7 @@ bestrong reset-db            # Wipe and recreate the database
 
 ## `bestrong run`
 
-The main command. Starts the FastAPI backend on port 8080 and the Next.js frontend on port 3000. Open http://127.0.0.1:3000 in your browser. Stop with **Ctrl + C**.
+The main command. Starts the FastAPI backend on port 8080 and the Next.js frontend on port 3000. Open http://localhost:3000 in your browser. Stop with **Ctrl + C**.
 
 ## `bestrong serve`
 
