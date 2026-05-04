@@ -165,6 +165,7 @@ def _import_meets_to_meet_results(
         dots_score = meet.get("dots")
         total_kg = meet.get("total_kg")
         equipment = meet.get("equipment")
+        place = meet.get("place")
         gl = gl_points(total_kg, bodyweight_kg, athlete.sex, equipment)
         attempts = meet.get("attempts") or []
         for attempt in attempts:
@@ -190,6 +191,7 @@ def _import_meets_to_meet_results(
                     bodyweight_kg=bodyweight_kg,
                     dots_score=dots_score,
                     gl_points=gl,
+                    place=place,
                 )
             )
             written += 1

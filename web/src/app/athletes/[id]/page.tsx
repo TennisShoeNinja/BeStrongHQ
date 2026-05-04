@@ -5351,6 +5351,55 @@ function groupMeetResults(rows: Types.MeetResultEntry[]): MeetGroup[] {
   });
 }
 
+// Render an OPL "YYYY-MM-DD" date as "Mon D, YYYY" without a TZ shift.
+// Avoids `new Date("2026-03-26")` which Safari/Chrome interpret as UTC
+// midnight and then locale-format back into the prior calendar day.
+function formatMeetDate(d: string | null | undefined): string | null {
+  if (!d) return null;
+  const parts = d.split("-");
+  if (parts.length !== 3) return d;
+  const [y, m, day] = parts.map(Number);
+  if (!y || !m || !day) return d;
+  const dt = new Date(y, m - 1, day);
+  return dt.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Render a meet placing with a medal for podium finishes. Non-podium
+// numeric places fall back to the bare ordinal (4th, 5th...). Non-numeric
+// values from OPL like "DQ", "G" (guest), "DD" (didn't deadlift) or blank
+// return null so the caller can decide whether to render the chip at all.
+function formatPlace(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    // Surface meaningful non-numeric tags rather than swallowing them, so
+    // a DQ doesn't silently disappear from the meet history.
+    const upper = trimmed.toUpperCase();
+    if (upper === "DQ" || upper === "G" || upper === "DD") return upper;
+    return null;
+  }
+  const ordinal = (() => {
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+    switch (n % 10) {
+      case 1: return `${n}st`;
+      case 2: return `${n}nd`;
+      case 3: return `${n}rd`;
+      default: return `${n}th`;
+    }
+  })();
+  if (n === 1) return `🥇 ${ordinal}`;
+  if (n === 2) return `🥈 ${ordinal}`;
+  if (n === 3) return `🥉 ${ordinal}`;
+  return ordinal;
+}
+
 function MeetHistoryCard({
   athleteId,
   athlete,
@@ -5377,9 +5426,6 @@ function MeetHistoryCard({
   const chartLine = "#22d3ee";
 
   const [scorePrimary, setScorePrimary] = useState<"gl" | "dots">("gl");
-  // TEMP design picker — Alex is choosing between layouts. Remove once
-  // a winner is locked in along with the unused variant block.
-  const [designVariant, setDesignVariant] = useState<"B" | "C">("B");
 
   const totalsChartData = useMemo(() => {
     const points: Array<{
@@ -5441,6 +5487,29 @@ function MeetHistoryCard({
     return max > 0 ? max : null;
   }, [totalsChartData]);
 
+  const bestTotalDisplay = useMemo(() => {
+    let max = 0;
+    for (const p of totalsChartData) {
+      if (p.total > max) max = p.total;
+    }
+    return max > 0 ? max : null;
+  }, [totalsChartData]);
+
+  // Per-group total in lbs, indexed the same as `groups` (which is sorted
+  // newest-first). Used by the meet-history rows to compute a delta vs.
+  // the prior chronological meet (groups[idx + 1] is the previous one).
+  const groupTotalsLbs = useMemo(() => {
+    return groups.map((g) => {
+      const best: Record<string, number> = {};
+      for (const r of g.rows) {
+        if (!r.made) continue;
+        const cur = best[r.lift];
+        if (cur == null || r.weight_lbs > cur) best[r.lift] = r.weight_lbs;
+      }
+      return (best.squat ?? 0) + (best.bench ?? 0) + (best.deadlift ?? 0);
+    });
+  }, [groups]);
+
   // Default to GL primary when both exist; if only one is available, force
   // it as the primary so the user can't toggle to a missing value.
   const effectivePrimary: "gl" | "dots" =
@@ -5493,162 +5562,9 @@ function MeetHistoryCard({
       </div>
       {totalsChartData.length >= 2 && (
         <div style={{ padding: "var(--cloud-s4) var(--cloud-s4) 0" }}>
-          {/* TEMP: design picker — remove once Alex chooses B vs C */}
-          <div className="flex items-center justify-end gap-1 mb-2" style={{ fontSize: 10 }}>
-            <span className="cloud-text-dim" style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              layout:
-            </span>
-            {(["B", "C"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setDesignVariant(v)}
-                className="px-1.5 py-0.5 rounded transition-colors"
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: designVariant === v ? "#22d3ee" : "var(--cloud-text-muted)",
-                  background: designVariant === v ? "rgba(34, 211, 238, 0.12)" : "transparent",
-                  border: "1px solid var(--cloud-border)",
-                  cursor: "pointer",
-                }}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-
-          {/* Option B: slim horizontal bar above the chart */}
-          {designVariant === "B" && (bestDots != null || bestGl != null) && (
-            <button
-              type="button"
-              onClick={() =>
-                canToggleScore &&
-                setScorePrimary((p) => (p === "gl" ? "dots" : "gl"))
-              }
-              disabled={!canToggleScore}
-              className="flex items-center gap-3 mb-3 rounded-md px-3 py-1.5 transition-colors w-full text-left"
-              style={{
-                border: "1px solid var(--cloud-border)",
-                background: "rgba(255,255,255,0.02)",
-                cursor: canToggleScore ? "pointer" : "default",
-              }}
-              title={canToggleScore ? "Swap primary score" : undefined}
-            >
-              <span
-                className="cloud-text-dim shrink-0"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  fontWeight: 500,
-                }}
-              >
-                Best {effectivePrimary === "gl" ? "IPF GL" : "DOTS"}
-              </span>
-              <span
-                className="cloud-text font-semibold shrink-0"
-                style={{ fontSize: 18, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
-              >
-                {(effectivePrimary === "gl" ? bestGl : bestDots)?.toFixed(2)}
-              </span>
-              {((effectivePrimary === "gl" && bestDots != null) ||
-                (effectivePrimary === "dots" && bestGl != null)) && (
-                <>
-                  <span className="cloud-text-dim" style={{ fontSize: 11 }}>·</span>
-                  <span
-                    className="cloud-text-dim shrink-0"
-                    style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {(effectivePrimary === "gl" ? bestDots : bestGl)?.toFixed(2)}{" "}
-                    {effectivePrimary === "gl" ? "DOTS" : "IPF GL"}
-                  </span>
-                </>
-              )}
-              {canToggleScore && (
-                <span
-                  className="cloud-text-dim ml-auto shrink-0"
-                  style={{ fontSize: 12 }}
-                  aria-hidden
-                >
-                  ⇄
-                </span>
-              )}
-            </button>
-          )}
-
-          {/* Option C: inline with the chart heading */}
-          {designVariant === "C" ? (
-            <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
-              <div
-                className="cloud-text-dim"
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  fontWeight: 500,
-                }}
-              >
-                Total progression
-              </div>
-              {(bestDots != null || bestGl != null) && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    canToggleScore &&
-                    setScorePrimary((p) => (p === "gl" ? "dots" : "gl"))
-                  }
-                  disabled={!canToggleScore}
-                  className="flex items-center gap-2 transition-colors"
-                  style={{
-                    cursor: canToggleScore ? "pointer" : "default",
-                    background: "transparent",
-                    border: "none",
-                    padding: 0,
-                  }}
-                  title={canToggleScore ? "Swap primary score" : undefined}
-                >
-                  <span
-                    className="cloud-text-dim"
-                    style={{
-                      fontSize: 9,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Best {effectivePrimary === "gl" ? "IPF GL" : "DOTS"}
-                  </span>
-                  <span
-                    className="cloud-text font-semibold"
-                    style={{ fontSize: 14, fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {(effectivePrimary === "gl" ? bestGl : bestDots)?.toFixed(2)}
-                  </span>
-                  {((effectivePrimary === "gl" && bestDots != null) ||
-                    (effectivePrimary === "dots" && bestGl != null)) && (
-                    <>
-                      <span className="cloud-text-dim" style={{ fontSize: 11 }}>/</span>
-                      <span
-                        className="cloud-text-dim"
-                        style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
-                      >
-                        {(effectivePrimary === "gl" ? bestDots : bestGl)?.toFixed(2)}{" "}
-                        {effectivePrimary === "gl" ? "DOTS" : "IPF GL"}
-                      </span>
-                    </>
-                  )}
-                  {canToggleScore && (
-                    <span className="cloud-text-dim" style={{ fontSize: 12 }} aria-hidden>
-                      ⇄
-                    </span>
-                  )}
-                </button>
-              )}
-            </div>
-          ) : (
+          <div className="flex items-start justify-between mb-2 gap-3 flex-wrap">
             <div
-              className="cloud-text-dim mb-2"
+              className="cloud-text-dim"
               style={{
                 fontSize: 10,
                 letterSpacing: "0.06em",
@@ -5658,7 +5574,84 @@ function MeetHistoryCard({
             >
               Total progression
             </div>
-          )}
+            {bestTotalDisplay != null && (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="cloud-text-dim"
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Best Total
+                  </span>
+                  <span
+                    className="cloud-text font-semibold"
+                    style={{ fontSize: 14, fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {Math.round(bestTotalDisplay)} {unit}
+                  </span>
+                </div>
+                {(bestDots != null || bestGl != null) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      canToggleScore &&
+                      setScorePrimary((p) => (p === "gl" ? "dots" : "gl"))
+                    }
+                    disabled={!canToggleScore}
+                    className="flex items-center gap-2 transition-colors"
+                    style={{
+                      cursor: canToggleScore ? "pointer" : "default",
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                    }}
+                    title={canToggleScore ? "Swap primary score" : undefined}
+                  >
+                    <span
+                      className="cloud-text-dim"
+                      style={{
+                        fontSize: 9,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Best {effectivePrimary === "gl" ? "IPF GL" : "DOTS"}
+                    </span>
+                    <span
+                      className="cloud-text font-semibold"
+                      style={{ fontSize: 14, fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {(effectivePrimary === "gl" ? bestGl : bestDots)?.toFixed(2)}
+                    </span>
+                    {((effectivePrimary === "gl" && bestDots != null) ||
+                      (effectivePrimary === "dots" && bestGl != null)) && (
+                      <>
+                        <span className="cloud-text-dim" style={{ fontSize: 11 }}>/</span>
+                        <span
+                          className="cloud-text-dim"
+                          style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}
+                        >
+                          {(effectivePrimary === "gl" ? bestDots : bestGl)?.toFixed(2)}{" "}
+                          {effectivePrimary === "gl" ? "DOTS" : "IPF GL"}
+                        </span>
+                      </>
+                    )}
+                    {canToggleScore && (
+                      <span className="cloud-text-dim" style={{ fontSize: 12 }} aria-hidden>
+                        ⇄
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <div className="h-56">
             <ResponsiveContainer width="100%" height={224}>
               <LineChart data={totalsChartData}>
@@ -5735,8 +5728,31 @@ function MeetHistoryCard({
         </div>
       )}
       <div className="space-y-3" style={{ padding: "var(--cloud-s4)" }}>
-        {groups.map((g) => {
-          
+        {groups.map((g, idx) => {
+          // Delta vs. the prior chronological meet. groups is desc by date,
+          // so the earlier meet is at idx + 1. Skip the very first meet
+          // (oldest, idx === groups.length - 1) since there's nothing to
+          // compare to. Convert to display unit so the +/- respects the
+          // lbs/kg toggle at the top of the page.
+          const priorTotalLbs =
+            idx < groups.length - 1 ? groupTotalsLbs[idx + 1] : null;
+          const currentTotalLbs = groupTotalsLbs[idx];
+          const deltaLbs =
+            priorTotalLbs != null && priorTotalLbs > 0 && currentTotalLbs > 0
+              ? currentTotalLbs - priorTotalLbs
+              : null;
+          const deltaDisplay =
+            deltaLbs != null
+              ? Math.round(convertWeight(Math.abs(deltaLbs), unit))
+              : null;
+          const deltaSign = deltaLbs != null && deltaLbs >= 0 ? "+" : "−";
+          const deltaColor =
+            deltaLbs == null || deltaLbs === 0
+              ? null
+              : deltaLbs > 0
+                ? "#86efac"
+                : "var(--cloud-text-dim)";
+
           const bestByLift: Record<string, Types.MeetResultEntry | undefined> = {};
           for (const r of g.rows) {
             if (!r.made) continue;
@@ -5756,6 +5772,32 @@ function MeetHistoryCard({
             if (groupGl == null && r.gl_points != null) groupGl = r.gl_points;
             if (groupDots != null && groupGl != null) break;
           }
+          // Distinct (division, place) pairs for this meet, restricted to
+          // entries where OPL recorded an actual place. The "no-place" rows
+          // are usually shadow division entries that OPL emits for meets
+          // like High School Nationals (e.g., a Teen II age-bracket row
+          // alongside the real Varsity placement) — they're noise, not
+          // rankings, so we drop them.
+          const placements: Array<{ division: string | null; place: string }> = [];
+          const seenPlacement = new Set<string>();
+          for (const r of g.rows) {
+            if (!r.place || !String(r.place).trim()) continue;
+            const div = r.division ?? null;
+            const pl = String(r.place).trim();
+            const key = `${div}|${pl}`;
+            if (seenPlacement.has(key)) continue;
+            seenPlacement.add(key);
+            placements.push({ division: div, place: pl });
+          }
+          // Federation/weight class can vary across the per-division rows
+          // OPL emits for one meet (the placed entry usually has them set
+          // while the shadow age-bracket entry leaves them blank). Prefer
+          // any non-null value across the group rather than whichever row
+          // groupMeetResults happened to see first.
+          const groupFederation =
+            g.federation ?? g.rows.find((r) => r.federation)?.federation ?? null;
+          const groupWeightClass =
+            g.weight_class ?? g.rows.find((r) => r.weight_class)?.weight_class ?? null;
           const attemptMap: Record<string, Record<number, Types.MeetResultEntry>> = {
             squat: {},
             bench: {},
@@ -5792,21 +5834,54 @@ function MeetHistoryCard({
                   <ChevronRight className="w-4 h-4 cloud-text-dim shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="cloud-text font-medium truncate" style={{ fontSize: 13 }}>
-                    {g.meet_name ?? "Unnamed meet"}
-                    {g.meet_date ? (
-                      <span className="cloud-text-dim font-normal"> · {g.meet_date}</span>
-                    ) : null}
+                  <div
+                    className="cloud-text font-medium flex flex-wrap items-baseline gap-x-3 gap-y-0.5"
+                    style={{ fontSize: 13 }}
+                  >
+                    <span className="truncate">{g.meet_name ?? "Unnamed meet"}</span>
+                    {placements.map((p, i) => {
+                      const placeLabel = formatPlace(p.place);
+                      if (!placeLabel) return null;
+                      return (
+                        <span
+                          key={`${p.division}-${p.place}-${i}`}
+                          className="inline-flex items-center gap-1 cloud-text"
+                          style={{ fontVariantNumeric: "tabular-nums", fontWeight: 500 }}
+                        >
+                          <span>{placeLabel}</span>
+                          {p.division && (
+                            <span className="cloud-text font-normal">{p.division}</span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                   <div className="cloud-text-dim truncate" style={{ fontSize: 11 }}>
-                    {[g.federation, g.weight_class, g.division]
+                    {[
+                      groupFederation,
+                      groupWeightClass,
+                      g.meet_date ? formatMeetDate(g.meet_date) : null,
+                    ]
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="cloud-text font-semibold" style={{ fontSize: 13 }}>
-                    {total > 0 ? formatWeight(total, unit) : "—"}
+                  <div className="cloud-text font-semibold flex items-baseline justify-end gap-1.5" style={{ fontSize: 13 }}>
+                    {deltaDisplay != null && deltaColor != null && deltaDisplay > 0 && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: deltaColor,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {deltaSign}
+                        {deltaDisplay} {unit}
+                      </span>
+                    )}
+                    <span>{total > 0 ? formatWeight(total, unit) : "—"}</span>
                   </div>
                   <div
                     className="cloud-text-dim"
