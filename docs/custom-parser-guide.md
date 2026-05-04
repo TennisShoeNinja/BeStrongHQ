@@ -112,7 +112,7 @@ for s in data.sessions[:2]:
 "
 ```
 
-If sessions and exercises come out right, you're done. Restart `bestrong run`, sync a sheet from Google Drive, and your adapter will pick it up automatically.
+If sessions and exercises come out right, you're done. Rebuild the container so it picks up your adapter (`cd BeStrongHQ/docker && docker compose build && docker compose up -d`), sync a sheet from Google Drive, and your adapter will pick it up automatically.
 
 ### 5. Commit it (optional, but encouraged)
 

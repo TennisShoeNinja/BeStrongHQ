@@ -1,23 +1,17 @@
 # CLI Commands
 
-BeStrong HQ ships with a `bestrong` command for day-to-day operations. Run these from inside the `BeStrongHQ` folder.
+BeStrong HQ ships with a `bestrong` command for day-to-day operations. Since Community Edition runs in Docker, run these *inside* the container via `docker compose exec`. From the `BeStrongHQ/docker/` folder:
 
 ```bash
-bestrong run                 # Start both API + React UI
-bestrong serve               # Start API server only
-bestrong info                # Show database stats
-bestrong resync-all          # Re-import every Drive program through the current parser
-bestrong backfill-prs        # Recompute auto-generated PRs across every program
-bestrong reset-db            # Wipe and recreate the database
+docker compose exec bestrong bestrong info             # Show database stats
+docker compose exec bestrong bestrong resync-all       # Re-import every Drive program through the current parser
+docker compose exec bestrong bestrong backfill-prs     # Recompute auto-generated PRs across every program
+docker compose exec bestrong bestrong reset-db         # Wipe and recreate the database
 ```
 
-## `bestrong run`
+> The container is already running `bestrong run` as its main process (started by `docker compose up`), so you don't run that one yourself. The commands below operate against the same container, against the same SQLite database mounted at `/data`.
 
-The main command. Starts the FastAPI backend on port 8080 and the Next.js frontend on port 3000. Open http://localhost:3000 in your browser. Stop with **Ctrl + C**.
-
-## `bestrong serve`
-
-Starts only the API server on port 8080. Useful if you want to run the frontend separately (e.g. during frontend development with `npm run dev`).
+> **Tip:** if you'll be running several commands, `docker compose exec bestrong bash` opens a shell inside the container. From there you can just type `bestrong info`, `bestrong reset-db`, etc. directly without the prefix.
 
 ## `bestrong info`
 
@@ -25,7 +19,7 @@ Prints a quick summary of what's in your local database: athlete count, session 
 
 ## `bestrong resync-all`
 
-Force-reimports every Google Drive program through whatever parser is currently configured. Use this after upgrading or swapping a parser so existing rows get re-classified with the new logic. Requires `bestrong run` (or `bestrong serve`) to be running so the API can download and re-parse sheets.
+Force-reimports every Google Drive program through whatever parser is currently configured. Use this after upgrading or swapping a parser so existing rows get re-classified with the new logic. Requires the container to be running (which it normally is — `docker compose ps` should show it `Up`).
 
 ## `bestrong backfill-prs`
 
@@ -34,3 +28,17 @@ Recomputes all auto-generated PRs from scratch across every program. Clears `max
 ## `bestrong reset-db`
 
 **Destructive.** Wipes the SQLite database and recreates it empty. Your Google Drive data is untouched, so you can re-sync afterward. Use this if your database has gotten into a weird state and you want to start fresh.
+
+## Starting and stopping the app
+
+These are not `bestrong` subcommands — they're Docker compose commands you run from `BeStrongHQ/docker/`:
+
+```bash
+docker compose up -d        # Start in background
+docker compose down         # Stop
+docker compose restart      # Restart without rebuilding
+docker compose logs -f      # Tail logs
+docker compose ps           # Check container status
+```
+
+See [docker/README.md](../docker/README.md) for backups, updates, and LAN access.

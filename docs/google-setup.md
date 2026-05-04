@@ -61,7 +61,13 @@ GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
-Restart `bestrong run` so the new values are picked up.
+Restart the container so it picks up the new values:
+
+```bash
+cd BeStrongHQ/docker
+docker compose down
+docker compose up -d
+```
 
 ### Heads-up on Testing mode
 
