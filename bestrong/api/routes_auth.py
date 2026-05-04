@@ -6,6 +6,7 @@ import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
@@ -393,8 +394,7 @@ def login(request: Request, db: Session = Depends(get_db)):
         "state": state,
         "prompt": "select_account",
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
     return RedirectResponse(url=google_auth_url)
 

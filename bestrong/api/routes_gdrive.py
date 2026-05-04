@@ -12,6 +12,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 
 import requests as http_requests
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -282,8 +283,7 @@ def start_gdrive_auth(request: Request, db: Session = Depends(get_db)):
         "state": state,
         "prompt": "consent",
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
     return {"auth_url": google_auth_url}
 
