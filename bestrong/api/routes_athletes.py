@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from ..models.orm import Athlete, DailyWellness, GDriveImport, MaxHistory, MeetResult, Notification, Program, Session as SessionModel
+from ..models.orm import Athlete, AthleteSession, DailyWellness, GDriveImport, MaxHistory, MeetResult, Notification, OplLink, OplMeet, Program, Session as SessionModel, WorkLog
 from .deps import get_db
 from .schemas import AthleteCreate, AthleteListResponse, AthleteResponse, AthleteUpdate, MaxHistoryEntry, MergePreview, MergeRequest, MergeResult, PendingMeetResults, ProgramListResponse, FixDuplicateDaysResult
 from .error_helpers import safe_error
@@ -538,20 +538,67 @@ def merge_athletes(
             setattr(primary, field, secondary_val)
 
 
-    programs_transferred = (
-        db.query(Program)
-        .filter(Program.athlete_id == secondary_id)
-        .update({Program.athlete_id: athlete_id}, synchronize_session="fetch")
-    )
+    try:
+        # OplLink has UNIQUE(athlete_id), so at most one wins. Keep primary's
+        # if it exists; otherwise reassign secondary's. The corresponding
+        # opl_meets rows have to follow the same decision so they don't
+        # collide on UniqueConstraint(athlete_id, meet_path).
+        primary_link = (
+            db.query(OplLink).filter(OplLink.athlete_id == athlete_id).first()
+        )
+        secondary_link = (
+            db.query(OplLink).filter(OplLink.athlete_id == secondary_id).first()
+        )
+        if secondary_link is not None:
+            if primary_link is not None:
+                db.query(OplMeet).filter(OplMeet.athlete_id == secondary_id).delete(
+                    synchronize_session="fetch"
+                )
+                db.delete(secondary_link)
+            else:
+                secondary_link.athlete_id = athlete_id
+                db.query(OplMeet).filter(OplMeet.athlete_id == secondary_id).update(
+                    {OplMeet.athlete_id: athlete_id}, synchronize_session="fetch"
+                )
+        db.flush()
 
+        programs_transferred = (
+            db.query(Program)
+            .filter(Program.athlete_id == secondary_id)
+            .update({Program.athlete_id: athlete_id}, synchronize_session="fetch")
+        )
 
-    db.query(Notification).filter(Notification.athlete_id == secondary_id).update(
-        {Notification.athlete_id: athlete_id}, synchronize_session="fetch"
-    )
+        for model in (
+            Notification,
+            MaxHistory,
+            WorkLog,
+            DailyWellness,
+            MeetResult,
+            AthleteSession,
+        ):
+            db.query(model).filter(model.athlete_id == secondary_id).update(
+                {model.athlete_id: athlete_id}, synchronize_session="fetch"
+            )
 
+        # Cloud-side billing rows: reassign opportunistically. The public
+        # build doesn't ship the billing plugin, so swallow ImportError.
+        try:
+            from bestrong_cloud.billing.models import FailedPayment
+        except ImportError:
+            pass
+        else:
+            db.query(FailedPayment).filter(
+                FailedPayment.athlete_id == secondary_id
+            ).update(
+                {FailedPayment.athlete_id: athlete_id}, synchronize_session="fetch"
+            )
 
-    db.delete(secondary)
-    db.commit()
+        db.delete(secondary)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     db.refresh(primary)
 
     prog_count = db.query(Program).filter(Program.athlete_id == primary.id).count()
