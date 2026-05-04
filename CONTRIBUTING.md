@@ -14,7 +14,14 @@ Good bug reports include: steps to reproduce, what you expected, what you saw, a
 
 ## Running locally
 
-See the [README](README.md) for dev setup. Short version: Python 3.10+, Node 20+, then `bestrong run`.
+Day-to-day development runs on your host (faster than rebuilding Docker on every change):
+
+1. `git clone https://github.com/TennisShoeNinja/BeStrongHQ.git && cd BeStrongHQ`
+2. `python3 -m pip install -e .`  (Python 3.10+ required)
+3. `cd web && npm install && cd ..`  (Node 20+ required)
+4. `bestrong run` — opens API on 8080, UI on 3000
+
+Docker is the *user* install path (see [docs/install.md](docs/install.md)), not the dev workflow.
 
 ## Code contributions
 
