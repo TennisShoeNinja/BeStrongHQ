@@ -1,86 +1,44 @@
 # Installing BeStrong HQ on Windows
 
-This guide walks you through setting up BeStrong HQ on Windows from scratch. No programming experience required.
+This guide walks you through setting up BeStrong HQ on Windows. No programming experience required.
 
-> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup in Step 6.
+> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup at the end.
 
-## Step 1: Install Python
+## The easy way: one-line install
 
-1. Go to [python.org/downloads](https://www.python.org/downloads/)
-2. Click the big yellow **Download Python 3.12** button
-3. Run the installer
-4. **IMPORTANT:** Check the box that says **"Add python.exe to PATH"** at the bottom of the first screen. This is easy to miss and things won't work without it.
-5. Click **Install Now**
-
-To verify, open **Command Prompt** (press the Windows key, type `cmd`, hit Enter) and run:
+This is the recommended path. Open **Command Prompt** (press the Windows key, type `cmd`, hit Enter), then paste this single line and press Enter:
 
 ```
-python --version
+curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
 ```
 
-You should see Python 3.12 or similar. If you get "not recognized," restart your computer and try again.
+The installer will:
 
-## Step 2: Install Node.js
+1. Check that you have `winget` (the Windows package manager that ships with Windows 10 and 11)
+2. Install **Python 3.12**, **Node.js LTS**, and **Git** if you don't already have them
+3. Clone BeStrong HQ to `%USERPROFILE%\BeStrongHQ`
+4. Install the Python and Node dependencies and build the frontend
 
-1. Go to [nodejs.org](https://nodejs.org/)
-2. Download the **LTS** version (the one on the left)
-3. Run the installer and click through the defaults
+It takes 10–15 minutes. You'll see progress messages as each step runs. When it finishes, jump down to **[Final step: Google Setup](#final-step-google-setup)**.
 
-Verify in Command Prompt:
+> **If the installer fails with "winget is not recognized"** — your Windows version is too old or the App Installer is missing. Open the Microsoft Store, search for **App Installer**, and update or install it. Then close Command Prompt and try the one-liner again. If that still doesn't work, follow the [Manual installation](#manual-installation) section below.
 
-```
-node --version
-```
+> **If the installer fails part-way through** — it's safe to re-run. Close Command Prompt, open a new one (so the PATH refreshes with anything that did install), and paste the one-liner again. Already-installed pieces are skipped automatically.
 
-Should show version 20 or higher.
+## Final step: Google Setup
 
-## Step 3: Install Git
+BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder.
 
-1. Go to [git-scm.com/download/win](https://git-scm.com/download/win)
-2. Download and run the installer
-3. Click through the defaults (the default settings are fine)
-
-Verify in Command Prompt:
+## Start BeStrong HQ
 
 ```
-git --version
-```
-
-## Step 4: Download BeStrong HQ
-
-Open a **new** Command Prompt window (so it picks up the tools you just installed) and run:
-
-```
-cd %USERPROFILE%
-git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
-cd BeStrongHQ
-```
-
-## Step 5: Install BeStrong HQ
-
-```
-pip install -e .
-cd web
-npm install
-npm run build
-cd ..
-```
-
-This takes a few minutes. You'll see a lot of text scrolling by — that's normal. The `npm run build` step at the end is optional but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
-
-## Step 6: Google setup (required)
-
-BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder. Come back here when you're done.
-
-## Step 7: Start BeStrong HQ
-
-```
+cd %USERPROFILE%\BeStrongHQ
 bestrong run
 ```
 
 Open your browser and go to **http://127.0.0.1:3000**. You should see the BeStrong HQ dashboard.
 
-> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, so sticking with `127.0.0.1` everywhere keeps things consistent with the redirect URIs you registered in Step 6.
+> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, so sticking with `127.0.0.1` everywhere keeps things consistent with the redirect URIs you registered in Google Setup.
 
 ## Stopping and Restarting
 
@@ -97,29 +55,84 @@ Your data is saved automatically. Nothing is lost when you stop the app.
 
 ## Updating
 
-When a new version is available:
+Re-run the installer. It detects an existing checkout and `git pull`s the latest changes instead of cloning fresh:
 
 ```
-cd %USERPROFILE%\BeStrongHQ
-git pull
-pip install -e .
-cd web
-npm install
-npm run build
-cd ..
-bestrong run
+curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
 ```
 
 Your database and `.env` are preserved across updates — only the app code changes.
 
+---
+
+## Manual installation
+
+Use this if the one-liner fails, you want to install somewhere other than `%USERPROFILE%\BeStrongHQ`, or you just want to see what's happening.
+
+### Step 1: Install Python, Node.js, and Git
+
+Open **Command Prompt** and run these one at a time:
+
+```
+winget install --id Python.Python.3.12 -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Git.Git -e
+```
+
+The first time you run a `winget install`, it may ask you to accept the source agreements — type **Y** and press Enter.
+
+**Then close Command Prompt completely and open a fresh window.** Newly installed tools don't show up on PATH in your current session, only in fresh ones.
+
+Verify everything is on PATH:
+
+```
+python --version
+node --version
+git --version
+```
+
+You should see Python 3.12.x, Node v20+ (or v22), and Git 2.x.
+
+### Step 2: Download BeStrong HQ
+
+```
+cd %USERPROFILE%
+git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
+cd BeStrongHQ
+```
+
+### Step 3: Install BeStrong HQ
+
+Run these one at a time, from inside the `BeStrongHQ` folder:
+
+```
+python -m pip install -e .
+cd web
+npm install
+npm run build
+cd ..
+```
+
+`npm run build` is technically optional, but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
+
+### Step 4: Continue from "Final step: Google Setup" above
+
+---
+
 ## Troubleshooting
 
-**"python is not recognized"**. You missed the "Add to PATH" checkbox during Python install. Uninstall Python, reinstall it, and make sure to check that box. Then restart your computer.
+**"winget is not recognized"**. Your Windows version is too old or App Installer is missing. Open the Microsoft Store, search for **App Installer**, install or update it, then reopen Command Prompt.
 
-**"bestrong is not recognized"**. Close Command Prompt and open a new one. If that doesn't work, the Python `Scripts\` folder probably isn't on your PATH — this can happen with per-user Python installs. Run `python -m pip install -e .` from the BeStrongHQ folder and then try `python -m bestrong run` instead, or reinstall Python with "Add to PATH" checked.
+**"Python was not found; run without arguments to install from the Microsoft Store..."**. This is the Microsoft Store stub kicking in. Either Python isn't actually installed, or the MS Store stub is winning the PATH race. To disable the stub: **Settings → Apps → Advanced app settings → App execution aliases**, then turn off both `python.exe` and `python3.exe`. Close and reopen Command Prompt.
+
+**"python is not recognized"**. Close Command Prompt and open a fresh window — the PATH won't refresh in your current session after install. If you used the manual installer instead of `winget` and skipped the "Add to PATH" checkbox, re-run the Python installer, choose **Modify**, check **"Add Python to environment variables"**, and finish.
+
+**"pip is not recognized"** (common in PowerShell). Use `python -m pip install -e .` instead of `pip install -e .`. The `python -m pip` form always works as long as `python` itself is on PATH.
+
+**"bestrong is not recognized"**. Close Command Prompt and open a new one. If that doesn't work, the Python `Scripts\` folder isn't on your PATH. Run `python -m bestrong run` instead.
 
 **"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another Command Prompt window.
 
-**npm install fails**. Try running Command Prompt as Administrator (right-click, "Run as administrator"), then run the install commands again.
+**`npm install` fails**. Try running Command Prompt as Administrator (right-click the Command Prompt icon, "Run as administrator"), then run the install commands again. If you see "MAX_PATH" errors, enable long paths: open PowerShell as Administrator and run `New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force`, then reboot.
 
-**"FileNotFoundError" or the UI doesn't start**. Make sure you ran `npm install` inside the `web` folder. If you're on a fresh checkout and only the API starts, run `cd web && npm install && npm run build && cd ..` and try `bestrong run` again.
+**The installer hangs at "Installing Node dependencies"**. `npm install` is slow on a fresh machine — give it 5–10 minutes. If it's been longer than 15 minutes with no output, press Ctrl+C, close Command Prompt, open a new one, and re-run the installer.
