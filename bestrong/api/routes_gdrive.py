@@ -960,6 +960,7 @@ def organize_scan(request: Request, db: Session = Depends(get_db)):
 def organize_scan_folder(folder_id: str, request: Request, db: Session = Depends(get_db)):
     """Scan a specific folder and propose athlete-folder groupings."""
     require_admin(request, db)
+    _validate_folder_id(db, folder_id)
 
     naming_pattern = None
     pattern_row = db.query(Setting).filter(Setting.key == "naming_pattern").first()
