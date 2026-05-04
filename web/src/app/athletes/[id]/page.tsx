@@ -5356,6 +5356,45 @@ function MeetHistoryCard({
 
   const groups = useMemo(() => groupMeetResults(rows), [rows]);
 
+  const { resolvedMode } = useTheme();
+  const chartGrid = resolvedMode === "dark" ? "rgba(255,255,255,0.06)" : "#e2e8f0";
+  const chartText = resolvedMode === "dark" ? "rgba(250,250,250,0.5)" : "#64748b";
+  const chartTooltipBg = resolvedMode === "dark" ? "#09090b" : "#ffffff";
+  const chartTooltipBorder = resolvedMode === "dark" ? "rgba(255,255,255,0.18)" : "#e2e8f0";
+  const chartLine = "#22d3ee";
+
+  const totalsChartData = useMemo(() => {
+    const points: Array<{ ts: number; total: number; meet: string }> = [];
+    for (const g of groups) {
+      if (!g.meet_date) continue;
+      const parts = g.meet_date.split("-");
+      if (parts.length !== 3) continue;
+      const [y, m, d] = parts.map(Number);
+      if (!y || !m || !d) continue;
+      const ts = new Date(y, m - 1, d).getTime();
+      if (!Number.isFinite(ts)) continue;
+
+      const bestByLift: Record<string, number> = {};
+      for (const r of g.rows) {
+        if (!r.made) continue;
+        const cur = bestByLift[r.lift];
+        if (cur == null || r.weight_lbs > cur) bestByLift[r.lift] = r.weight_lbs;
+      }
+      const totalLbs =
+        (bestByLift.squat ?? 0) +
+        (bestByLift.bench ?? 0) +
+        (bestByLift.deadlift ?? 0);
+      if (totalLbs <= 0) continue;
+
+      points.push({
+        ts,
+        total: Number(convertWeight(totalLbs, unit).toFixed(1)),
+        meet: g.meet_name ?? "Meet",
+      });
+    }
+    return points.sort((a, b) => a.ts - b.ts);
+  }, [groups, unit]);
+
   if (isLoading) {
     return (
       <div className="cloud-panel" style={{ marginBottom: "var(--cloud-s5)" }}>
@@ -5400,6 +5439,80 @@ function MeetHistoryCard({
           {groups.length} meet{groups.length === 1 ? "" : "s"}
         </span>
       </div>
+      {totalsChartData.length >= 2 && (
+        <div style={{ padding: "var(--cloud-s4) var(--cloud-s4) 0" }}>
+          <div
+            className="cloud-text-dim mb-2"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+            }}
+          >
+            Total progression
+          </div>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height={224}>
+              <LineChart data={totalsChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
+                <XAxis
+                  dataKey="ts"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  tick={{ fontSize: 11, fill: chartText }}
+                  tickLine={false}
+                  tickFormatter={(ts: number) =>
+                    new Date(ts).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "2-digit",
+                    })
+                  }
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: chartText }}
+                  tickLine={false}
+                  domain={["auto", "auto"]}
+                  tickFormatter={(v: number) => `${Math.round(v)}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: chartTooltipBg,
+                    border: `1px solid ${chartTooltipBorder}`,
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                  labelFormatter={(label, payload) => {
+                    const ts = Number(label);
+                    const dateStr = Number.isFinite(ts)
+                      ? new Date(ts).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "";
+                    const meet =
+                      payload && payload[0]
+                        ? (payload[0].payload as { meet?: string }).meet
+                        : null;
+                    return meet ? `${meet} · ${dateStr}` : dateStr;
+                  }}
+                  formatter={(value) => [`${Number(value)} ${unit}`, "Total"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke={chartLine}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: chartLine }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
       <div className="space-y-3" style={{ padding: "var(--cloud-s4)" }}>
         {groups.map((g) => {
           
