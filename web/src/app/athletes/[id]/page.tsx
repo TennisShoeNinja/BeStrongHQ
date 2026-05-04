@@ -2749,8 +2749,8 @@ function ProgressionCharts({
   compMaxes: Types.CompetitionMaxForLift[];
 }) {
   const { resolvedMode } = useTheme();
-  const { tenantSettings } = useAuth();
-  const tracksRpe = tenantSettings.tracks_rpe;
+  const { instanceSettings } = useAuth();
+  const tracksRpe = instanceSettings.tracks_rpe;
   const [primaryOnly, setPrimaryOnly] = useState(false);
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [chartGranularity, setChartGranularity] = useState<"block" | "week">("block");

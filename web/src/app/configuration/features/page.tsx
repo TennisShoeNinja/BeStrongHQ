@@ -79,7 +79,7 @@ function ToggleRow({
 
 export default function FeaturesConfigurationPage() {
   const queryClient = useQueryClient();
-  const { tenantSettings, refresh: refreshAuth } = useAuth();
+  const { instanceSettings, refresh: refreshAuth } = useAuth();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -113,7 +113,7 @@ export default function FeaturesConfigurationPage() {
     defaultUnitMutation.variables ??
     (settings?.['default_unit'] === 'kg' ? 'kg' : 'lbs');
   const tracksRpe =
-    tracksRpeMutation.variables ?? tenantSettings.tracks_rpe;
+    tracksRpeMutation.variables ?? instanceSettings.tracks_rpe;
 
   return (
     <PageShell
