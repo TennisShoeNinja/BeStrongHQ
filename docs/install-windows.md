@@ -18,7 +18,11 @@ To verify, open **Command Prompt** (press the Windows key, type `cmd`, hit Enter
 python --version
 ```
 
-You should see Python 3.12 or similar. If you get "not recognized," restart your computer and try again.
+You should see Python 3.12 or similar.
+
+> If you get **"Python was not found; run without arguments to install from the Microsoft Store..."**, that's not a real error — it's a stub Windows ships with. Either you skipped the install above, or the stub is intercepting your real Python. Fix: open **Settings → Apps → Advanced app settings → App execution aliases** and turn off both `python.exe` and `python3.exe`. Close and reopen Command Prompt, then try `python --version` again.
+
+> If you get plain **"not recognized,"** you missed the "Add to PATH" checkbox. Re-run the installer, choose **Modify**, check that box, finish, and reopen Command Prompt.
 
 ## Step 2: Install Node.js
 
@@ -119,6 +123,8 @@ Your database and `.env` are preserved across updates — only the app code chan
 ## Troubleshooting
 
 **"python is not recognized"**. You missed the "Add to PATH" checkbox during Python install. Re-run the Python installer, choose **Modify**, check **"Add Python to environment variables"**, and finish. Close and reopen your terminal. (No need to fully uninstall.)
+
+**"Python was not found; run without arguments to install from the Microsoft Store..."**. This is the Microsoft Store stub kicking in. It means either (a) you don't actually have Python installed yet — go back to Step 1, or (b) you installed Python but the MS Store stub is winning the PATH race. To disable the stub: **Settings → Apps → Advanced app settings → App execution aliases**, then turn off both `python.exe` and `python3.exe`. Close and reopen your terminal.
 
 **"pip is not recognized"** (common in PowerShell). Use `python -m pip install -e .` instead of `pip install -e .`. The `python -m pip` form always works as long as `python` itself is on PATH, even when the standalone `pip` shim isn't.
 

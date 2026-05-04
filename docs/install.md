@@ -2,9 +2,11 @@
 
 Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine and your data stays local. Nothing is uploaded to us, nothing leaks to a third party, your athletes' data lives in a SQLite file on your own disk.
 
+> **First-time installer? Don't use Quick Start.** It assumes Python and Node are already installed. If you're new, jump straight to your platform's step-by-step guide below — they walk you through installing the prerequisites first.
+
 ## Quick Start
 
-You need Python 3.10+ and Node.js 20+ installed, then:
+You need Python 3.10+ and Node.js 20+ already installed, then:
 
 ```bash
 git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
