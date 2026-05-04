@@ -41,14 +41,36 @@ AUTH_EXEMPT_PATHS: tuple[str, ...] = (
 )
 
 
-try:
-    from bestrong_cloud import resolve_tenant_db as _plugin_resolver
-    from bestrong_cloud import is_platform_admin as _plugin_is_admin
-    from bestrong_cloud.api import AUTH_EXEMPT_PATHS as _plugin_exempt
-    AUTH_EXEMPT_PATHS = AUTH_EXEMPT_PATHS + _plugin_exempt
-except (ImportError, AttributeError):
-    _plugin_resolver = None
-    _plugin_is_admin = None
+def _lazy_plugin_resolver():
+    """Look up the optional tenant resolver at request time.
+
+    Mirrors the pattern in ``deps.py``. An eager top-level import would
+    fail silently if the cloud plugin is mid-initialization when this
+    module loads, permanently disabling tenant resolution for the process.
+    """
+    try:
+        from bestrong_cloud import resolve_tenant_db
+        return resolve_tenant_db
+    except ImportError:
+        return None
+
+
+def _lazy_plugin_is_admin():
+    """Look up the optional platform-admin check at request time."""
+    try:
+        from bestrong_cloud import is_platform_admin
+        return is_platform_admin
+    except ImportError:
+        return None
+
+
+def _exempt_paths() -> tuple[str, ...]:
+    """Return the auth-exempt path tuple, including any cloud-side additions."""
+    try:
+        from bestrong_cloud.api import AUTH_EXEMPT_PATHS as _plugin_exempt
+        return AUTH_EXEMPT_PATHS + _plugin_exempt
+    except (ImportError, AttributeError):
+        return AUTH_EXEMPT_PATHS
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -66,14 +88,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
 
-        for exempt in AUTH_EXEMPT_PATHS:
+        for exempt in _exempt_paths():
             if path == exempt or path.startswith(exempt + "/"):
                 return await call_next(request)
 
 
-        if _plugin_resolver is not None:
+        plugin_resolver = _lazy_plugin_resolver()
+        if plugin_resolver is not None:
             try:
-                db = _plugin_resolver(request)
+                db = plugin_resolver(request)
             except Exception:
                 security_log(
                     "auth_error",
@@ -142,8 +165,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
             if not allowed:
 
+                plugin_is_admin = _lazy_plugin_is_admin()
                 _is_platform_admin = bool(
-                    _plugin_is_admin and _plugin_is_admin(session.email)
+                    plugin_is_admin and plugin_is_admin(session.email)
                 )
 
                 if not _is_platform_admin:
