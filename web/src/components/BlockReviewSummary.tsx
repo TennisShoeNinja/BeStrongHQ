@@ -361,6 +361,7 @@ export default function BlockReviewSummary({
         width: "100%",
         background: isQueue ? "transparent" : undefined,
         border: isQueue ? "none" : undefined,
+        marginBottom: isQueue ? undefined : "var(--cloud-s5)",
       }}
     >
       {}
