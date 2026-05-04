@@ -13,8 +13,8 @@ What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
 - **DOTS and IPF GL Points.** OpenPowerlifting imports now capture each
   meet's DOTS score, and the importer computes IPF GL Points from the
   lifter's bodyweight, sex, equipment, and total. A score chip in the
-  chart heading shows the athlete's career best — click to swap which
-  formula sits on top of the other.
+  chart heading shows the athlete's career best, with one click to swap
+  which formula sits on top of the other.
 - **Best Total in current units.** The chart heading also shows the
   athlete's all-time best meet total in the unit currently selected at
   the top of the page.
@@ -22,8 +22,8 @@ What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
   `+N` delta vs. the previous meet (dim for regressions), respecting
   the active lbs/kg toggle.
 - **Podium medals on meet history.** Each meet row surfaces the
-  athlete's placing — 🥇 1st / 🥈 2nd / 🥉 3rd for podium finishes,
-  plain ordinals for 4th and beyond. Multi-division entries (e.g.,
+  athlete's placing (🥇 1st, 🥈 2nd, 🥉 3rd for podium finishes;
+  plain ordinals for 4th and beyond). Multi-division entries (e.g.,
   Open + Junior at the same meet) each get their own chip.
 - **Auto-fill athlete sex from OpenPowerlifting.** When a coach links a
   lifter and the local profile has no sex on file, the importer copies
