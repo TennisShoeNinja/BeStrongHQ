@@ -8914,7 +8914,7 @@ export default function AthleteDetailPage() {
               ) : (
                 <div
                   className="cloud-thin-scroll space-y-3"
-                  style={{ maxHeight: 800, overflowY: "auto", paddingRight: 4 }}
+                  style={{ maxHeight: 340, overflowY: "auto", paddingRight: 4 }}
                 >
                   {filteredPrograms.map((program) => (
                     <ProgramSection
