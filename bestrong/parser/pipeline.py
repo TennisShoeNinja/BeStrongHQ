@@ -62,7 +62,7 @@ def parse_file(path: str | Path, parser_id: str | None = None) -> ProgramData:
         if adapter is None:
             raise ParseError(
                 f"No adapter registered for parser_id={parser_id!r}. "
-                f"This tenant is configured to use a custom parser that "
+                f"This instance is configured to use a custom parser that "
                 f"is not installed in the current build."
             )
         return adapter.extract(wb, filename=path.name)

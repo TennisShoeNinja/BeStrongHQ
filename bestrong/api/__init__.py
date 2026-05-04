@@ -41,16 +41,16 @@ async def _lifespan(app):
 
         try:
             from bestrong_cloud.registry import list_active_subdomains, lookup_tenant
-            tenant_dbs = []
+            instance_dbs = []
             for subdomain in list_active_subdomains():
-                tenant = lookup_tenant(subdomain)
-                if tenant is not None:
-                    tenant_dbs.append(tenant.db_path)
+                record = lookup_tenant(subdomain)
+                if record is not None:
+                    instance_dbs.append(record.db_path)
         except Exception:
-            tenant_dbs = [None]
+            instance_dbs = [None]
 
-        for tenant_db_path in tenant_dbs:
-            factory = get_session_factory(tenant_db_path)
+        for instance_db_path in instance_dbs:
+            factory = get_session_factory(instance_db_path)
             db = factory()
             try:
                 if db.query(AllowedUser).count() == 0:
@@ -63,26 +63,26 @@ async def _lifespan(app):
                     try:
                         db.commit()
                         logger.info(
-                            "Hosted mode: seeded bootstrap admin (%s) for db=%s",
+                            "seeded bootstrap admin (%s) for db=%s",
                             bootstrap_email,
-                            tenant_db_path or "default",
+                            instance_db_path or "default",
                         )
                         from .security_logging import security_log
                         security_log(
                             "bootstrap_admin_created",
                             actor=bootstrap_email.lower(),
                             ip="server",
-                            detail=f"seeded at startup (hosted mode, db={tenant_db_path or 'default'})",
+                            detail=f"seeded at startup (db={instance_db_path or 'default'})",
                         )
                     except _IntegrityError:
 
                         db.rollback()
                         logger.info(
-                            "Hosted mode: bootstrap admin already exists (concurrent insert)"
+                            "bootstrap admin already exists (concurrent insert)"
                         )
                 else:
                     logger.info(
-                        "Hosted mode: allowed users already exist, skipping bootstrap seed"
+                        "allowed users already exist, skipping bootstrap seed"
                     )
             finally:
                 db.close()
@@ -179,8 +179,8 @@ def create_app():
     app.add_middleware(AuthMiddleware)
 
 
-    from .tenant_headers import TenantHeadersMiddleware
-    app.add_middleware(TenantHeadersMiddleware)
+    from .instance_headers import InstanceHeadersMiddleware
+    app.add_middleware(InstanceHeadersMiddleware)
 
 
     deployment_mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
@@ -189,7 +189,7 @@ def create_app():
         _env_origins = os.environ.get("ALLOWED_ORIGINS", "")
         _all_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
         if not _all_origins:
-            logger.warning("CORS: No ALLOWED_ORIGINS set in hosted mode, cross-origin requests will be blocked")
+            logger.warning("CORS: No ALLOWED_ORIGINS set, cross-origin requests will be blocked")
     else:
 
         _default_origins = [

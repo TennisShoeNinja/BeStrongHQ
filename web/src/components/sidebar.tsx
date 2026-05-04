@@ -136,7 +136,7 @@ function SidebarContent({
   setConfigurationOpen,
   isActive,
 }: SidebarContentProps) {
-  const { deploymentMode, tenant } = useAuth();
+  const { deploymentMode, instance } = useAuth();
   return (
     <div className="flex flex-col h-full cloud-sidebar">
       {}
@@ -146,8 +146,8 @@ function SidebarContent({
           <span className="cloud-brand-hq">HQ</span>
           <span className="cloud-brand-brace">{"}"}</span>
         </div>
-        {tenant?.org_name && (
-          <div className="cloud-brand-sub">{tenant.org_name}</div>
+        {instance?.org_name && (
+          <div className="cloud-brand-sub">{instance.org_name}</div>
         )}
       </div>
 

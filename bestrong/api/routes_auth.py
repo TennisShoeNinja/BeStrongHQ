@@ -69,12 +69,7 @@ def _get_google_client_secret() -> str:
 def _get_redirect_uri(request: Request) -> str:
     """Build the OAuth callback URI.
 
-    Hosted mode: uses the Host header (preserved by Caddy) with https.
-    The Host header is the standard HTTP header the browser sent, not
-    a proxy-added header like X-Forwarded-*. Each instance's callback
-    must be registered in Google Cloud Console.
-
-    Local mode: uses explicit env var or derives from the request.
+    Locally, derives from the request (or GOOGLE_REDIRECT_URI override).
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 
@@ -98,8 +93,7 @@ def _get_redirect_uri(request: Request) -> str:
 def _get_frontend_url(request: Request) -> str:
     """Get the frontend base URL for redirects after auth.
 
-    Hosted mode: uses the Host header (preserved by Caddy) with https.
-    Local mode: uses explicit env var or derives from the request.
+    Locally, derives from the request (or FRONTEND_URL override).
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 
@@ -152,17 +146,13 @@ def _deployment_mode() -> str:
 def is_auth_enabled(db: Session) -> bool:
     """Check whether auth is enabled.
 
-    In hosted mode, auth is ALWAYS enabled. The first admin is seeded
-    at startup via BOOTSTRAP_ADMIN_EMAIL, so there is never an
-    unprotected window.
-
-    In local mode, auth is ALWAYS disabled. A local install is the
-    coach's own machine; the database is the access boundary, not a
-    login screen. The earlier behavior turned auth on as soon as any
-    allowed_user row existed, which fired accidentally if the operator
-    ever clicked "Sign in with Google" (the OAuth callback used to
-    auto-create the first admin and flip the table from empty to
-    non-empty), permanently locking the local install behind login.
+    In local mode (the default), auth is ALWAYS disabled. A local
+    install is the coach's own machine; the database is the access
+    boundary, not a login screen. An earlier version turned auth on as
+    soon as any allowed_user row existed, which fired accidentally if
+    the operator ever clicked "Sign in with Google" (the OAuth callback
+    used to auto-create the first admin and flip the table from empty
+    to non-empty), permanently locking the local install behind login.
     """
     if _deployment_mode() == "cloud":
         return True
@@ -190,12 +180,12 @@ class AllowedUserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class TenantPublicInfo(BaseModel):
+class InstanceInfo(BaseModel):
     """Non-sensitive instance metadata for the current request.
 
-    Populated in hosted mode from the subdomain stamped on
-    request.state by the optional resolver. db_path is intentionally
-    excluded: it's host filesystem internals, not coach-facing info.
+    Populated by the optional resolver when configured. db_path is
+    intentionally excluded: it's host filesystem internals, not
+    coach-facing info.
     """
 
     subdomain: str
@@ -203,7 +193,7 @@ class TenantPublicInfo(BaseModel):
     parser_id: str
 
 
-class TenantSettings(BaseModel):
+class InstanceSettings(BaseModel):
     """Per-instance behavior toggles surfaced to the frontend.
 
     Read from the instance DB's ``settings`` key/value table at request
@@ -219,43 +209,43 @@ class AuthStatusResponse(BaseModel):
     auth_enabled: bool
     deployment_mode: str = "local"
     user: UserInfo | None = None
-    tenant: TenantPublicInfo | None = None
-    tenant_settings: TenantSettings = TenantSettings()
+    instance: InstanceInfo | None = None
+    instance_settings: InstanceSettings = InstanceSettings()
     features: list[str] = []
 
 
-def _resolve_tenant_settings(db: Session) -> TenantSettings:
+def _resolve_instance_settings(db: Session) -> InstanceSettings:
     """Surface per-instance behavior toggles for the frontend."""
     from ..utils.feature_flags import tracks_rpe
 
-    return TenantSettings(tracks_rpe=tracks_rpe(db))
+    return InstanceSettings(tracks_rpe=tracks_rpe(db))
 
 
-def _resolve_tenant_info(request: Request) -> TenantPublicInfo | None:
-    """Look up the current request's instance from the control-plane registry.
+def _resolve_instance_info(request: Request) -> InstanceInfo | None:
+    """Look up the current request's instance from an optional registry.
 
-    Returns None in local mode or when the optional resolver isn't wired in.
-    The subdomain was stamped on request.state by the resolver running
-    inside the get_db dependency.
+    Returns None in local mode or when no resolver is wired in. The
+    subdomain (if any) was stamped on request.state by the resolver
+    running inside the get_db dependency.
     """
     if _deployment_mode() != "cloud":
         return None
 
-    subdomain = getattr(request.state, "tenant_subdomain", None)
+    subdomain = getattr(request.state, "instance_subdomain", None)
     if not subdomain:
         return None
 
     if _plugin_lookup_tenant is None:
         return None
 
-    tenant = _plugin_lookup_tenant(subdomain)
-    if tenant is None:
+    record = _plugin_lookup_tenant(subdomain)
+    if record is None:
         return None
 
-    return TenantPublicInfo(
-        subdomain=tenant.subdomain,
-        org_name=tenant.org_name,
-        parser_id=tenant.parser_id,
+    return InstanceInfo(
+        subdomain=record.subdomain,
+        org_name=record.org_name,
+        parser_id=record.parser_id,
     )
 
 
@@ -292,8 +282,8 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
     """Check if the user is authenticated and if auth is enabled."""
     enabled = is_auth_enabled(db)
     mode = _deployment_mode()
-    tenant = _resolve_tenant_info(request)
-    tenant_settings = _resolve_tenant_settings(db)
+    instance = _resolve_instance_info(request)
+    instance_settings = _resolve_instance_settings(db)
     features = _resolve_features(request)
 
     if not enabled:
@@ -302,8 +292,8 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
             authenticated=True,
             auth_enabled=False,
             deployment_mode=mode,
-            tenant=tenant,
-            tenant_settings=tenant_settings,
+            instance=instance,
+            instance_settings=instance_settings,
             features=features,
         )
 
@@ -313,8 +303,8 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
             authenticated=False,
             auth_enabled=True,
             deployment_mode=mode,
-            tenant=tenant,
-            tenant_settings=tenant_settings,
+            instance=instance,
+            instance_settings=instance_settings,
             features=features,
         )
 
@@ -330,8 +320,8 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
             authenticated=False,
             auth_enabled=True,
             deployment_mode=mode,
-            tenant=tenant,
-            tenant_settings=tenant_settings,
+            instance=instance,
+            instance_settings=instance_settings,
             features=features,
         )
 
@@ -347,8 +337,8 @@ def auth_status(request: Request, db: Session = Depends(get_db)):
             name=session.name,
             picture=session.picture,
         ),
-        tenant=tenant,
-        tenant_settings=tenant_settings,
+        instance=instance,
+        instance_settings=instance_settings,
         features=features,
     )
 
@@ -550,13 +540,13 @@ def callback(
     db.commit()
 
 
-    subdomain = getattr(request.state, "tenant_subdomain", None)
+    subdomain = getattr(request.state, "instance_subdomain", None)
     if _is_platform_admin and subdomain:
         security_log(
             "login_success",
             actor=email,
             request=request,
-            detail=f"platform_admin tenant={subdomain}",
+            detail=f"platform_admin instance={subdomain}",
         )
     else:
         security_log("login_success", actor=email, request=request)
@@ -610,7 +600,7 @@ def _require_admin(request: Request, db: Session) -> AllowedUser | None:
 
 @router.get("/allowed-users", response_model=list[AllowedUserResponse])
 def list_allowed_users(request: Request, db: Session = Depends(get_db)):
-    """List all allowed users. Admin only in hosted mode."""
+    """List all allowed users. Admin-only when auth is enabled."""
     if _deployment_mode() == "cloud":
         _require_admin(request, db)
     return db.query(AllowedUser).order_by(AllowedUser.email).all()
@@ -624,9 +614,9 @@ def add_allowed_user(
 ):
     """Add a new allowed user email. Admin only.
 
-    In hosted mode, admin auth is always required (the first admin is
-    seeded at startup). In local mode, the first user added when the
-    list is empty automatically becomes admin without auth.
+    When auth is enabled, admin auth is always required (the first
+    admin is seeded at startup). In local mode, the first user added
+    when the list is empty automatically becomes admin without auth.
     """
     email = data.email.lower().strip()
 

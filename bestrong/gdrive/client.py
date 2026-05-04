@@ -67,15 +67,9 @@ def _get_google_client_secret() -> str:
 def _get_gdrive_redirect_uri(request=None) -> str:
     """Build the GDrive OAuth callback URI.
 
-    Hosted mode: uses the Host header (preserved by Caddy) so each instance's
-    subdomain is preserved through the OAuth round-trip. Each instance's
-    callback must be registered in Google Cloud Console.
-
-    Local mode: uses FRONTEND_URL override if set, otherwise points at
+    Locally, uses FRONTEND_URL override if set, otherwise points at
     FastAPI on 127.0.0.1:8080 so the browser hits the API directly for
     the callback and NEXT_PUBLIC_API_URL isn't required.
-
-    Never trusts X-Forwarded-* headers.
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 

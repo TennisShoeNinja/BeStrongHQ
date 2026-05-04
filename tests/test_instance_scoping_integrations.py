@@ -10,12 +10,12 @@ def _open_db(path: Path):
     return get_session(path)
 
 
-def test_gcal_settings_are_scoped_to_the_provided_tenant_db(tmp_path):
-    tenant_a = tmp_path / "tenant-a.db"
-    tenant_b = tmp_path / "tenant-b.db"
+def test_gcal_settings_are_scoped_to_the_provided_instance_db(tmp_path):
+    instance_a = tmp_path / "instance-a.db"
+    instance_b = tmp_path / "instance-b.db"
 
-    db_a = _open_db(tenant_a)
-    db_b = _open_db(tenant_b)
+    db_a = _open_db(instance_a)
+    db_b = _open_db(instance_b)
 
     try:
         gcal_client.set_calendar_id("calendar-a", db=db_a)
@@ -36,16 +36,16 @@ def test_gcal_settings_are_scoped_to_the_provided_tenant_db(tmp_path):
         db_b.close()
 
 
-def test_gdrive_scheduler_instances_are_scoped_per_tenant_db(tmp_path, monkeypatch):
-    tenant_a = tmp_path / "tenant-a.db"
-    tenant_b = tmp_path / "tenant-b.db"
-    init_db(tenant_a)
-    init_db(tenant_b)
+def test_gdrive_scheduler_instances_are_scoped_per_instance_db(tmp_path, monkeypatch):
+    instance_a = tmp_path / "instance-a.db"
+    instance_b = tmp_path / "instance-b.db"
+    init_db(instance_a)
+    init_db(instance_b)
 
     monkeypatch.setattr(SyncScheduler, "start", lambda self: None)
 
-    scheduler_a = get_scheduler(tenant_a)
-    scheduler_b = get_scheduler(tenant_b)
+    scheduler_a = get_scheduler(instance_a)
+    scheduler_b = get_scheduler(instance_b)
 
     scheduler_a.set_interval(15)
 

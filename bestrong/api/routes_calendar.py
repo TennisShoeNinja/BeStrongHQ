@@ -126,10 +126,7 @@ class SyncErrorsResponse(BaseModel):
 def _get_frontend_url(request: Request) -> str:
     """Build the frontend base URL for redirecting after OAuth completes.
 
-    Hosted mode: uses the request Host header so each instance stays on
-    their own subdomain through the round-trip.
-    Local mode: uses ``FRONTEND_URL`` override or derives from the request.
-    Never trusts X-Forwarded-* headers.
+    Locally, uses ``FRONTEND_URL`` override or derives from the request.
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 

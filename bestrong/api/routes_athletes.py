@@ -580,8 +580,9 @@ def merge_athletes(
                 {model.athlete_id: athlete_id}, synchronize_session="fetch"
             )
 
-        # Cloud-side billing rows: reassign opportunistically. The public
-        # build doesn't ship the billing plugin, so swallow ImportError.
+        # Optional sibling-package rows that reference athlete_id:
+        # reassign opportunistically. Swallow ImportError when the
+        # sibling package isn't installed.
         try:
             from bestrong_cloud.billing.models import FailedPayment
         except ImportError:

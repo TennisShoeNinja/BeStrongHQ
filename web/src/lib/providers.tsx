@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { ThemeProvider } from "./theme-provider";
 import { AuthProvider } from "./auth-provider";
-import { TenantChrome } from "@/components/tenant-chrome";
+import { InstanceChrome } from "@/components/instance-chrome";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <TenantChrome />
+          <InstanceChrome />
           {children}
         </AuthProvider>
       </ThemeProvider>

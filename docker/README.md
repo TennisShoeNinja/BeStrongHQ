@@ -1,4 +1,4 @@
-# BeStrong HQ - Docker (Community Edition)
+# BeStrong HQ - Docker
 
 Run BeStrong HQ in a single Docker container. Same app as the bare-metal install (Python + Next.js), just packaged so you don't have to install the toolchain on your host. Both the FastAPI backend (port 8080) and the Next.js UI (port 3000) run inside one container.
 
@@ -108,14 +108,6 @@ ports:
 
 Then `docker compose up -d` again. The app will be reachable at `http://YOUR_HOST_IP:3000`. Remember to register `http://YOUR_HOST_IP:8080/api/gdrive/auth/callback` as an additional OAuth redirect URI in your Google Cloud project.
 
-## What this Docker setup is NOT
+## Local-only by default
 
-This is the **Community Edition** — local, single-tenant, no auth required (the local SQLite is your access boundary). It deliberately does not include:
-
-- Sentry monitoring
-- Multi-tenant routing
-- Cloud auth / OAuth login (you don't need to log in at all locally)
-- The marketing website service
-- The `bestrong_cloud` plugin overlay
-
-Those live in a separate private deployment configuration.
+The app runs as a single instance on your machine: no login, no remote access, the local SQLite file is the access boundary. If you bind the ports to `0.0.0.0` for LAN access (see the section above), make sure your network is trusted — there's no application-level auth on the local install.

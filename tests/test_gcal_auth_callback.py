@@ -31,7 +31,7 @@ def app_client(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "fake-client-id")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "fake-client-secret")
 
-    db_path = tmp_path / "tenant.db"
+    db_path = tmp_path / "instance.db"
     engine = get_engine(db_path)
     Base.metadata.create_all(bind=engine)
     factory = get_session_factory(db_path)

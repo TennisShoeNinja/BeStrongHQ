@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 
 
-export function TenantChrome() {
+export function InstanceChrome() {
   const { data } = useQuery({
     queryKey: ["branding"],
     queryFn: () => apiClient.getBranding(),

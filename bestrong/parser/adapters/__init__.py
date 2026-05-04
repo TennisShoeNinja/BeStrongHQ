@@ -1,18 +1,10 @@
 """Parser adapters for different spreadsheet formats.
 
 Each adapter knows how to detect and parse a specific spreadsheet layout.
-The registry auto-discovers adapters and selects the right one for a given workbook.
-
-Discovery is two-tier:
-  1. An plugin package (``bestrong_cloud.parser.adapters``) is imported first
-     when present. Adapters defined there register themselves ahead of the
-     bundled defaults and win ``find_adapter`` precedence.
-  2. The default adapter shipped with this package (``bestrong_parser``) is
-     imported unconditionally as a fallback for the included templates.
-
-Installs without the plugin package see only the bundled adapter; the
-overlay-import failure is swallowed silently so a missing overlay is not
-an error.
+The registry auto-discovers adapters and selects the right one for a given
+workbook. The default adapter shipped with this package (``bestrong_parser``)
+is imported unconditionally and handles the bundled templates; additional
+adapters dropped into this directory are picked up automatically.
 """
 
 from __future__ import annotations
@@ -150,12 +142,11 @@ def find_adapter(workbook: openpyxl.Workbook) -> BaseAdapter | None:
 def find_adapter_by_id(parser_id: str) -> BaseAdapter | None:
     """Find a registered adapter whose ``name`` equals ``parser_id``.
 
-    Used by the import pipeline when the calling instance has a configured
-    parser_id. Returns ``None`` when no adapter with that name has been
-    registered — the caller is expected to surface that as a clear error
-    rather than fall back to ``find_adapter``, since the absence of a
-    named adapter for a paying instance is an installation problem, not a
-    classification problem.
+    Used when the import pipeline has a configured parser_id. Returns
+    ``None`` when no adapter with that name has been registered — the
+    caller surfaces that as a clear error rather than falling back to
+    ``find_adapter``, since a missing named adapter is an installation
+    problem, not a classification problem.
     """
     for adapter_cls in _registry:
         if adapter_cls.name == parser_id:
@@ -166,15 +157,15 @@ def find_adapter_by_id(parser_id: str) -> BaseAdapter | None:
 def has_adapter(parser_id: str | None) -> bool:
     """Return True when an adapter named ``parser_id`` is registered.
 
-    ``None`` short-circuits to True so callers in local mode (no instance
-    parser_id configured) take the parse-on-import path that auto-detects
-    via ``can_parse``. Hosted-mode instances with a configured-but-missing
-    adapter return False, which the GDrive sync layer uses to switch to
+    ``None`` short-circuits to True so callers without a configured
+    parser_id take the parse-on-import path that auto-detects via
+    ``can_parse``. When a parser_id is configured but no adapter with
+    that name exists, the GDrive sync layer uses False to switch to
     download-only staging until the adapter is built.
 
-    Defensively triggers overlay + bundled-adapter discovery before
-    inspecting the registry — callers (sync layer, CLI) shouldn't have to
-    remember to import ``bestrong.parser.pipeline`` first to populate it.
+    Defensively triggers adapter discovery before inspecting the
+    registry — callers (sync layer, CLI) shouldn't have to remember to
+    import ``bestrong.parser.pipeline`` first to populate it.
     """
     if parser_id is None:
         return True
@@ -192,18 +183,11 @@ _overlay_loaded = False
 
 
 def load_overlay_adapters(package_name: str = "bestrong_cloud.parser.adapters") -> int:
-    """Import every adapter module in the plugin package, if it exists.
+    """Import every adapter module in an optional sibling package, if present.
 
-    The plugin is organized as one sub-package per instance
-    (``<overlay>/<subdomain>/parser.py``); the per-instance ``__init__``
-    re-exports from ``parser`` so importing the sub-package fires the
-    ``@register`` decorator. Top-level modules in the plugin (rare) are
-    also imported, so a flat one-file-per-instance layout still works.
-
-    Returns the number of overlay modules imported. Idempotent — repeat
-    calls are no-ops after the first successful run. Silently treats a
-    missing overlay as zero modules: Community installs do not ship one,
-    and that is the supported configuration.
+    Returns the number of modules imported. Idempotent — repeat calls are
+    no-ops after the first successful run. A missing package is treated
+    as zero modules and is the supported default configuration.
     """
     global _overlay_loaded
     if _overlay_loaded:

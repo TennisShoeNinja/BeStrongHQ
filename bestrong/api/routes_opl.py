@@ -1,15 +1,14 @@
 """OpenPowerlifting integration endpoints — search, link, refresh, unlink.
 
-Available in both local and hosted deployments. The OpenPowerlifting
-dataset is public domain so there's no per-tenant configuration to
-gate behind; the auth middleware already protects these endpoints in
-hosted mode at the request level.
+The OpenPowerlifting dataset is public domain, so no configuration
+gates the lookup. When auth is enabled, the standard auth middleware
+protects these endpoints at the request level.
 
-Imported meets land directly in the public ``meet_results`` table with
-``source='opl'`` so the existing athlete-profile MeetHistoryCard renders
-them with no special-case code. The ``opl_meets`` table from the
-earlier prototype is no longer written to; it's left in place to avoid
-forcing a destructive migration on existing self-hosted DBs.
+Imported meets land directly in the ``meet_results`` table with
+``source='opl'`` so the existing athlete-profile MeetHistoryCard
+renders them with no special-case code. The ``opl_meets`` table from
+the earlier prototype is no longer written to; it's left in place to
+avoid forcing a destructive migration on existing DBs.
 """
 
 from __future__ import annotations

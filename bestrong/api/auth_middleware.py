@@ -1,13 +1,9 @@
 """Authentication middleware for FastAPI.
 
-When auth is enabled, all API routes require a valid session cookie
-except for auth-related endpoints and the health check.
-
-Auth behaviour depends on DEPLOYMENT_MODE:
-  - "local" (default): auth middleware is bypassed entirely.
-    The app is only reachable on localhost, so auth adds no value.
-  - "cloud": auth is always enforced. Every /api/ route requires
-    a valid session cookie unless explicitly exempted below.
+In the default local mode the middleware is bypassed entirely (the app
+is only reachable on localhost, so auth adds no value). Setting
+DEPLOYMENT_MODE to anything else enforces a session cookie on every
+/api/ route except the explicitly exempted auth/health endpoints.
 """
 
 from __future__ import annotations
@@ -78,12 +74,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 security_log(
                     "auth_error",
                     request=request,
-                    detail=f"tenant resolution failed path={path}",
+                    detail=f"instance resolution failed path={path}",
                     level=logging.WARNING,
                 )
                 return JSONResponse(
                     status_code=500,
-                    content={"detail": "Could not resolve tenant"},
+                    content={"detail": "Could not resolve instance"},
                 )
         else:
             factory = get_session_factory()

@@ -27,7 +27,7 @@ type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 
 export default function SystemConfigurationPage() {
   const queryClient = useQueryClient();
-  const { deploymentMode, tenant } = useAuth();
+  const { deploymentMode, instance } = useAuth();
   const [apiBaseUrlDraft, setApiBaseUrlDraft] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>('idle');
@@ -258,7 +258,7 @@ export default function SystemConfigurationPage() {
                 />
               }
             >
-              {tenant ? (
+              {instance ? (
                 <div className="flex flex-col" style={{ gap: 0 }}>
                   <div
                     className="flex items-baseline justify-between"
@@ -275,7 +275,7 @@ export default function SystemConfigurationPage() {
                       className="cloud-text"
                       style={{ fontSize: 13, textAlign: 'right' }}
                     >
-                      {tenant.org_name}
+                      {instance.org_name}
                     </span>
                   </div>
                   <div
@@ -298,7 +298,7 @@ export default function SystemConfigurationPage() {
                           'ui-monospace, SFMono-Regular, Menlo, monospace',
                       }}
                     >
-                      {tenant.subdomain}
+                      {instance.subdomain}
                     </span>
                   </div>
                   <div
@@ -317,14 +317,14 @@ export default function SystemConfigurationPage() {
                           'ui-monospace, SFMono-Regular, Menlo, monospace',
                       }}
                     >
-                      {tenant.parser_id}
+                      {instance.parser_id}
                     </span>
                   </div>
                   <p
                     className="cloud-text-muted"
                     style={{ fontSize: 11, marginTop: 12, lineHeight: 1.55 }}
                   >
-                    This session is connected to {tenant.org_name}&rsquo;s
+                    This session is connected to {instance.org_name}&rsquo;s
                     isolated database. Each workspace has its own data store,
                     nothing is shared across workspaces.
                   </p>

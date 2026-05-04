@@ -222,19 +222,19 @@ def start_scheduler():
         try:
             from bestrong_cloud.registry import list_active_subdomains, lookup_tenant
         except ImportError:
-            logger.info("Cloud scheduler startup skipped — no cloud registry available")
+            logger.info("Multi-instance scheduler startup skipped — no registry available")
             return
 
         started = 0
         for subdomain in list_active_subdomains():
-            tenant = lookup_tenant(subdomain)
-            if tenant is None:
+            record = lookup_tenant(subdomain)
+            if record is None:
                 continue
-            scheduler = get_scheduler(tenant.db_path)
+            scheduler = get_scheduler(record.db_path)
             if scheduler._interval_minutes > 0:
                 scheduler.start()
                 started += 1
-        logger.info("Auto-sync schedulers started for %d tenant(s)", started)
+        logger.info("Auto-sync schedulers started for %d instance(s)", started)
         return
 
     scheduler = get_scheduler()

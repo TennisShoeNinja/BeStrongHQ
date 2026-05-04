@@ -9,9 +9,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
   ? process.env.NEXT_PUBLIC_API_URL + "/api"
   : "/api";
 
-function verifyTenantHeader(headerValue: string | undefined | null): void {
-  if (typeof window === "undefined") return; 
-  if (!headerValue) return; 
+function verifyInstanceHeader(headerValue: string | undefined | null): void {
+  if (typeof window === "undefined") return;
+  if (!headerValue) return;
 
   const expected = window.location.hostname.split(".")[0].toLowerCase();
   const actual = String(headerValue).toLowerCase();
@@ -20,21 +20,21 @@ function verifyTenantHeader(headerValue: string | undefined | null): void {
   try {
     window.localStorage.clear();
   } catch {
-    
+
   }
   try {
     window.sessionStorage.clear();
   } catch {
-    
+
   }
 
-  
-  
-  
-  window.location.replace("/login?error=tenant_mismatch");
-  
+
+
+
+  window.location.replace("/login?error=instance_mismatch");
+
   throw new Error(
-    `Tenant mismatch: expected "${expected}", got "${actual}"`
+    `Instance mismatch: expected "${expected}", got "${actual}"`
   );
 }
 
@@ -84,16 +84,16 @@ class APIClient {
     
     this.client.interceptors.response.use(
       (response) => {
-        verifyTenantHeader(response.headers?.["x-tenant-subdomain"]);
+        verifyInstanceHeader(response.headers?.["x-instance-subdomain"]);
         return response;
       },
       (error: AxiosError) => {
         if (error.response) {
-          
-          
-          verifyTenantHeader(
+
+
+          verifyInstanceHeader(
             (error.response.headers as Record<string, string> | undefined)?.[
-              "x-tenant-subdomain"
+              "x-instance-subdomain"
             ]
           );
           
@@ -938,7 +938,7 @@ class APIClient {
       throw new APIError(response.status, detail, response.statusText);
     }
 
-    verifyTenantHeader(response.headers.get("x-tenant-subdomain"));
+    verifyInstanceHeader(response.headers.get("x-instance-subdomain"));
 
     if (!response.body) {
       throw new Error("Streaming organize response had no body.");
