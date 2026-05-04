@@ -1305,6 +1305,19 @@ function OplLinkDialog({
     enabled: open,
   });
 
+  // Prefill the search field with the athlete's name when the dialog opens
+  // for an unlinked athlete, and auto-submit so the candidate list shows up
+  // without an extra click.
+  const linkedSlug = statusQuery.data?.linked === true ? statusQuery.data.link?.slug : null;
+  useEffect(() => {
+    if (!open) return;
+    if (linkedSlug) return;
+    const seed = (athleteName ?? "").trim();
+    if (!seed) return;
+    setSearchTerm((prev) => (prev ? prev : seed));
+    setSearchSubmitted((prev) => (prev ? prev : seed));
+  }, [open, linkedSlug, athleteName]);
+
   const searchQuery = useQuery({
     queryKey: ["opl", "search", searchSubmitted],
     queryFn: () => apiClient.searchOpenPowerlifting(searchSubmitted),
