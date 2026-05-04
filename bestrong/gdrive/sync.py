@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -44,36 +43,21 @@ SKIP_FILENAME_PATTERNS = [
 ]
 
 
-_PROGRAM_TITLE_RE = re.compile(
-    r"program\s*\d+\s*[-–—]?\s*\(?\d{1,2}/\d{1,2}/\d{2,4}",
-    re.IGNORECASE,
-)
+def _is_program_sheet(name: str) -> bool:
+    """Return True if the sheet name could be a training program.
 
-
-def _is_program_sheet(name: str, *, require_program_keyword: bool = True) -> bool:
-    """Return True if the sheet name looks like a training program.
-
-    Always skips known non-program patterns (attempt sheets, gut cuts,
-    etc.); those categories are universal across coaches.
-
-    When ``require_program_keyword`` is True (the default for instances
-    whose adapter follows the bundled "Program N (MM/DD/YY...)" naming
-    convention), also requires the filename to contain "program" so
-    attempt selectors and other one-off sheets are excluded.
-    Staging-mode callers (no adapter yet) pass False so the corpus is
-    captured before the instance's naming convention is known.
+    Only filters out the universal non-program filename patterns
+    (attempt selectors, gut/water cuts, calculators, etc.) that no
+    coach uses for actual programs. The affirmative "is this a
+    program?" decision is left to each adapter's ``can_parse`` so
+    coach-specific naming conventions are not second-guessed at the
+    sync layer.
     """
     lower = name.lower()
     for pattern in SKIP_FILENAME_PATTERNS:
         if pattern in lower:
             return False
-    if not require_program_keyword:
-        return True
-    if _PROGRAM_TITLE_RE.search(name):
-        return True
-    if "program" in lower:
-        return True
-    return False
+    return True
 
 
 @dataclass
@@ -421,7 +405,7 @@ def sync_folder(
                 continue
 
 
-            if not _is_program_sheet(file_name, require_program_keyword=parser_ready):
+            if not _is_program_sheet(file_name):
                 result.skipped.append({
                     "id": file_id,
                     "name": file_name,

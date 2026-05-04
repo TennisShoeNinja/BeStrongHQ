@@ -518,3 +518,33 @@ class TestSyncFolderForce:
             + [e["id"] for e in result.errors]
         )
         assert "sheet-1" in attempted
+
+
+class TestIsProgramSheet:
+    """Sync defers the 'is this a program?' decision to the parser.
+
+    Only the universal non-program filename patterns (attempt selectors,
+    cuts, calculators) are filtered upstream. Custom adapters with their
+    own filename conventions must flow through so the parser's can_parse
+    is the authoritative classifier.
+    """
+
+    def test_universal_skip_patterns_still_rejected(self):
+        from bestrong.gdrive.sync import _is_program_sheet
+        assert _is_program_sheet("Attempt Selection.xlsx") is False
+        assert _is_program_sheet("Gut Cut Plan.xlsx") is False
+        assert _is_program_sheet("Water Cut.xlsx") is False
+        assert _is_program_sheet("Warmup Loads Calculator.xlsx") is False
+
+    def test_custom_adapter_filenames_pass_through(self):
+        from bestrong.gdrive.sync import _is_program_sheet
+        # Filenames without the "program" keyword used to be rejected.
+        assert _is_program_sheet("Athlete Name 6.xlsx") is True
+        assert _is_program_sheet("Athlete Name Mesocycle 78.xlsx") is True
+        assert _is_program_sheet("Athlete Name R3.xlsx") is True
+        assert _is_program_sheet("Athlete (9/5/21-9/26/21).xlsx") is True
+
+    def test_bundled_template_filenames_still_pass(self):
+        from bestrong.gdrive.sync import _is_program_sheet
+        assert _is_program_sheet("Athlete Program 1.xlsx") is True
+        assert _is_program_sheet("Program 5 (9/26/25).xlsx") is True
