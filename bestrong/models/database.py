@@ -145,6 +145,7 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("price", "REAL"),
         ("product_name", "VARCHAR(200)"),
         ("billing_customer_id", "VARCHAR(200)"),
+        ("last_payment_date", "VARCHAR(20)"),
         ("portal_last_login_at", "DATETIME"),
         ("portal_disabled", "INTEGER NOT NULL DEFAULT 0"),
     ],

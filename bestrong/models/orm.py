@@ -98,6 +98,7 @@ class Athlete(Base):
     price: Mapped[float | None] = mapped_column(Float, nullable=True)
     product_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     billing_customer_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    last_payment_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     reminder_days_before: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
     primary_squat_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     primary_bench_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
