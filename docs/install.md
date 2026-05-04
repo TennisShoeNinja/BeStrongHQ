@@ -1,6 +1,6 @@
-# Install BeStrong HQ (Community Edition)
+# Install BeStrong HQ
 
-Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine via Docker and your data stays local. Nothing is uploaded to us, nothing leaks to a third party — your athletes' data lives in a SQLite file inside a Docker volume on your own disk.
+BeStrong HQ is free and self-hosted. Install it on your own machine via Docker and your data stays local. Nothing is uploaded to us, nothing leaks to a third party — your athletes' data lives in a SQLite file inside a Docker volume on your own disk.
 
 > **Drive sync is the only way to import program spreadsheets** — there's no manual file upload. You'll need to set up Google Drive OAuth credentials before your first sync. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
 

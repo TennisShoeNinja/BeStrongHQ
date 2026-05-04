@@ -185,11 +185,7 @@ class ResyncAllResponse(BaseModel):
 def _get_frontend_url(request: Request) -> str:
     """Get the frontend base URL for redirects after GDrive auth.
 
-    Hosted mode: uses the Host header so each instance stays on their
-    subdomain through the OAuth round-trip.
-
-    Local mode: uses FRONTEND_URL override or derives from the request.
-    Never trusts X-Forwarded-* headers.
+    Locally, uses FRONTEND_URL override or derives from the request.
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 

@@ -11,7 +11,7 @@ from bestrong.models.orm import Athlete, Base
 
 @pytest.fixture
 def factory(tmp_path):
-    db_path = tmp_path / "tenant.db"
+    db_path = tmp_path / "instance.db"
     engine = get_engine(db_path)
     Base.metadata.create_all(bind=engine)
     return get_session_factory(db_path)

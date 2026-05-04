@@ -26,13 +26,13 @@ const REPO_URL = "https://github.com/TennisShoeNinja/BeStrongHQ";
 type FeedbackType = "bug" | "feedback" | "question";
 
 export function FeedbackDialog() {
-  const { deploymentMode, tenant } = useAuth();
+  const { deploymentMode, instance } = useAuth();
   const [open, setOpen] = useState(false);
 
-  
-  
-  
-  const useInAppForm = deploymentMode === "cloud" && tenant?.subdomain !== "demo";
+
+
+
+  const useInAppForm = deploymentMode === "cloud" && instance?.subdomain !== "demo";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

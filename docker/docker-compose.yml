@@ -1,4 +1,4 @@
-# BeStrong HQ - Community Edition (local Docker setup)
+# BeStrong HQ - local Docker setup
 #
 # Usage:
 #   cd docker
@@ -21,7 +21,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: bestrong-hq:community
+    image: bestrong-hq:local
     container_name: bestrong-hq
     restart: unless-stopped
     ports:

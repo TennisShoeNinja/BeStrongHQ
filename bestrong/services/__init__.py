@@ -13,12 +13,11 @@ from ..parser.pipeline import parse_file
 
 
 def _resolve_parser_id(db: DBSession | None, db_path: str | Path | None) -> str | None:
-    """Look up the calling instance's parser_id via the optional plugin if installed.
+    """Look up a configured parser_id via an optional sibling registry.
 
-    Returns ``None`` when the optional plugin is absent or when the path
-    doesn't match any registered instance. Callers should treat ``None`` as
-    "use auto-detection" — the same behaviour the public package had before
-    parser_id-aware routing landed.
+    Returns ``None`` when the registry is absent or when the path doesn't
+    match a registered entry. Callers should treat ``None`` as "use
+    auto-detection".
     """
     try:
         from bestrong_cloud.registry import lookup_tenant_by_db_path
@@ -38,8 +37,8 @@ def _resolve_parser_id(db: DBSession | None, db_path: str | Path | None) -> str 
     if not resolved_path:
         return None
 
-    tenant = lookup_tenant_by_db_path(resolved_path)
-    return tenant.parser_id if tenant else None
+    record = lookup_tenant_by_db_path(resolved_path)
+    return record.parser_id if record else None
 
 
 resolve_parser_id = _resolve_parser_id

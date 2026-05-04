@@ -816,13 +816,13 @@ export interface AuthUserInfo {
   picture: string | null;
 }
 
-export interface TenantInfo {
+export interface InstanceInfo {
   subdomain: string;
   org_name: string;
   parser_id: string;
 }
 
-export interface TenantSettings {
+export interface InstanceSettings {
   tracks_rpe: boolean;
 }
 
@@ -831,8 +831,8 @@ export interface AuthStatusResponse {
   auth_enabled: boolean;
   deployment_mode: string;
   user: AuthUserInfo | null;
-  tenant: TenantInfo | null;
-  tenant_settings: TenantSettings;
+  instance: InstanceInfo | null;
+  instance_settings: InstanceSettings;
   features: string[];
 }
 

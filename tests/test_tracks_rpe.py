@@ -89,7 +89,7 @@ def _set_tracks_rpe(factory, value: bool) -> None:
 @pytest.fixture
 def app_client(tmp_path):
     """Fresh app + instance DB per test."""
-    db_path = tmp_path / "tenant.db"
+    db_path = tmp_path / "instance.db"
     engine = get_engine(db_path)
     Base.metadata.create_all(bind=engine)
     factory = get_session_factory(db_path)
@@ -115,7 +115,7 @@ def test_auth_status_default_tracks_rpe_true(app_client):
     resp = client.get("/api/auth/status")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["tenant_settings"]["tracks_rpe"] is True
+    assert body["instance_settings"]["tracks_rpe"] is True
 
 
 def test_auth_status_reflects_disabled_tracks_rpe(app_client):
@@ -125,7 +125,7 @@ def test_auth_status_reflects_disabled_tracks_rpe(app_client):
     resp = client.get("/api/auth/status")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["tenant_settings"]["tracks_rpe"] is False
+    assert body["instance_settings"]["tracks_rpe"] is False
 
 
 def test_estimated_max_returns_empty_when_rpe_required_but_missing(app_client):

@@ -19,9 +19,7 @@ The parser engine auto-discovers all registered adapters at startup and picks th
 
 ### Where the file goes
 
-If you're **self-hosting** the Community edition (this guide's audience), drop your adapter in `bestrong/parser/adapters/` alongside the bundled `bestrong_parser.py`. That's the only path the public package ships with, and the loader picks up everything in there automatically.
-
-If you're on the **Hosted version**, you don't write or place the file yourself. Alex builds it and it lands in the private hosted overlay (a separate directory not part of the open-source package). Same `BaseAdapter` interface, same workflow on your end: tell us your spreadsheet format and we install it. This is what the "custom parser" line item on Team and Gym plans covers.
+Drop your adapter in `bestrong/parser/adapters/` alongside the bundled `bestrong_parser.py`. The loader picks up everything in that directory automatically — no registration step.
 
 ## The data shape you need to produce
 

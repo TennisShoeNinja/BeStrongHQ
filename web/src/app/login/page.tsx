@@ -11,7 +11,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const { tenant, loading: authLoading } = useAuth();
+  const { instance, loading: authLoading } = useAuth();
   const error = searchParams.get('error');
   const email = searchParams.get('email');
   const setup = searchParams.get('setup');
@@ -46,9 +46,9 @@ function LoginContent() {
       setErrorMessage(
         `${email} is not on the allowed users list. Contact your admin to get access.`
       );
-    } else if (error === 'tenant_mismatch') {
+    } else if (error === 'instance_mismatch') {
       setErrorMessage(
-        'Signed out for safety: a response was received from a different tenant than expected. Please sign in again.'
+        'Signed out for safety: a response was received from a different instance than expected. Please sign in again.'
       );
     } else if (error === 'invalid_state' || error === 'state_expired') {
       setErrorMessage('Login session expired. Please try again.');

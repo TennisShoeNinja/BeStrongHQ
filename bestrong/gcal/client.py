@@ -63,15 +63,9 @@ def _get_google_client_secret() -> str:
 def _get_gcal_redirect_uri(request=None) -> str:
     """Build the Calendar OAuth callback URI.
 
-    Hosted mode: uses the request Host header so each instance's subdomain is
-    preserved through the OAuth round-trip. Each instance's callback URL must
-    be registered in Google Cloud Console.
-
-    Local mode: uses ``FRONTEND_URL`` if set, otherwise points at FastAPI
+    Locally, uses ``FRONTEND_URL`` if set, otherwise points at FastAPI
     on 127.0.0.1:8080 directly so the browser hits the API for the
     callback without depending on ``NEXT_PUBLIC_API_URL``.
-
-    Never trusts X-Forwarded-* headers — Caddy strips them anyway.
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 

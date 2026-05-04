@@ -26,14 +26,14 @@ function isRedirectExempt(pathname: string): boolean {
   );
 }
 
-const DEFAULT_TENANT_SETTINGS: Types.TenantSettings = {
+const DEFAULT_INSTANCE_SETTINGS: Types.InstanceSettings = {
   tracks_rpe: true,
 };
 
 interface AuthContextValue {
   user: Types.AuthUserInfo | null;
-  tenant: Types.TenantInfo | null;
-  tenantSettings: Types.TenantSettings;
+  instance: Types.InstanceInfo | null;
+  instanceSettings: Types.InstanceSettings;
   features: string[];
   authEnabled: boolean;
   deploymentMode: string;
@@ -44,8 +44,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  tenant: null,
-  tenantSettings: DEFAULT_TENANT_SETTINGS,
+  instance: null,
+  instanceSettings: DEFAULT_INSTANCE_SETTINGS,
   features: [],
   authEnabled: false,
   deploymentMode: 'local',
@@ -60,9 +60,9 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Types.AuthUserInfo | null>(null);
-  const [tenant, setTenant] = useState<Types.TenantInfo | null>(null);
-  const [tenantSettings, setTenantSettings] = useState<Types.TenantSettings>(
-    DEFAULT_TENANT_SETTINGS,
+  const [instance, setInstance] = useState<Types.InstanceInfo | null>(null);
+  const [instanceSettings, setInstanceSettings] = useState<Types.InstanceSettings>(
+    DEFAULT_INSTANCE_SETTINGS,
   );
   const [features, setFeatures] = useState<string[]>([]);
   const [authEnabled, setAuthEnabled] = useState(false);
@@ -76,8 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const status = await apiClient.getAuthStatus();
       setAuthEnabled(status.auth_enabled);
       setDeploymentMode(status.deployment_mode || 'local');
-      setTenant(status.tenant ?? null);
-      setTenantSettings(status.tenant_settings ?? DEFAULT_TENANT_SETTINGS);
+      setInstance(status.instance ?? null);
+      setInstanceSettings(status.instance_settings ?? DEFAULT_INSTANCE_SETTINGS);
       setFeatures(status.features ?? []);
 
       if (status.authenticated) {
@@ -86,10 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
       }
     } catch {
-      
+
       setUser(null);
-      setTenant(null);
-      setTenantSettings(DEFAULT_TENANT_SETTINGS);
+      setInstance(null);
+      setInstanceSettings(DEFAULT_INSTANCE_SETTINGS);
       setFeatures([]);
       setAuthEnabled(false);
     }
@@ -105,22 +105,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setAuthEnabled(status.auth_enabled);
         setDeploymentMode(status.deployment_mode || 'local');
-        setTenant(status.tenant ?? null);
-        setTenantSettings(status.tenant_settings ?? DEFAULT_TENANT_SETTINGS);
+        setInstance(status.instance ?? null);
+        setInstanceSettings(status.instance_settings ?? DEFAULT_INSTANCE_SETTINGS);
         setFeatures(status.features ?? []);
 
         if (status.authenticated) {
           setUser(status.user);
-          
+
           if (pathname === '/login') {
             router.replace('/');
           }
         } else {
           setUser(null);
-          
-          
-          
-          
+
+
+
+
           if (status.auth_enabled && !isRedirectExempt(pathname)) {
             const target =
               pathname && pathname !== '/'
@@ -130,11 +130,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch {
-        
+
         if (!cancelled) {
           setUser(null);
-          setTenant(null);
-          setTenantSettings(DEFAULT_TENANT_SETTINGS);
+          setInstance(null);
+          setInstanceSettings(DEFAULT_INSTANCE_SETTINGS);
           setFeatures([]);
           setAuthEnabled(false);
         }
@@ -155,10 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await apiClient.logout();
     } catch {
-      
+
     }
     setUser(null);
-    
+
     window.location.href = '/login';
   };
 
@@ -166,8 +166,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        tenant,
-        tenantSettings,
+        instance,
+        instanceSettings,
         features,
         authEnabled,
         deploymentMode,

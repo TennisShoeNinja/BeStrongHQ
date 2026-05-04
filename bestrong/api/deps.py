@@ -15,12 +15,12 @@ from ..models.orm import AllowedUser, AuthSession
 
 
 def _lazy_plugin_resolver():
-    """Look up the optional tenant resolver at request time.
+    """Look up an optional per-request DB resolver at request time.
 
-    Imported lazily (instead of at module load) because the optional
-    plugin may import from this module during its own initialization;
-    a top-level import here would fail silently in that startup window
-    and leave the resolver permanently unset.
+    Imported lazily (instead of at module load) because an optional
+    sibling package may import from this module during its own
+    initialization; a top-level import here would fail silently in that
+    startup window and leave the resolver permanently unset.
     """
     try:
         from bestrong_cloud import resolve_tenant_db
@@ -30,7 +30,7 @@ def _lazy_plugin_resolver():
 
 
 def _lazy_plugin_is_admin():
-    """Look up the optional platform-admin check at request time.
+    """Look up an optional admin check at request time.
 
     Same lazy pattern as ``_lazy_plugin_resolver`` and for the same reason.
     """
@@ -44,8 +44,9 @@ def _lazy_plugin_is_admin():
 def get_db(request: Request) -> Generator[Session, None, None]:
     """Yield a database session, closing it when done.
 
-    Resolves a per-request database when an optional resolver is wired in,
-    otherwise falls back to the default single-instance database path.
+    Resolves a per-request database when an optional resolver is wired
+    in, otherwise falls back to the default single-instance database
+    path. The single-instance path is what local installs use.
     """
     cloud_mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip() == "cloud"
     resolver = _lazy_plugin_resolver() if cloud_mode else None
@@ -71,10 +72,10 @@ _SESSION_COOKIE = "bestrong_session"
 
 
 def require_admin(request: Request, db: Session) -> AllowedUser | None:
-    """Verify the caller is an admin.  Raises 401/403 in hosted mode.
+    """Verify the caller is an admin. Raises 401/403 when auth is enabled.
 
-    In local mode (DEPLOYMENT_MODE != 'cloud') this is a no-op and
-    returns None, because auth is not enforced.
+    In the default local mode (DEPLOYMENT_MODE != 'cloud') this is a
+    no-op and returns None, because auth is not enforced.
     """
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
     if mode != "cloud":

@@ -127,7 +127,7 @@ def fake_service(monkeypatch):
 
 
 def test_sync_all_programs_skips_archived_and_due_less_athletes(tmp_path, fake_service):
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
 
 
@@ -150,7 +150,7 @@ def test_sync_all_programs_skips_archived_and_due_less_athletes(tmp_path, fake_s
 
 
 def test_sync_all_programs_updates_existing_event_on_second_run(tmp_path, fake_service):
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         andy = Athlete(name="Active Andy", program_due="2026-05-01")
         db.add(andy)
@@ -173,20 +173,20 @@ def test_sync_all_programs_updates_existing_event_on_second_run(tmp_path, fake_s
         db.close()
 
 
-def test_program_mapping_does_not_bleed_across_tenants(tmp_path, fake_service):
+def test_program_mapping_does_not_bleed_across_instances(tmp_path, fake_service):
     """Coach B's sync must only see coach B's athletes, even though both
     instances share the same fake Google service. Isolation is enforced by
     the per-instance DB session that ``sync_all_programs`` reads from.
     """
-    db_a = _open_db(tmp_path / "tenant-a.db")
-    db_b = _open_db(tmp_path / "tenant-b.db")
+    db_a = _open_db(tmp_path / "instance-a.db")
+    db_b = _open_db(tmp_path / "instance-b.db")
 
     try:
-        db_a.add(Athlete(name="Tenant A Andy", program_due="2026-05-01"))
+        db_a.add(Athlete(name="Instance A Andy", program_due="2026-05-01"))
         db_a.commit()
 
-        db_b.add(Athlete(name="Tenant B Bob", program_due="2026-06-01"))
-        db_b.add(Athlete(name="Tenant B Beth", program_due="2026-06-15"))
+        db_b.add(Athlete(name="Instance B Bob", program_due="2026-06-01"))
+        db_b.add(Athlete(name="Instance B Beth", program_due="2026-06-15"))
         db_b.commit()
 
         result_a = gcal_sync.sync_all_programs(db_a)
@@ -215,7 +215,7 @@ def test_program_mapping_does_not_bleed_across_tenants(tmp_path, fake_service):
 
 
 def test_ensure_bestronghq_creates_calendar_when_missing(tmp_path, monkeypatch):
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
 
         service = _FakeService(calendars=[{"id": "primary", "summary": "Primary"}])
@@ -235,7 +235,7 @@ def test_ensure_bestronghq_creates_calendar_when_missing(tmp_path, monkeypatch):
 
 
 def test_ensure_bestronghq_is_idempotent(tmp_path, monkeypatch):
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         service = _FakeService(
             calendars=[
@@ -262,7 +262,7 @@ def test_sync_options_default_to_meets_and_programs(tmp_path):
     and program-due events (legacy behavior); availability and birthdays
     should be off by default since they're opt-in additions.
     """
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         opts = gcal_client.get_sync_options(db=db)
         assert opts == {
@@ -275,9 +275,9 @@ def test_sync_options_default_to_meets_and_programs(tmp_path):
         db.close()
 
 
-def test_sync_options_persist_per_tenant(tmp_path):
-    db_a = _open_db(tmp_path / "tenant-a.db")
-    db_b = _open_db(tmp_path / "tenant-b.db")
+def test_sync_options_persist_per_instance(tmp_path):
+    db_a = _open_db(tmp_path / "instance-a.db")
+    db_b = _open_db(tmp_path / "instance-b.db")
     try:
         gcal_client.save_sync_options(
             {"meets": False, "programs": True, "availability": True, "birthdays": True},
@@ -303,7 +303,7 @@ def test_sync_options_persist_per_tenant(tmp_path):
 
 
 def test_save_sync_options_drops_unknown_keys(tmp_path):
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
 
         gcal_client.save_sync_options(
@@ -323,7 +323,7 @@ def test_sync_all_skips_disabled_categories(tmp_path, fake_service, monkeypatch)
     """
     from bestrong.gcal import sync as gcal_sync
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
 
 
@@ -385,7 +385,7 @@ def test_sync_availability_skips_athletes_missing_either_date(tmp_path, fake_ser
     """Need both start AND end to make a sensible date-range event."""
     from bestrong.gcal import sync as gcal_sync
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         db.add(Athlete(name="Both Dates Bob", out_from="2026-05-01", out_through="2026-05-10"))
         db.add(Athlete(name="Start Only Sam", out_from="2026-05-01"))
@@ -408,7 +408,7 @@ def test_sync_availability_skips_athletes_missing_either_date(tmp_path, fake_ser
 def test_sync_availability_handles_unparseable_end_date(tmp_path, fake_service):
     from bestrong.gcal import sync as gcal_sync
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         db.add(Athlete(name="Bad Date Bob", out_from="2026-05-01", out_through="not-a-date"))
         db.commit()
@@ -469,7 +469,7 @@ def test_sync_birthdays_creates_yearly_recurring_events(tmp_path, monkeypatch):
     monkeypatch.setattr(gcal_client, "_get_service", lambda **_: service)
     monkeypatch.setattr(gcal_client, "is_authenticated", lambda **_: True)
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         db.add(Athlete(name="Iso Ivy", dob="1995-03-14"))
         db.add(Athlete(name="Slash Sam", dob="07/04/1990"))
@@ -497,7 +497,7 @@ def test_sync_all_meets_skips_past_meets(tmp_path, fake_service):
     """
     from datetime import date, timedelta
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         today = date.today()
         past = (today - timedelta(days=30)).isoformat()
@@ -533,7 +533,7 @@ def test_sync_all_meets_skips_past_meets(tmp_path, fake_service):
 def test_sync_single_meet_rejects_past_meet(tmp_path, fake_service):
     from datetime import date, timedelta
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         past = (date.today() - timedelta(days=7)).isoformat()
         meet = Meet(name="Old Nationals", meet_date=past)
@@ -550,7 +550,7 @@ def test_sync_single_meet_allows_meet_ending_today(tmp_path, fake_service):
     """A meet whose end date is today is still in progress, not past."""
     from datetime import date
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         meet = Meet(name="Today's Meet", meet_date=date.today().isoformat())
         db.add(meet)
@@ -568,7 +568,7 @@ def test_sync_all_availability_skips_past_windows(tmp_path, fake_service):
     """
     from datetime import date, timedelta
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         today = date.today()
         past_start = (today - timedelta(days=30)).isoformat()
@@ -599,7 +599,7 @@ def test_sync_all_availability_skips_past_windows(tmp_path, fake_service):
 def test_sync_single_athlete_availability_rejects_past_window(tmp_path, fake_service):
     from datetime import date, timedelta
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         today = date.today()
         athlete = Athlete(
@@ -620,7 +620,7 @@ def test_sync_single_athlete_availability_allows_window_ending_today(tmp_path, f
     """A window ending today is still active, not past."""
     from datetime import date, timedelta
 
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
         today = date.today()
         athlete = Athlete(
@@ -638,7 +638,7 @@ def test_sync_single_athlete_availability_allows_window_ending_today(tmp_path, f
 
 
 def test_ensure_bestronghq_does_not_overwrite_user_chosen_calendar(tmp_path, monkeypatch):
-    db = _open_db(tmp_path / "tenant.db")
+    db = _open_db(tmp_path / "instance.db")
     try:
 
         gcal_client.set_calendar_id("personal-cal", db=db)

@@ -1,6 +1,6 @@
 # CLI Commands
 
-BeStrong HQ ships with a `bestrong` command for day-to-day operations. Since Community Edition runs in Docker, run these *inside* the container via `docker compose exec`. From the `BeStrongHQ/docker/` folder:
+BeStrong HQ ships with a `bestrong` command for day-to-day operations. Since the app runs in Docker, run these *inside* the container via `docker compose exec`. From the `BeStrongHQ/docker/` folder:
 
 ```bash
 docker compose exec bestrong bestrong info             # Show database stats
