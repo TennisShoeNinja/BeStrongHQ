@@ -347,6 +347,29 @@ class TestWriteToDb:
         assert athlete.squat_max_lbs == 999.0
         assert athlete.squat_max_lbs != original_squat
 
+    def test_stale_header_max_does_not_lower_existing_max(self, db):
+        """Header value lower than the athlete's current max must not regress it.
+
+        Models the real flow: a prior program (or PR detection from imported
+        sessions) raised the athlete's squat max above what the new program's
+        header still says. Re-importing with the stale lower header should
+        leave the max alone.
+        """
+        data = parse_file(FIXTURE_ED, parser_id=PARSER_ID)
+        _write_to_db(db, data, source_filename="first.xlsx")
+        db.commit()
+
+        athlete = db.query(Athlete).filter(Athlete.name == data.athlete.name).first()
+        athlete.squat_max_lbs = 500.0
+        db.commit()
+
+        data.athlete.squat_max_lbs = 405.0
+        _write_to_db(db, data, source_filename="second.xlsx")
+        db.commit()
+
+        db.refresh(athlete)
+        assert athlete.squat_max_lbs == 500.0
+
 
 class TestImportFile:
     def test_import_creates_db_and_returns_summary(self, db_path):
