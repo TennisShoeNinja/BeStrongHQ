@@ -3,6 +3,41 @@
 What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
 `-beta` suffix while we're still in beta.
 
+## [1.3.0 Public Beta], 2026-05-04
+
+### Added
+
+- **Total progression chart on the athlete profile.** Career meet totals
+  plotted over time above the meet history list. Hover any point for the
+  meet name, date, and total.
+- **DOTS and IPF GL Points.** OpenPowerlifting imports now capture each
+  meet's DOTS score, and the importer computes IPF GL Points from the
+  lifter's bodyweight, sex, equipment, and total. A score chip in the
+  chart heading shows the athlete's career best — click to swap which
+  formula sits on top of the other.
+- **Best Total in current units.** The chart heading also shows the
+  athlete's all-time best meet total in the unit currently selected at
+  the top of the page.
+- **Per-meet PR delta.** Each meet row in the history shows a green
+  `+N` delta vs. the previous meet (dim for regressions), respecting
+  the active lbs/kg toggle.
+- **Podium medals on meet history.** Each meet row surfaces the
+  athlete's placing — 🥇 1st / 🥈 2nd / 🥉 3rd for podium finishes,
+  plain ordinals for 4th and beyond. Multi-division entries (e.g.,
+  Open + Junior at the same meet) each get their own chip.
+- **Auto-fill athlete sex from OpenPowerlifting.** When a coach links a
+  lifter and the local profile has no sex on file, the importer copies
+  it from the OPL data so DOTS and IPF GL can compute on first import
+  without an extra edit step.
+
+### Changed
+
+- **Meet history dates** render as `Mon D, YYYY` (e.g., `Mar 26, 2026`)
+  instead of the raw `YYYY-MM-DD` string.
+- **Meet history list caps** at four visible rows with the rest behind a
+  scrollbar, so a long career doesn't push the rest of the profile
+  off-screen.
+
 ## [1.2.0 Public Beta], 2026-05-02
 
 ### Added

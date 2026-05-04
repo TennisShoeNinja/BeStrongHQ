@@ -5727,7 +5727,16 @@ function MeetHistoryCard({
           </div>
         </div>
       )}
-      <div className="space-y-3" style={{ padding: "var(--cloud-s4)" }}>
+      {/* Cap the visible list at ~4 meet rows so a 14-meet history doesn't
+          dominate the profile; the rest stays one scroll away. */}
+      <div
+        className="space-y-3"
+        style={{
+          padding: "var(--cloud-s4)",
+          maxHeight: 360,
+          overflowY: "auto",
+        }}
+      >
         {groups.map((g, idx) => {
           // Delta vs. the prior chronological meet. groups is desc by date,
           // so the earlier meet is at idx + 1. Skip the very first meet
