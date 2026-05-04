@@ -23,14 +23,19 @@ echo.
 pause
 
 REM ----- Check for winget --------------------------------------
-where winget >nul 2>nul
+REM Invoking winget directly is more reliable than 'where winget' --
+REM the WindowsApps alias can satisfy 'winget --version' even when
+REM 'where' doesn't surface it.
+winget --version >nul 2>nul
 if errorlevel 1 (
     echo.
-    echo [ERROR] 'winget' is not available on this machine.
+    echo [ERROR] 'winget' did not respond on this machine.
     echo.
     echo winget ships with Windows 10 (May 2020 update or newer)
-    echo and Windows 11. Open the Microsoft Store, install or
-    echo update "App Installer", then re-run this script.
+    echo and Windows 11. Open the Microsoft Store, search for
+    echo "App Installer", and click Update (or Get if missing),
+    echo then close this window, open a new Command Prompt, and
+    echo re-run the one-line installer.
     echo.
     echo If your Windows version is too old, follow the manual
     echo install instructions at:
