@@ -692,8 +692,16 @@ def _write_to_db(
     )
 
 
+    # Monotonic: a header value typed at the top of the workbook is the
+    # program's starting max, not a live total. PR detection above may have
+    # already raised the athlete's max from imported top sets; never let a
+    # stale header value lower it.
     for field, val in max_updates.items():
-        setattr(athlete, field, val)
+        if val is None:
+            continue
+        current = getattr(athlete, field, None) or 0
+        if val > current:
+            setattr(athlete, field, val)
 
     return {
         "athlete_name": athlete.name,
