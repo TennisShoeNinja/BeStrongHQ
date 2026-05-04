@@ -279,6 +279,8 @@ def _row_to_meet(row: dict[str, str]) -> dict[str, Any]:
         "age_class": s("AgeClass"),
         "weight_class_kg": s("WeightClassKg"),
         "bodyweight_kg": _maybe_float(row.get("BodyweightKg")),
+        "total_kg": _maybe_float(row.get("TotalKg")),
+        "sex": s("Sex"),
         "place": s("Place"),
         "dots": _maybe_float(row.get("Dots")),
         "tested": tested,

@@ -302,6 +302,14 @@ class MeetResult(Base):
     # so re-syncs don't duplicate rows.
     external_meet_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
+    # Per-meet scoring data, denormalized across the 9 attempt rows of one
+    # meet (cheap and keeps the one-table model). Set on OPL imports from
+    # the CSV (DOTS) plus the IPF GL formula computed at import time. Null
+    # for manually entered rows that have no bodyweight on file.
+    bodyweight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dots_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gl_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     athlete: Mapped[Athlete] = relationship("Athlete", back_populates="meet_results")

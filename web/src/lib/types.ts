@@ -579,6 +579,9 @@ export interface MeetResultEntry {
   weight_lbs: number;
   made: boolean;
   notes: string | null;
+  bodyweight_kg: number | null;
+  dots_score: number | null;
+  gl_points: number | null;
   created_at: string;
 }
 

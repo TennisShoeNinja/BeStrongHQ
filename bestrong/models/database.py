@@ -181,6 +181,9 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "meet_results": [
         ("source", "VARCHAR(16) NOT NULL DEFAULT 'manual'"),
         ("external_meet_path", "VARCHAR(300)"),
+        ("bodyweight_kg", "REAL"),
+        ("dots_score", "REAL"),
+        ("gl_points", "REAL"),
     ],
 }
 
@@ -280,6 +283,9 @@ _TABLE_CREATES: dict[str, str] = {
             notes TEXT,
             source VARCHAR(16) NOT NULL DEFAULT 'manual',
             external_meet_path VARCHAR(300),
+            bodyweight_kg REAL,
+            dots_score REAL,
+            gl_points REAL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """,
