@@ -1,34 +1,89 @@
 # Installing BeStrong HQ on Windows
 
-This guide walks you through setting up BeStrong HQ on Windows from scratch. No programming experience required.
+This guide walks you through setting up BeStrong HQ on Windows. No programming experience required.
 
-> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup in Step 5.
+> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup at the end.
 
-## Step 1: Open PowerShell
+## The easy way: one-line install
 
-Press the **Windows key**, type `powershell`, and hit Enter. A blue (or black) window will open. This is where you'll type all the commands below.
-
-Every command in this guide should be copied and pasted into PowerShell, then press **Enter** to run it.
-
-> **Don't have winget?** Steps 2–4 use `winget`, the built-in Windows package manager. It's preinstalled on Windows 10 (May 2020 update or newer) and Windows 11. If `winget --version` says "not recognized," install the **App Installer** from the Microsoft Store and reopen PowerShell. Or skip to the [Manual installation fallback](#manual-installation-fallback) section at the bottom of this page.
-
-## Step 2: Install Python, Node.js, and Git
-
-Three commands, one per tool:
+This is the recommended path. Open **Command Prompt** (press the Windows key, type `cmd`, hit Enter), then paste this single line and press Enter:
 
 ```
-winget install Python.Python.3.12
-winget install OpenJS.NodeJS.LTS
-winget install Git.Git
+curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
 ```
 
-Each one takes 30–60 seconds. You'll see a progress bar, then "Successfully installed."
+The installer will:
 
-> The first time you run a `winget install` command, it may ask you to accept the source agreements. Type **Y** and press Enter.
+1. Check that you have `winget` (the Windows package manager that ships with Windows 10 and 11)
+2. Install **Python 3.12**, **Node.js LTS**, and **Git** if you don't already have them
+3. Clone BeStrong HQ to `%USERPROFILE%\BeStrongHQ`
+4. Install the Python and Node dependencies and build the frontend
 
-**Now close PowerShell completely and open a new window.** This is critical — newly installed tools don't show up on the PATH of your current session, only in fresh ones.
+It takes 10–15 minutes. You'll see progress messages as each step runs. When it finishes, jump down to **[Final step: Google Setup](#final-step-google-setup)**.
 
-Verify all three are working in the new window:
+> **If the installer fails with "winget is not recognized"** — your Windows version is too old or the App Installer is missing. Open the Microsoft Store, search for **App Installer**, and update or install it. Then close Command Prompt and try the one-liner again. If that still doesn't work, follow the [Manual installation](#manual-installation) section below.
+
+> **If the installer fails part-way through** — it's safe to re-run. Close Command Prompt, open a new one (so the PATH refreshes with anything that did install), and paste the one-liner again. Already-installed pieces are skipped automatically.
+
+## Final step: Google Setup
+
+BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder.
+
+## Start BeStrong HQ
+
+```
+cd %USERPROFILE%\BeStrongHQ
+bestrong run
+```
+
+Open your browser and go to **http://127.0.0.1:3000**. You should see the BeStrong HQ dashboard.
+
+> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, so sticking with `127.0.0.1` everywhere keeps things consistent with the redirect URIs you registered in Google Setup.
+
+## Stopping and Restarting
+
+To stop BeStrong HQ, go back to Command Prompt and press **Ctrl + C**.
+
+To start it again later:
+
+```
+cd %USERPROFILE%\BeStrongHQ
+bestrong run
+```
+
+Your data is saved automatically. Nothing is lost when you stop the app.
+
+## Updating
+
+Re-run the installer. It detects an existing checkout and `git pull`s the latest changes instead of cloning fresh:
+
+```
+curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
+```
+
+Your database and `.env` are preserved across updates — only the app code changes.
+
+---
+
+## Manual installation
+
+Use this if the one-liner fails, you want to install somewhere other than `%USERPROFILE%\BeStrongHQ`, or you just want to see what's happening.
+
+### Step 1: Install Python, Node.js, and Git
+
+Open **Command Prompt** and run these one at a time:
+
+```
+winget install --id Python.Python.3.12 -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Git.Git -e
+```
+
+The first time you run a `winget install`, it may ask you to accept the source agreements — type **Y** and press Enter.
+
+**Then close Command Prompt completely and open a fresh window.** Newly installed tools don't show up on PATH in your current session, only in fresh ones.
+
+Verify everything is on PATH:
 
 ```
 python --version
@@ -38,19 +93,17 @@ git --version
 
 You should see Python 3.12.x, Node v20+ (or v22), and Git 2.x.
 
-> If `python --version` says **"Python was not found; run without arguments to install from the Microsoft Store..."**, the Microsoft Store alias is intercepting your real Python. Open **Settings → Apps → Advanced app settings → App execution aliases** and turn off both `python.exe` and `python3.exe`. Close and reopen PowerShell.
-
-## Step 3: Download BeStrong HQ
+### Step 2: Download BeStrong HQ
 
 ```
-cd $env:USERPROFILE
+cd %USERPROFILE%
 git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
 cd BeStrongHQ
 ```
 
-## Step 4: Install BeStrong HQ
+### Step 3: Install BeStrong HQ
 
-Run these from inside the `BeStrongHQ` folder, **one at a time** (PowerShell 5.1 doesn't support chaining with `&&`, so wait for each one to finish before running the next):
+Run these one at a time, from inside the `BeStrongHQ` folder:
 
 ```
 python -m pip install -e .
@@ -60,80 +113,26 @@ npm run build
 cd ..
 ```
 
-> **Why `python -m pip` and not just `pip`?** On many Windows installs, only `python` ends up on PATH, not `pip` — especially in PowerShell. Going through `python -m pip` always works as long as `python` itself runs.
+`npm run build` is technically optional, but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
 
-This takes a few minutes. You'll see a lot of text scrolling by — that's normal. The `npm run build` step at the end is optional but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
+### Step 4: Continue from "Final step: Google Setup" above
 
-## Step 5: Google setup (required)
-
-BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with a single athlete. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder. Come back here when you're done.
-
-## Step 6: Start BeStrong HQ
-
-```
-bestrong run
-```
-
-Open your browser and go to **http://127.0.0.1:3000**. You should see the BeStrong HQ dashboard.
-
-> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, so sticking with `127.0.0.1` everywhere keeps things consistent with the redirect URIs you registered in Step 5.
-
-## Stopping and Restarting
-
-To stop BeStrong HQ, go back to PowerShell and press **Ctrl + C**.
-
-To start it again later:
-
-```
-cd $env:USERPROFILE\BeStrongHQ
-bestrong run
-```
-
-Your data is saved automatically. Nothing is lost when you stop the app.
-
-## Updating
-
-When a new version is available, run these one at a time:
-
-```
-cd $env:USERPROFILE\BeStrongHQ
-git pull
-python -m pip install -e .
-cd web
-npm install
-npm run build
-cd ..
-bestrong run
-```
-
-Your database and `.env` are preserved across updates — only the app code changes.
-
-## Manual installation fallback
-
-If `winget` isn't available on your machine and updating App Installer didn't help, you can install the prerequisites by hand:
-
-- **Python:** Download Python 3.12 from [python.org/downloads](https://www.python.org/downloads/) and run the installer. **Critical:** check the **"Add python.exe to PATH"** box at the bottom of the first screen, then click **Install Now**.
-- **Node.js:** Download the **LTS** version from [nodejs.org](https://nodejs.org/) and run the installer with the defaults.
-- **Git:** Download from [git-scm.com/download/win](https://git-scm.com/download/win) and run the installer with the defaults.
-
-Then continue from **Step 3** above.
+---
 
 ## Troubleshooting
 
-**"winget is not recognized"**. Your Windows version is too old or the App Installer is missing. Open the Microsoft Store, search for **App Installer**, and update or install it. Then close PowerShell and reopen it. If that doesn't work, use the [Manual installation fallback](#manual-installation-fallback) above.
+**"winget is not recognized"**. Your Windows version is too old or App Installer is missing. Open the Microsoft Store, search for **App Installer**, install or update it, then reopen Command Prompt.
 
-**"Python was not found; run without arguments to install from the Microsoft Store..."**. This is the Microsoft Store stub kicking in. It means either (a) the `winget install Python.Python.3.12` step didn't complete — try it again, or (b) Python is installed but the MS Store stub is winning the PATH race. To disable the stub: **Settings → Apps → Advanced app settings → App execution aliases**, then turn off both `python.exe` and `python3.exe`. Close and reopen PowerShell.
+**"Python was not found; run without arguments to install from the Microsoft Store..."**. This is the Microsoft Store stub kicking in. Either Python isn't actually installed, or the MS Store stub is winning the PATH race. To disable the stub: **Settings → Apps → Advanced app settings → App execution aliases**, then turn off both `python.exe` and `python3.exe`. Close and reopen Command Prompt.
 
-**"python is not recognized"**. The PATH didn't pick up the new Python. Close PowerShell completely and open a fresh window. If you used the manual installer, you missed the "Add to PATH" checkbox — re-run the Python installer, choose **Modify**, check **"Add Python to environment variables"**, and finish.
+**"python is not recognized"**. Close Command Prompt and open a fresh window — the PATH won't refresh in your current session after install. If you used the manual installer instead of `winget` and skipped the "Add to PATH" checkbox, re-run the Python installer, choose **Modify**, check **"Add Python to environment variables"**, and finish.
 
-**"pip is not recognized"** (common in PowerShell). Use `python -m pip install -e .` instead of `pip install -e .`. The `python -m pip` form always works as long as `python` itself is on PATH, even when the standalone `pip` shim isn't.
+**"pip is not recognized"** (common in PowerShell). Use `python -m pip install -e .` instead of `pip install -e .`. The `python -m pip` form always works as long as `python` itself is on PATH.
 
-**"The token '&&' is not a valid statement separator in this version"** (PowerShell). PowerShell 5.1 (the default on Windows) doesn't support `&&`. Run the commands in Step 4 one at a time instead. If you'd rather use chained commands, upgrade to PowerShell 7 with `winget install Microsoft.PowerShell` and use the new `pwsh` window where `&&` works.
+**"bestrong is not recognized"**. Close Command Prompt and open a new one. If that doesn't work, the Python `Scripts\` folder isn't on your PATH. Run `python -m bestrong run` instead.
 
-**"bestrong is not recognized"**. Close PowerShell and open a new one. If that doesn't work, the Python `Scripts\` folder isn't on your PATH — this can happen with per-user Python installs. Run `python -m bestrong run` instead.
+**"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another Command Prompt window.
 
-**"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another PowerShell window.
+**`npm install` fails**. Try running Command Prompt as Administrator (right-click the Command Prompt icon, "Run as administrator"), then run the install commands again. If you see "MAX_PATH" errors, enable long paths: open PowerShell as Administrator and run `New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force`, then reboot.
 
-**npm install fails**. Try running PowerShell as Administrator (right-click the PowerShell icon, "Run as administrator"), then run the install commands again.
-
-**"FileNotFoundError" or the UI doesn't start**. Make sure you ran `npm install` inside the `web` folder. If you're on a fresh checkout and only the API starts, run `cd web`, `npm install`, `npm run build`, `cd ..` (one at a time) and try `bestrong run` again.
+**The installer hangs at "Installing Node dependencies"**. `npm install` is slow on a fresh machine — give it 5–10 minutes. If it's been longer than 15 minutes with no output, press Ctrl+C, close Command Prompt, open a new one, and re-run the installer.

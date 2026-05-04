@@ -1,40 +1,49 @@
 # Install BeStrong HQ (Community Edition)
 
-Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine and your data stays local. Nothing is uploaded to us, nothing leaks to a third party, your athletes' data lives in a SQLite file on your own disk.
+Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine and your data stays local. Nothing is uploaded to us, nothing leaks to a third party — your athletes' data lives in a SQLite file on your own disk.
 
-> **First-time installer? Don't use Quick Start.** It assumes Python and Node are already installed. If you're new, jump straight to your platform's step-by-step guide below — they walk you through installing the prerequisites first.
+## One-line install
 
-## Quick Start
+Open a terminal and paste the line for your platform. The installer downloads its own dependencies (Python, Node.js, Git), clones the repo into your home folder, and builds the app. Walk away for 10–15 minutes.
 
-You need Python 3.10+ and Node.js 20+ already installed, then:
+### Windows (Command Prompt)
+
+```
+curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
+```
+
+### macOS
 
 ```bash
-git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
-cd BeStrongHQ
-python -m pip install -e .
-cd web && npm install && npm run build && cd ..
+curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+```
+
+### Linux / Raspberry Pi
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+```
+
+When it finishes, set up Google Drive (see [Google Setup](google-setup.md)) and then start the app:
+
+```bash
+cd ~/BeStrongHQ      # or %USERPROFILE%\BeStrongHQ on Windows
 bestrong run
 ```
 
-> **On Windows PowerShell**, the `&&` chain doesn't work in PowerShell 5.1 (the default). Run the `cd web`, `npm install`, `npm run build`, `cd ..` lines one at a time instead. Also: `pip` may not be on PATH even when `python` is, so always use `python -m pip install -e .` rather than bare `pip`.
-
-> On macOS/Linux with multiple Python versions, `python3 -m pip install -e .` is the safest form.
-
 Open **http://127.0.0.1:3000** in your browser.
 
-> Drive sync is the only way to import program spreadsheets — there's no manual file upload. You'll need to set up Google Drive OAuth credentials before your first sync. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
+> **Drive sync is the only way to import program spreadsheets** — there's no manual file upload. You'll need to set up Google Drive OAuth credentials before your first sync. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
 
-## Installation Guides
+## Step-by-step guides
 
-New to this? Follow the step-by-step guide for your platform:
+If you'd rather see what's happening at each step, hit an error the script doesn't recover from, or want to install somewhere other than your home folder, follow the platform-specific guide:
 
 - [macOS](install-mac.md)
 - [Windows](install-windows.md)
 - [Raspberry Pi](install-raspberry-pi.md)
 
-Each install guide covers everything you need: prerequisites, Google setup, and first run.
-
-> **On Linux?** The Raspberry Pi guide works for any Debian-based Linux distribution (Ubuntu, Debian, Pop!_OS, etc.). The commands are identical.
+> **On a non-Debian Linux distro?** The Raspberry Pi guide works for any apt-based distribution (Ubuntu, Debian, Pop!_OS). For other distros, follow the macOS guide and substitute your package manager (`dnf`, `pacman`, etc.) for `brew`.
 
 ## Google Setup
 
