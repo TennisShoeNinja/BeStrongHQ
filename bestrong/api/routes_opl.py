@@ -138,6 +138,8 @@ def _import_meets_to_meet_results(
     _delete_opl_meet_results(db, athlete.id)
     db.flush()
 
+    from ..scoring import gl_points
+
     written = 0
     for meet in meets:
         meet_path = meet.get("meet_path")
@@ -149,6 +151,11 @@ def _import_meets_to_meet_results(
             f"{weight_class} kg" if weight_class else None
         )
         division = meet.get("division")
+        bodyweight_kg = meet.get("bodyweight_kg")
+        dots_score = meet.get("dots")
+        total_kg = meet.get("total_kg")
+        equipment = meet.get("equipment")
+        gl = gl_points(total_kg, bodyweight_kg, athlete.sex, equipment)
         attempts = meet.get("attempts") or []
         for attempt in attempts:
             lift = attempt["lift"]
@@ -170,6 +177,9 @@ def _import_meets_to_meet_results(
                     notes=None,
                     source=_OPL_SOURCE,
                     external_meet_path=meet_path,
+                    bodyweight_kg=bodyweight_kg,
+                    dots_score=dots_score,
+                    gl_points=gl,
                 )
             )
             written += 1

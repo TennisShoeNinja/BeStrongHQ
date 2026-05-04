@@ -5376,8 +5376,18 @@ function MeetHistoryCard({
   const chartTooltipBorder = resolvedMode === "dark" ? "rgba(255,255,255,0.18)" : "#e2e8f0";
   const chartLine = "#22d3ee";
 
+  const [chartMetric, setChartMetric] = useState<"total" | "dots" | "gl">(
+    "total"
+  );
+
   const totalsChartData = useMemo(() => {
-    const points: Array<{ ts: number; total: number; meet: string }> = [];
+    const points: Array<{
+      ts: number;
+      total: number;
+      dots: number | null;
+      gl: number | null;
+      meet: string;
+    }> = [];
     for (const g of groups) {
       if (!g.meet_date) continue;
       const parts = g.meet_date.split("-");
@@ -5388,10 +5398,14 @@ function MeetHistoryCard({
       if (!Number.isFinite(ts)) continue;
 
       const bestByLift: Record<string, number> = {};
+      let dots: number | null = null;
+      let gl: number | null = null;
       for (const r of g.rows) {
         if (!r.made) continue;
         const cur = bestByLift[r.lift];
         if (cur == null || r.weight_lbs > cur) bestByLift[r.lift] = r.weight_lbs;
+        if (dots == null && r.dots_score != null) dots = r.dots_score;
+        if (gl == null && r.gl_points != null) gl = r.gl_points;
       }
       const totalLbs =
         (bestByLift.squat ?? 0) +
@@ -5402,11 +5416,45 @@ function MeetHistoryCard({
       points.push({
         ts,
         total: Number(convertWeight(totalLbs, unit).toFixed(1)),
+        dots: dots != null ? Number(dots.toFixed(2)) : null,
+        gl: gl != null ? Number(gl.toFixed(2)) : null,
         meet: g.meet_name ?? "Meet",
       });
     }
     return points.sort((a, b) => a.ts - b.ts);
   }, [groups, unit]);
+
+  const visibleChartData = useMemo(() => {
+    if (chartMetric === "total") return totalsChartData;
+    return totalsChartData.filter((p) => p[chartMetric] != null);
+  }, [totalsChartData, chartMetric]);
+
+  const bestDots = useMemo(() => {
+    let max = 0;
+    for (const p of totalsChartData) {
+      if (p.dots != null && p.dots > max) max = p.dots;
+    }
+    return max > 0 ? max : null;
+  }, [totalsChartData]);
+
+  const bestGl = useMemo(() => {
+    let max = 0;
+    for (const p of totalsChartData) {
+      if (p.gl != null && p.gl > max) max = p.gl;
+    }
+    return max > 0 ? max : null;
+  }, [totalsChartData]);
+
+  const metricLabel: Record<typeof chartMetric, string> = {
+    total: "Total progression",
+    dots: "DOTS progression",
+    gl: "IPF GL progression",
+  };
+
+  const formatChartValue = (v: number): string => {
+    if (chartMetric === "total") return `${Math.round(v)} ${unit}`;
+    return v.toFixed(2);
+  };
 
   if (isLoading) {
     return (
@@ -5454,20 +5502,119 @@ function MeetHistoryCard({
       </div>
       {totalsChartData.length >= 2 && (
         <div style={{ padding: "var(--cloud-s4) var(--cloud-s4) 0" }}>
-          <div
-            className="cloud-text-dim mb-2"
-            style={{
-              fontSize: 10,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}
-          >
-            Total progression
+          {(bestDots != null || bestGl != null) && (
+            <div
+              className="flex gap-3 mb-3"
+              style={{ fontSize: 11 }}
+            >
+              {bestDots != null && (
+                <div
+                  className="rounded-md px-3 py-2"
+                  style={{
+                    border: "1px solid var(--cloud-border)",
+                    background: "rgba(255,255,255,0.02)",
+                  }}
+                >
+                  <div
+                    className="cloud-text-dim"
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Best DOTS
+                  </div>
+                  <div
+                    className="cloud-text font-semibold"
+                    style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {bestDots.toFixed(2)}
+                  </div>
+                </div>
+              )}
+              {bestGl != null && (
+                <div
+                  className="rounded-md px-3 py-2"
+                  style={{
+                    border: "1px solid var(--cloud-border)",
+                    background: "rgba(255,255,255,0.02)",
+                  }}
+                >
+                  <div
+                    className="cloud-text-dim"
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Best IPF GL
+                  </div>
+                  <div
+                    className="cloud-text font-semibold"
+                    style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {bestGl.toFixed(2)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between mb-2">
+            <div
+              className="cloud-text-dim"
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                fontWeight: 500,
+              }}
+            >
+              {metricLabel[chartMetric]}
+            </div>
+            <div
+              className="inline-flex rounded-md overflow-hidden"
+              style={{ border: "1px solid var(--cloud-border)" }}
+            >
+              {(["total", "dots", "gl"] as const).map((m) => {
+                const disabled =
+                  (m === "dots" && bestDots == null) ||
+                  (m === "gl" && bestGl == null);
+                const active = chartMetric === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => !disabled && setChartMetric(m)}
+                    disabled={disabled}
+                    className="px-2.5 py-1 transition-colors"
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: active
+                        ? "#22d3ee"
+                        : disabled
+                          ? "var(--cloud-text-dim)"
+                          : "var(--cloud-text-muted)",
+                      background: active
+                        ? "rgba(34, 211, 238, 0.12)"
+                        : "transparent",
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.4 : 1,
+                    }}
+                  >
+                    {m === "total" ? "Total" : m === "dots" ? "DOTS" : "IPF GL"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="h-56">
             <ResponsiveContainer width="100%" height={224}>
-              <LineChart data={totalsChartData}>
+              <LineChart data={visibleChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
                 <XAxis
                   dataKey="ts"
@@ -5487,7 +5634,11 @@ function MeetHistoryCard({
                   tick={{ fontSize: 11, fill: chartText }}
                   tickLine={false}
                   domain={["auto", "auto"]}
-                  tickFormatter={(v: number) => `${Math.round(v)}`}
+                  tickFormatter={(v: number) =>
+                    chartMetric === "total"
+                      ? `${Math.round(v)}`
+                      : v.toFixed(0)
+                  }
                 />
                 <Tooltip
                   contentStyle={{
@@ -5511,15 +5662,34 @@ function MeetHistoryCard({
                         : null;
                     return meet ? `${meet} · ${dateStr}` : dateStr;
                   }}
-                  formatter={(value) => [`${Number(value)} ${unit}`, "Total"]}
+                  formatter={(value, _name, item) => {
+                    const v = Number(value);
+                    const point = item?.payload as
+                      | {
+                          total?: number;
+                          dots?: number | null;
+                          gl?: number | null;
+                        }
+                      | undefined;
+                    if (chartMetric === "total") {
+                      const extras: string[] = [];
+                      if (point?.dots != null) extras.push(`DOTS ${point.dots.toFixed(2)}`);
+                      if (point?.gl != null) extras.push(`GL ${point.gl.toFixed(2)}`);
+                      const suffix = extras.length ? ` · ${extras.join(" · ")}` : "";
+                      return [`${formatChartValue(v)}${suffix}`, "Total"];
+                    }
+                    if (chartMetric === "dots") return [v.toFixed(2), "DOTS"];
+                    return [v.toFixed(2), "IPF GL"];
+                  }}
                 />
                 <Line
                   type="monotone"
-                  dataKey="total"
+                  dataKey={chartMetric}
                   stroke={chartLine}
                   strokeWidth={2}
                   dot={{ r: 3, fill: chartLine }}
                   activeDot={{ r: 5 }}
+                  connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -5541,6 +5711,13 @@ function MeetHistoryCard({
             (bestByLift.deadlift?.weight_lbs ?? 0);
           const lifts = ["squat", "bench", "deadlift"] as const;
           const isOpen = expanded.has(g.key);
+          let groupDots: number | null = null;
+          let groupGl: number | null = null;
+          for (const r of g.rows) {
+            if (groupDots == null && r.dots_score != null) groupDots = r.dots_score;
+            if (groupGl == null && r.gl_points != null) groupGl = r.gl_points;
+            if (groupDots != null && groupGl != null) break;
+          }
           const attemptMap: Record<string, Record<number, Types.MeetResultEntry>> = {
             squat: {},
             bench: {},
@@ -5599,6 +5776,20 @@ function MeetHistoryCard({
                   >
                     Total
                   </div>
+                  {(groupDots != null || groupGl != null) && (
+                    <div
+                      className="cloud-text-dim"
+                      style={{
+                        fontSize: 10,
+                        marginTop: 2,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {groupDots != null && <>DOTS {groupDots.toFixed(2)}</>}
+                      {groupDots != null && groupGl != null && " · "}
+                      {groupGl != null && <>GL {groupGl.toFixed(2)}</>}
+                    </div>
+                  )}
                 </div>
               </button>
 
