@@ -1,67 +1,82 @@
 # Installing BeStrong HQ on macOS
 
-This guide walks you through setting up BeStrong HQ on a Mac from scratch. No programming experience required.
+This guide walks you through setting up BeStrong HQ on a Mac. No programming experience required.
 
-## Step 1: Open Terminal
+> **You will need a Google account.** BeStrong HQ imports training programs from Google Drive. There's no manual file-upload path — Drive sync is the only way to get spreadsheet data into the app. Budget about 10 extra minutes for the Google setup at the end.
 
-Press **Cmd + Space**, type **Terminal**, and hit Enter. A black (or white) window will open. This is where you'll type all the commands below.
+## The easy way: one-line install
 
-Every command in this guide should be copied and pasted into Terminal, then press **Enter** to run it.
+Open **Terminal** (Cmd+Space, type `Terminal`, press Enter), paste this single line, and press Enter:
 
-## Step 2: Install Homebrew
+```bash
+curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+```
 
-Homebrew is a tool that makes installing software on a Mac easy. Paste this into Terminal:
+The installer:
+
+1. Installs **Homebrew** if you don't have it (will ask for your Mac password)
+2. Installs **Python 3.12** and **Node.js LTS** via Homebrew
+3. Asks where you want BeStrong HQ installed (default: `~/BeStrongHQ`)
+4. Clones the repo, installs Python and Node dependencies, and builds the frontend
+
+Walk away for 10–15 minutes. When it finishes, jump down to **[Final step: Google Setup](#final-step-google-setup)**.
+
+> **If the installer fails part-way through** — it's safe to re-run. Already-installed pieces are skipped automatically. If a permissions issue trips up Homebrew, follow the [Manual installation](#manual-installation) section below.
+
+## Final step: Google Setup
+
+BeStrong HQ uses Google Drive to import program spreadsheets. Follow the [Google Setup guide](google-setup.md) — it'll walk you through creating the OAuth credentials and laying out your Drive folder.
+
+## Start BeStrong HQ
+
+```bash
+cd ~/BeStrongHQ
+bestrong run
+```
+
+Open your browser and go to **http://127.0.0.1:3000**.
+
+> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins.
+
+## Stopping and Restarting
+
+Stop with **Ctrl + C** in Terminal. Restart with `bestrong run` from the install folder. Your data persists across restarts.
+
+## Updating
+
+Re-run the installer. It detects an existing checkout and pulls latest:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+```
+
+---
+
+## Manual installation
+
+### Step 1: Install Homebrew
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-It will ask for your Mac password (the one you use to log in). Type it and press Enter. You won't see the characters as you type, but it's working.
+It'll ask for your Mac password (you won't see the characters as you type). When it finishes, it may show "Next steps" — run those commands exactly as shown:
 
-When it finishes, it may show a "Next steps" message telling you to run a couple of commands to add Homebrew to your PATH. **Run those commands exactly as shown.** They usually look something like:
-
-```
+```bash
 echo >> ~/.zprofile
 echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
 
-To verify Homebrew is working:
-
-```bash
-brew --version
-```
-
-You should see a version number. If you get "command not found," close Terminal and open a new one, then try again.
-
-## Step 3: Install Python and Node.js
+### Step 2: Install Python and Node.js
 
 ```bash
 brew install python@3.12 node
 ```
 
-Verify both installed correctly:
+Most Macs already have Git. If `git --version` prompts for Xcode Command Line Tools, click **Install**.
 
-```bash
-python3 --version
-node --version
-```
-
-Python should show 3.10 or higher. Node should show 20 or higher.
-
-## Step 4: Install Git (if needed)
-
-Most Macs already have Git installed. Check by running:
-
-```bash
-git --version
-```
-
-If you see a version number, you're good. If it asks you to install Xcode Command Line Tools, click **Install** and wait for it to finish.
-
-## Step 5: Download BeStrong HQ
-
-Pick a folder where you want BeStrong HQ to live. Your home folder works fine:
+### Step 3: Download BeStrong HQ
 
 ```bash
 cd ~
@@ -69,64 +84,37 @@ git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
 cd BeStrongHQ
 ```
 
-## Step 6: Install BeStrong HQ
-
-Run these two commands:
+### Step 4: Install BeStrong HQ
 
 ```bash
-pip3 install -e .
-cd web && npm install && cd ..
+python3 -m pip install -e .
+cd web
+npm install
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npm run build
+[ -f .next/standalone/server.js ] && cp -R .next/static .next/standalone/.next/ && cp -R public .next/standalone/
+cd ..
 ```
 
-This will take a minute or two. You'll see a lot of text scrolling by. That's normal.
+Why each step:
+- `NEXT_PUBLIC_API_URL` is baked in at build time so the frontend hits the FastAPI on 8080.
+- The `cp` commands copy static assets into the standalone bundle that `next.config.js` produces. Without them, every JS chunk 404s.
 
-## Step 7: Google setup
+### Step 5: Continue from "Final step: Google Setup" above
 
-BeStrong HQ uses Google for sign-in and Google Drive sync. You'll need to create your own OAuth credentials and tidy up your Drive folder layout before the app will work end to end. Follow the [Google Setup guide](google-setup.md), then come back here.
-
-## Step 8: Start BeStrong HQ
-
-```bash
-bestrong run
-```
-
-Open your browser and go to **http://localhost:3000**. You should see the BeStrong HQ dashboard.
-
-## Stopping and Restarting
-
-To stop BeStrong HQ, go back to Terminal and press **Ctrl + C**.
-
-To start it again later:
-
-```bash
-cd ~/BeStrongHQ
-bestrong run
-```
-
-Your data is saved automatically. Nothing is lost when you stop the app.
-
-## Updating
-
-When a new version is available:
-
-```bash
-cd ~/BeStrongHQ
-git pull
-pip3 install -e .
-cd web && npm install && cd ..
-bestrong run
-```
+---
 
 ## Troubleshooting
 
-**"command not found: bestrong"**. Close Terminal and open a new one. If that doesn't work, try running `pip3 install -e .` again from the BeStrongHQ folder.
+**"command not found: bestrong"**. Close Terminal and open a new one. If that doesn't work, try `python3 -m pip install -e .` again from the BeStrongHQ folder.
 
-**"command not found: brew"**. Make sure you ran the "Next steps" commands after installing Homebrew. Close Terminal, open a new one, and try again.
+**"command not found: brew"**. Make sure you ran the "Next steps" commands after installing Homebrew. Close Terminal, open a new one, try again.
 
-**"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another Terminal window.
+**"address already in use"**. Something else is running on port 3000 or 8080.
 
-**npm install fails with permission errors**. Do not use `sudo`. Instead, try:
+**`npm install` fails with permission errors**. Don't use `sudo`. Try:
 ```bash
 npm cache clean --force
-cd web && npm install && cd ..
+cd ~/BeStrongHQ/web && npm install
 ```
+
+**Dashboard loads to a white screen with "Loading..." forever**. The `NEXT_PUBLIC_API_URL` env var wasn't set when `npm run build` ran, or the standalone static-copy step was skipped. Both are fixed by re-running Step 4 above.

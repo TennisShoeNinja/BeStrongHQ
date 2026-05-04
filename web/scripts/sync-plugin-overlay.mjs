@@ -64,12 +64,21 @@ function tryResolvePluginRoot() {
             `print(pathlib.Path(inspect.getfile(${PLUGIN_PACKAGE})).resolve().parent)`,
           ].join("; "),
         ],
-        { cwd: webRoot, encoding: "utf8" }
+        {
+          cwd: webRoot,
+          encoding: "utf8",
+          // Discard the child's stderr so the Microsoft Store python.exe
+          // stub message ("Python was not found...") and ModuleNotFoundError
+          // text don't leak into the user's terminal during npm run build.
+          // The catch below already handles the failure silently; we just
+          // need to keep the stderr noise from reaching the console.
+          stdio: ["ignore", "pipe", "ignore"],
+        }
       ).trim();
 
       if (result) return result;
     } catch {
-      
+
     }
   }
   return null;

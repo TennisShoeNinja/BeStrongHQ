@@ -115,6 +115,7 @@ def run(
 ):
     """Start both the API server and Next.js UI in one command."""
     import os as _os
+    import shutil as _shutil
     import subprocess
     import sys
     import time
@@ -124,8 +125,29 @@ def run(
     init_db()
 
     _is_windows = _os.name == "nt"
-    _npx = "npx.cmd" if _is_windows else "npx"
-    _node = "node.exe" if _is_windows else "node"
+
+    def _resolve(name: str, win_name: str, fallbacks: list[str]) -> str:
+        """Find an executable, preferring PATH but falling back to known install
+        locations. Returns the original name if nothing is found, so subprocess
+        will produce a clear FileNotFoundError instead of failing silently."""
+        target = win_name if _is_windows else name
+        found = _shutil.which(target)
+        if found:
+            return found
+        for path in fallbacks:
+            expanded = _os.path.expandvars(path)
+            if _os.path.exists(expanded):
+                return expanded
+        return target
+
+    _npx = _resolve(
+        "npx", "npx.cmd",
+        [r"%PROGRAMFILES%\nodejs\npx.cmd", r"%PROGRAMFILES(X86)%\nodejs\npx.cmd"],
+    )
+    _node = _resolve(
+        "node", "node.exe",
+        [r"%PROGRAMFILES%\nodejs\node.exe", r"%PROGRAMFILES(X86)%\nodejs\node.exe"],
+    )
 
     console.print(f"\n[bold green]BeStrong[/bold green] is running at [bold cyan]http://{host}:{ui_port}[/bold cyan]\n")
 
