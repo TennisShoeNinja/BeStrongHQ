@@ -128,6 +128,8 @@ Your database and `.env` are preserved across updates — only the app code chan
 
 **"pip is not recognized"** (common in PowerShell). Use `python -m pip install -e .` instead of `pip install -e .`. The `python -m pip` form always works as long as `python` itself is on PATH, even when the standalone `pip` shim isn't.
 
+**"The token '&&' is not a valid statement separator in this version"** (PowerShell). PowerShell 5.1 (the default on Windows) doesn't support `&&`. The Step 5 commands in this guide are already broken onto separate lines for that reason — run them one at a time. If you copy a chained command from elsewhere, either run each piece on its own line, or upgrade to PowerShell 7 (`winget install Microsoft.PowerShell`) where `&&` works.
+
 **"bestrong is not recognized"**. Close your terminal and open a new one. If that doesn't work, the Python `Scripts\` folder isn't on your PATH — this can happen with per-user Python installs. Run `python -m bestrong run` instead, or reinstall Python with "Add to PATH" checked.
 
 **"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another Command Prompt window.

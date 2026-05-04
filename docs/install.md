@@ -16,7 +16,9 @@ cd web && npm install && npm run build && cd ..
 bestrong run
 ```
 
-> On Windows PowerShell, `pip` may not be on PATH even when `python` is. Use `python -m pip install -e .` instead. Same for macOS/Linux if you have multiple Python versions: `python3 -m pip install -e .` is the safest form.
+> **On Windows PowerShell**, the `&&` chain doesn't work in PowerShell 5.1 (the default). Run the `cd web`, `npm install`, `npm run build`, `cd ..` lines one at a time instead. Also: `pip` may not be on PATH even when `python` is, so always use `python -m pip install -e .` rather than bare `pip`.
+
+> On macOS/Linux with multiple Python versions, `python3 -m pip install -e .` is the safest form.
 
 Open **http://127.0.0.1:3000** in your browser.
 
