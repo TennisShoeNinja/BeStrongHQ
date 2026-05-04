@@ -1,0 +1,45 @@
+# BeStrong HQ - Community Edition (local Docker setup)
+#
+# Usage:
+#   cd docker
+#   docker compose up -d
+#
+# Then open http://127.0.0.1:3000
+#
+# To stop:        docker compose down
+# To rebuild:     docker compose build --no-cache && docker compose up -d
+# To view logs:   docker compose logs -f
+#
+# Data persistence:
+#   - SQLite database lives in the named volume `bestrong-data`
+#   - Drive OAuth tokens live in `bestrong-auth`
+#   - Both survive `docker compose down` and image rebuilds
+#   - To wipe everything: `docker compose down -v`
+
+services:
+  bestrong:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: bestrong-hq:community
+    container_name: bestrong-hq
+    restart: unless-stopped
+    ports:
+      # Bound to 127.0.0.1 so they don't accidentally face the public
+      # internet. Change to "3000:3000" / "8080:8080" if you want to
+      # access from other machines on your LAN.
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:8080:8080"
+    env_file:
+      # Read Google OAuth credentials and any other env vars from a
+      # .env file at the BeStrongApp root. Optional -- the app boots
+      # without it, but Drive sync won't work until it's set up.
+      - path: ../.env
+        required: false
+    volumes:
+      - bestrong-data:/data
+      - bestrong-auth:/app/.bestrong
+
+volumes:
+  bestrong-data:
+  bestrong-auth:

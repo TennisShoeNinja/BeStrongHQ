@@ -69,19 +69,21 @@ Everything you need on open:
 
 ## Community Edition
 
-Install BeStrong HQ on your own machine. Free forever, community supported. One terminal command does everything — installs Python, Node, Git, clones the repo, and builds the app:
+Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** — same image works on Windows, macOS, Linux, and Raspberry Pi. No need to install Python, Node.js, or Git on your host.
 
-**Windows (Command Prompt):**
-```
-curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
-```
+**Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or `curl -fsSL https://get.docker.com | sudo bash` (Linux / Pi).
 
-**macOS / Linux / Raspberry Pi:**
+**Then:**
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
+cd BeStrongHQ/docker
+docker compose up -d
 ```
 
-[Full install guide →](docs/install.md)
+Open **http://127.0.0.1:3000**.
+
+[Full install guide →](docs/install.md) · [Docker reference →](docker/README.md)
 
 ## How It Works
 

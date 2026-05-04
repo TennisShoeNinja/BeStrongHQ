@@ -1,59 +1,111 @@
 # Install BeStrong HQ (Community Edition)
 
-Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine and your data stays local. Nothing is uploaded to us, nothing leaks to a third party — your athletes' data lives in a SQLite file on your own disk.
+Community Edition is the free, self-hosted version of BeStrong HQ. Install it on your own machine via Docker and your data stays local. Nothing is uploaded to us, nothing leaks to a third party — your athletes' data lives in a SQLite file inside a Docker volume on your own disk.
 
 > **Drive sync is the only way to import program spreadsheets** — there's no manual file upload. You'll need to set up Google Drive OAuth credentials before your first sync. See [Google Setup](google-setup.md) for the 5-minute walkthrough.
 
-## One-line install
+## What you need
 
-The installer downloads its own dependencies (Python, Node.js, Git), clones the repo, and builds the app. Walk away for 10–15 minutes (longer on a Raspberry Pi).
+- **Docker** installed on your machine. One install, every OS.
+- **A Google account** for Drive sync.
+
+That's it. We don't ask you to install Python, Node.js, Git, or any other toolchain. Docker handles everything.
+
+## Step 1: Install Docker
+
+Pick your platform:
 
 ### Windows
 
-Open **Command Prompt** (Windows key, type `cmd`, press Enter), paste this line, and press Enter:
+Download **Docker Desktop for Windows** from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/). Run the installer and click through the defaults.
 
-```
-curl -L -o "%TEMP%\install.bat" https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.bat && "%TEMP%\install.bat"
-```
+Docker Desktop on Windows uses WSL2 under the hood. The installer enables it for you if it isn't already on. After install, reboot if it asks you to.
 
 ### macOS
 
-Open **Terminal** (Cmd+Space, type `Terminal`, press Enter), paste this line, and press Enter:
+Download **Docker Desktop for Mac** from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/). Pick the right architecture (Apple Silicon for M1/M2/M3, Intel for older Macs). Drag to Applications, launch it.
+
+### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+curl -fsSL https://get.docker.com | sudo bash
+sudo usermod -aG docker $USER
 ```
 
-### Linux / Raspberry Pi
+Then log out and back in (or `newgrp docker`) so your shell picks up the group change. Verify with `docker run hello-world`.
+
+### Raspberry Pi
+
+Same as Linux — the official `get.docker.com` script supports Raspberry Pi OS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TennisShoeNinja/BeStrongHQ/main/install.sh | bash
+curl -fsSL https://get.docker.com | sudo bash
+sudo usermod -aG docker $USER
 ```
 
-> **Where does it install?** All three installers prompt for an install location, defaulting to `BeStrongHQ` inside your current directory. Press Enter to accept the default, or type a different path.
+Reboot the Pi or log out and back in.
 
-## After install
+## Step 2: Get BeStrong HQ
 
 ```bash
-cd <your install folder>      # Windows: cd %USERPROFILE%\BeStrongHQ
-bestrong run
+git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
+cd BeStrongHQ/docker
+docker compose up -d
 ```
 
-Open **http://127.0.0.1:3000** in your browser.
+The first build takes 5–10 minutes on a desktop, 20–40 minutes on a Raspberry Pi (it compiles some packages from source). Subsequent starts are seconds — Docker only rebuilds when you change something.
 
-> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins.
+When it finishes, open **http://127.0.0.1:3000** in your browser. You should see the BeStrong HQ dashboard.
 
-## Step-by-step guides
+> Use `127.0.0.1`, not `localhost`. They usually behave the same, but Google OAuth treats them as different origins, and you'll be registering `127.0.0.1` redirect URIs in the next step.
 
-If you'd rather see what's happening at each step, hit an error the script doesn't recover from, or want to install somewhere other than your home folder, follow the platform-specific guide:
+## Step 3: Google Setup (required for Drive sync)
 
-- [macOS](install-mac.md)
-- [Windows](install-windows.md)
-- [Raspberry Pi](install-raspberry-pi.md)
+BeStrong HQ uses Google Drive to import program spreadsheets. There's no manual upload, so this step is required even if you only want to test with one athlete. Follow the [Google Setup guide](google-setup.md) — it walks you through creating the OAuth credentials and laying out your Drive folder.
 
-## Google Setup
+When you have your OAuth client ID and secret, create a `.env` file in the BeStrongApp root (one level above `docker/`):
 
-BeStrong HQ Community Edition uses Google Drive to import program spreadsheets, and (optionally) Google Calendar to push meet schedules. There's no built-in user login — your local machine is the access boundary — so the only OAuth client you need to create is for Drive (and Calendar if you want it). See the [Google Setup guide](google-setup.md) for the step-by-step.
+```
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+Restart the container so it picks up the new env vars:
+
+```bash
+cd docker
+docker compose down
+docker compose up -d
+```
+
+## Daily use
+
+```bash
+cd BeStrongHQ/docker
+
+docker compose up -d        # Start in background
+docker compose down         # Stop
+docker compose logs -f      # Tail logs
+docker compose restart      # Restart without rebuilding
+```
+
+Your data persists across restarts and even across `docker compose down` — it lives in a Docker named volume, not in the container itself.
+
+## Updating
+
+```bash
+cd BeStrongHQ
+git pull
+cd docker
+docker compose build
+docker compose up -d
+```
+
+Your database and OAuth tokens are preserved across updates.
+
+## Backups, LAN access, and advanced usage
+
+See [docker/README.md](../docker/README.md) for backup commands, instructions on accessing the app from other devices on your network, and advanced configuration.
 
 ## The Parser
 
