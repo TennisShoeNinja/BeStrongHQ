@@ -58,13 +58,17 @@ cd BeStrongHQ
 
 ## Step 5: Install BeStrong HQ
 
+You can use either **Command Prompt** or **PowerShell** for this — pick whichever you're comfortable with. Run these from inside the `BeStrongHQ` folder:
+
 ```
-pip install -e .
+python -m pip install -e .
 cd web
 npm install
 npm run build
 cd ..
 ```
+
+> **Why `python -m pip` and not just `pip`?** On many Windows installs, only `python` ends up on PATH, not `pip` — especially in PowerShell. Going through `python -m pip` always works as long as `python` itself runs.
 
 This takes a few minutes. You'll see a lot of text scrolling by — that's normal. The `npm run build` step at the end is optional but strongly recommended: it pre-compiles the UI so the first page load is fast instead of waiting 30–60 seconds for the dev server to compile on demand.
 
@@ -102,7 +106,7 @@ When a new version is available:
 ```
 cd %USERPROFILE%\BeStrongHQ
 git pull
-pip install -e .
+python -m pip install -e .
 cd web
 npm install
 npm run build
@@ -114,9 +118,11 @@ Your database and `.env` are preserved across updates — only the app code chan
 
 ## Troubleshooting
 
-**"python is not recognized"**. You missed the "Add to PATH" checkbox during Python install. Uninstall Python, reinstall it, and make sure to check that box. Then restart your computer.
+**"python is not recognized"**. You missed the "Add to PATH" checkbox during Python install. Re-run the Python installer, choose **Modify**, check **"Add Python to environment variables"**, and finish. Close and reopen your terminal. (No need to fully uninstall.)
 
-**"bestrong is not recognized"**. Close Command Prompt and open a new one. If that doesn't work, the Python `Scripts\` folder probably isn't on your PATH — this can happen with per-user Python installs. Run `python -m pip install -e .` from the BeStrongHQ folder and then try `python -m bestrong run` instead, or reinstall Python with "Add to PATH" checked.
+**"pip is not recognized"** (common in PowerShell). Use `python -m pip install -e .` instead of `pip install -e .`. The `python -m pip` form always works as long as `python` itself is on PATH, even when the standalone `pip` shim isn't.
+
+**"bestrong is not recognized"**. Close your terminal and open a new one. If that doesn't work, the Python `Scripts\` folder isn't on your PATH — this can happen with per-user Python installs. Run `python -m bestrong run` instead, or reinstall Python with "Add to PATH" checked.
 
 **"address already in use"**. Something else is running on port 3000 or 8080. Either close that application or check if BeStrong HQ is already running in another Command Prompt window.
 

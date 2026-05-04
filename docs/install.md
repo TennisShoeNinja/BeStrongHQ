@@ -9,10 +9,12 @@ You need Python 3.10+ and Node.js 20+ installed, then:
 ```bash
 git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
 cd BeStrongHQ
-pip install -e .
+python -m pip install -e .
 cd web && npm install && npm run build && cd ..
 bestrong run
 ```
+
+> On Windows PowerShell, `pip` may not be on PATH even when `python` is. Use `python -m pip install -e .` instead. Same for macOS/Linux if you have multiple Python versions: `python3 -m pip install -e .` is the safest form.
 
 Open **http://127.0.0.1:3000** in your browser.
 
