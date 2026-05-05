@@ -5,7 +5,7 @@
 **Coaching infrastructure for powerlifting teams.**
 
 [![CI](https://github.com/TennisShoeNinja/BeStrongHQ/actions/workflows/ci.yml/badge.svg)](https://github.com/TennisShoeNinja/BeStrongHQ/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-1.1.0--beta-blue)
+![version](https://img.shields.io/badge/version-1.3.0--beta-blue)
 ![license](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![docker](https://img.shields.io/badge/docker-required-2496ED?logo=docker&logoColor=white)
 <br />
