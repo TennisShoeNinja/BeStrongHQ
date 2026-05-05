@@ -13,16 +13,25 @@ growing evidence set, not a special case in the code.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from bestrong.models.orm import Athlete, Base, MaxHistory, MeetResult
 from bestrong.services.max_tracking import (
+    MEET_RECENCY_CUTOFF_DAYS,
     log_max_changes,
     reconcile_competition_maxes,
     recompute_canonical_max,
 )
+
+
+def _iso_days_ago(days: int) -> str:
+    return (
+        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    ).strftime("%Y-%m-%d")
 
 
 @pytest.fixture
@@ -42,7 +51,7 @@ def _seed_athlete(db, **kwargs) -> Athlete:
     return a
 
 
-def _add_meet(db, athlete, lift, weight, source="opl", made=True):
+def _add_meet(db, athlete, lift, weight, source="opl", made=True, meet_date=None):
     db.add(
         MeetResult(
             athlete_id=athlete.id,
@@ -51,6 +60,7 @@ def _add_meet(db, athlete, lift, weight, source="opl", made=True):
             weight_lbs=weight,
             made=made,
             source=source,
+            meet_date=meet_date,
         )
     )
 
@@ -211,3 +221,67 @@ def test_missed_attempts_do_not_count(db):
     reconcile_competition_maxes(db, a, source="opl")
 
     assert a.squat_max_lbs == 350
+
+
+# --- Recency cutoff (Scenario B: backdated old meets shouldn't bump) ---
+
+
+def test_meet_older_than_cutoff_does_not_drive_max(db):
+    """Scenario B: linking an athlete to OPL surfaces a five-year-old
+    PR. That meet imports into history but must not auto-bump the
+    cached max — old equipment, retired weight class, or capability
+    that's drifted by now. Coach can declare the older value manually
+    if they want to keep it."""
+    a = _seed_athlete(db, squat_max_lbs=350)
+    old_date = _iso_days_ago(MEET_RECENCY_CUTOFF_DAYS + 30)
+    _add_meet(db, a, "squat", 405, source="opl", meet_date=old_date)
+    db.commit()
+
+    reconcile_competition_maxes(db, a, source="opl")
+
+    assert a.squat_max_lbs == 350, (
+        "A meet older than the recency cutoff must not bump the cached "
+        "max — pre-fix it did, surprising coaches with backdated PRs."
+    )
+
+
+def test_recent_meet_still_drives_max(db):
+    """Within the recency window the bump still happens — preserves
+    the routine import experience for current PRs."""
+    a = _seed_athlete(db, squat_max_lbs=350)
+    recent_date = _iso_days_ago(MEET_RECENCY_CUTOFF_DAYS - 30)
+    _add_meet(db, a, "squat", 365, source="opl", meet_date=recent_date)
+    db.commit()
+
+    reconcile_competition_maxes(db, a, source="opl")
+
+    assert a.squat_max_lbs == 365
+
+
+def test_null_meet_date_treated_as_modern(db):
+    """Backward compat: manual coach entries that omit the date should
+    keep contributing as before. Only dated-and-old meets are excluded."""
+    a = _seed_athlete(db, squat_max_lbs=350)
+    _add_meet(db, a, "squat", 365, source="manual", meet_date=None)
+    db.commit()
+
+    reconcile_competition_maxes(db, a, source="opl")
+
+    assert a.squat_max_lbs == 365
+
+
+def test_old_meet_ignored_recent_meet_used_in_same_history(db):
+    """Mixed history: old PR doesn't count, recent meet does. Cached
+    max reflects only the recent evidence."""
+    a = _seed_athlete(db, squat_max_lbs=350)
+    _add_meet(
+        db, a, "squat", 405, source="opl", meet_date=_iso_days_ago(MEET_RECENCY_CUTOFF_DAYS + 60)
+    )
+    _add_meet(
+        db, a, "squat", 360, source="opl", meet_date=_iso_days_ago(MEET_RECENCY_CUTOFF_DAYS - 60)
+    )
+    db.commit()
+
+    reconcile_competition_maxes(db, a, source="opl")
+
+    assert a.squat_max_lbs == 360

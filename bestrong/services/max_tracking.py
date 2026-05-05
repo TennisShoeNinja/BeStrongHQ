@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session as DBSession
 
 from ..models.orm import Athlete, MaxHistory, MeetResult
@@ -23,6 +25,23 @@ MAX_FIELD_BY_LIFT = {
     "deadlift": "deadlift_max_lbs",
 }
 
+# Meets older than this don't drive the cached max. Backdated imports
+# (a five-year-old PR auto-syncing from OPL) overwhelmingly don't
+# reflect current capability — old equipment, retired weight classes,
+# layoffs, peaking phases that aren't repeatable. The meet still imports
+# into history; it just doesn't bump the cached value. NULL meet_date
+# is treated as "modern" for backward compatibility with manual entries
+# where coaches didn't fill in a date.
+MEET_RECENCY_CUTOFF_DAYS = 730
+
+
+def _meet_recency_cutoff() -> str:
+    """ISO date string for the oldest meet that still contributes to maxes."""
+    return (
+        datetime.now(timezone.utc).replace(tzinfo=None)
+        - timedelta(days=MEET_RECENCY_CUTOFF_DAYS)
+    ).strftime("%Y-%m-%d")
+
 # MaxHistory.source values whose new_value should NOT contribute as a
 # non-meet floor when reconciling. Meet-derived rows can disappear with
 # their backing MeetResult; we want the recompute to fall back to other
@@ -36,8 +55,11 @@ def recompute_canonical_max(db: DBSession, athlete: Athlete, lift: str) -> float
 
     Pieces of evidence:
 
-    * The heaviest made attempt across all current MeetResult rows
-      (any source — OPL, manual coach entry).
+    * The heaviest made attempt across MeetResult rows whose meet_date is
+      within ``MEET_RECENCY_CUTOFF_DAYS``. Old meets stay in history but
+      don't drive the cached max — a five-year-old PR isn't a useful
+      programming anchor. NULL meet_date is treated as "modern" for
+      backward compat with manual entries that omit the date.
     * The highest non-meet ``new_value`` ever recorded in MaxHistory:
       program imports tag rows with ``source='import'`` (training PRs
       from singles in spreadsheets), manual edits with ``'manual'``,
@@ -52,12 +74,14 @@ def recompute_canonical_max(db: DBSession, athlete: Athlete, lift: str) -> float
     deletes a meet result), in which case the cached value falls back
     to whatever remaining evidence supports.
     """
+    cutoff = _meet_recency_cutoff()
     best_meet = (
         db.query(func.max(MeetResult.weight_lbs))
         .filter(
             MeetResult.athlete_id == athlete.id,
             MeetResult.lift == lift,
             MeetResult.made.is_(True),
+            or_(MeetResult.meet_date.is_(None), MeetResult.meet_date >= cutoff),
         )
         .scalar()
     )
