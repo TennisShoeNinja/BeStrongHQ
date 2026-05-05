@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from .orm import Base
+
+logger = logging.getLogger(__name__)
 
 _default_db_path: Path | None = None
 _engines: dict[str, object] = {}
@@ -449,7 +452,14 @@ def _ensure_version_table(conn) -> None:
 
 
 def _run_data_migrations(conn) -> None:
-    """Run any one-off data migrations that haven't been applied yet."""
+    """Run any one-off data migrations that haven't been applied yet.
+
+    Each migration runs in its own savepoint. The version row is only
+    inserted after the SQL succeeds, so a failed migration is not
+    marked as applied and will be retried on the next startup. Failures
+    log via ``logger.exception`` (visible in stdout locally and Sentry
+    in production) but do not block startup.
+    """
     from sqlalchemy import text
 
     _ensure_version_table(conn)
@@ -457,17 +467,24 @@ def _run_data_migrations(conn) -> None:
     applied = {row[0] for row in result}
 
     for version, description, sql in _DATA_MIGRATIONS:
-        if version not in applied:
-            try:
-                conn.execute(text(sql))
-            except Exception:
-                pass
+        if version in applied:
+            continue
+        savepoint = conn.begin_nested()
+        try:
+            conn.execute(text(sql))
             conn.execute(
                 text(
                     "INSERT INTO _migration_version (version, description) "
                     "VALUES (:v, :d)"
                 ),
                 {"v": version, "d": description},
+            )
+            savepoint.commit()
+        except Exception:
+            savepoint.rollback()
+            logger.exception(
+                "data_migration_failed",
+                extra={"version": version, "description": description},
             )
 
 
