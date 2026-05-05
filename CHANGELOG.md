@@ -38,6 +38,24 @@ What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
   scrollbar, so a long career doesn't push the rest of the profile
   off-screen.
 
+## [1.2.5 Public Beta], 2026-05-03
+
+### Added
+
+- **OpenPowerlifting integration.** Link an athlete to their
+  OpenPowerlifting profile by searching their name, disambiguating
+  from the candidate list, and confirming the match. Once linked, the
+  importer pulls in their full sanctioned meet history at summary
+  level (per-meet squat / bench / deadlift bests, total, place,
+  federation, equipment, weight class, division) and inlines those
+  meets on the athlete profile alongside meets you log manually.
+  Refresh on demand picks up new meets without re-linking, and unlink
+  removes the binding without deleting cached data. The link dialog
+  prefills the search field with the athlete's name so most matches
+  are one click away. Backed by two new tables, `opl_links` (one row
+  per linked athlete) and `opl_meets` (cached meet rows keyed on
+  athlete + OPL meet path).
+
 ## [1.2.0 Public Beta], 2026-05-02
 
 ### Added
