@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from ..models.orm import Athlete, MeetResult, OplLink
 from ..opl import OplError, fetch_lifter_csv, search_lifters
 from ..opl.client import OPL_BASE
-from ..services.max_tracking import log_max_changes
+from ..services.max_tracking import reconcile_competition_maxes
 from .deps import get_db
 from .error_helpers import safe_error
 
@@ -198,49 +198,17 @@ def _import_meets_to_meet_results(
 
 
 def _refresh_athlete_maxes(db: Session, athlete: Athlete) -> None:
-    """Recalculate competition maxes from current meet_results, log deltas.
+    """Reconcile cached competition maxes with current evidence.
 
-    Mirrors the auto-update logic in routes_meet_results.save_meet_results
-    so an OPL import lifts the athlete's tracked maxes when a heavier
-    competition lift exists than what's on file. Only made attempts
-    count. We never demote a max that came from training (e.g. a 600
-    training squat shouldn't be lowered just because the athlete
-    competes at 500); the existing log_max_changes helper guards on
-    "is the new value actually higher" via the caller, so we only feed
-    it lifts that strictly improve the current best.
+    Recompute uses every remaining MeetResult plus non-meet MaxHistory
+    rows (training PRs from imports, manual coach edits) and the
+    declared baseline. Routine flows only add evidence so the cached
+    max only rises in the common case; demotions happen when OPL
+    retires a meet and no other source supports the previous peak.
     """
-    rows = (
-        db.query(MeetResult)
-        .filter(MeetResult.athlete_id == athlete.id, MeetResult.made.is_(True))
-        .all()
+    reconcile_competition_maxes(
+        db, athlete, source="opl", note="OpenPowerlifting import"
     )
-    best_by_lift: dict[str, float] = {}
-    for r in rows:
-        cur = best_by_lift.get(r.lift)
-        if cur is None or r.weight_lbs > cur:
-            best_by_lift[r.lift] = r.weight_lbs
-
-    updates: dict[str, float] = {}
-    for lift, best in best_by_lift.items():
-        field = _MAX_FIELD_BY_LIFT.get(lift)
-        if field is None:
-            continue
-        current = getattr(athlete, field)
-        if current is None or best > current:
-            updates[field] = best
-
-    if not updates:
-        return
-
-    new_squat = updates.get("squat_max_lbs", athlete.squat_max_lbs)
-    new_bench = updates.get("bench_max_lbs", athlete.bench_max_lbs)
-    new_deadlift = updates.get("deadlift_max_lbs", athlete.deadlift_max_lbs)
-    if None not in (new_squat, new_bench, new_deadlift):
-        updates["total_lbs"] = new_squat + new_bench + new_deadlift
-
-    log_max_changes(db, athlete, updates, source="opl", note="OpenPowerlifting import")
-    for field, value in updates.items():
-        setattr(athlete, field, value)
 
 
 def _ensure_athlete(db: Session, athlete_id: int) -> Athlete:
