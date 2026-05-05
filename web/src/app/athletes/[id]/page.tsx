@@ -1307,16 +1307,16 @@ function OplLinkDialog({
 
   // Prefill the search field with the athlete's name when the dialog opens
   // for an unlinked athlete, and auto-submit so the candidate list shows up
-  // without an extra click.
+  // without an extra click. Adjusted during render (per React docs) instead
+  // of in an effect to avoid cascading renders.
   const linkedSlug = statusQuery.data?.linked === true ? statusQuery.data.link?.slug : null;
-  useEffect(() => {
-    if (!open) return;
-    if (linkedSlug) return;
-    const seed = (athleteName ?? "").trim();
-    if (!seed) return;
-    setSearchTerm((prev) => (prev ? prev : seed));
-    setSearchSubmitted((prev) => (prev ? prev : seed));
-  }, [open, linkedSlug, athleteName]);
+  const seedKey = open && !linkedSlug ? (athleteName ?? "").trim() : "";
+  const [seededFor, setSeededFor] = useState("");
+  if (seedKey && seedKey !== seededFor) {
+    setSeededFor(seedKey);
+    setSearchTerm((prev) => prev || seedKey);
+    setSearchSubmitted((prev) => prev || seedKey);
+  }
 
   const searchQuery = useQuery({
     queryKey: ["opl", "search", searchSubmitted],
