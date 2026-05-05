@@ -7,8 +7,7 @@
 [![CI](https://github.com/TennisShoeNinja/BeStrongHQ/actions/workflows/ci.yml/badge.svg)](https://github.com/TennisShoeNinja/BeStrongHQ/actions/workflows/ci.yml)
 ![version](https://img.shields.io/badge/version-1.1.0--beta-blue)
 ![license](https://img.shields.io/badge/license-AGPL--3.0-blue)
-![python](https://img.shields.io/badge/python-%3E%3D3.10-3776AB?logo=python&logoColor=white)
-![node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
+![docker](https://img.shields.io/badge/docker-required-2496ED?logo=docker&logoColor=white)
 <br />
 ![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
