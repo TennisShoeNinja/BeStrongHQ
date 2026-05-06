@@ -2,15 +2,16 @@
 
 import { forwardRef } from 'react';
 import * as Types from '@/lib/types';
-
-const CARD_WIDTH = 1080;
 import {
   SHARE_BRAND,
   ShareCardLockup,
   CardEyebrow,
 } from '@/components/share-card-brand';
 
-interface MeetSummary {
+const CARD_WIDTH = 1080;
+const SUCCESS_GREEN = '#34D399';
+
+export interface MeetSummary {
   meet_key: string;
   meet_name: string | null;
   meet_date: string | null;
@@ -36,7 +37,13 @@ function parsePlace(raw: string | null): number | null {
   return Number.isFinite(n) && Number.isInteger(n) && n > 0 ? n : null;
 }
 
-function buildMeetSummaries(rows: Types.MeetResultEntry[]): MeetSummary[] {
+/**
+ * Aggregate meet-result attempt rows into one summary per meet.
+ * Result is sorted newest first (descending by date).
+ */
+export function buildMeetSummaries(
+  rows: Types.MeetResultEntry[],
+): MeetSummary[] {
   const map = new Map<string, MeetSummary>();
   for (const r of rows) {
     const key = meetKey(r);
@@ -70,6 +77,12 @@ function buildMeetSummaries(rows: Types.MeetResultEntry[]): MeetSummary[] {
       const p = parsePlace(r.place);
       if (p != null) s.place_numeric = p;
     }
+    if (!s.weight_class && r.weight_class) {
+      s.weight_class = r.weight_class;
+    }
+    if (!s.federation && r.federation) {
+      s.federation = r.federation;
+    }
   }
   for (const s of map.values()) {
     s.total_lbs = s.squat_lbs + s.bench_lbs + s.deadlift_lbs;
@@ -77,6 +90,30 @@ function buildMeetSummaries(rows: Types.MeetResultEntry[]): MeetSummary[] {
   return Array.from(map.values())
     .filter((s) => s.total_lbs > 0)
     .sort((a, b) => (b.meet_date ?? '').localeCompare(a.meet_date ?? ''));
+}
+
+/**
+ * Apply the "hide drops" rule. Walk meets oldest-first and drop any that
+ * scored a lower total than the previous kept meet. The oldest stays
+ * because it has no prior to compare to. Returns meets sorted newest first.
+ */
+export function hideNegativeDeltas(meets: MeetSummary[]): MeetSummary[] {
+  if (meets.length === 0) return meets;
+  const oldestFirst = [...meets].sort((a, b) =>
+    (a.meet_date ?? '').localeCompare(b.meet_date ?? ''),
+  );
+  const kept: MeetSummary[] = [];
+  for (const m of oldestFirst) {
+    if (kept.length === 0) {
+      kept.push(m);
+      continue;
+    }
+    const prior = kept[kept.length - 1];
+    if (m.total_lbs >= prior.total_lbs) kept.push(m);
+  }
+  return kept.sort((a, b) =>
+    (b.meet_date ?? '').localeCompare(a.meet_date ?? ''),
+  );
 }
 
 function formatLbs(value: number): string {
@@ -114,35 +151,39 @@ function formatPlace(n: number | null): string {
 interface ShareCompHistoryCardProps {
   athleteName: string;
   teamName: string;
-  meetResults: Types.MeetResultEntry[];
-  maxRows?: number;
+  /** Already filtered + selected, sorted newest first. */
+  meets: MeetSummary[];
 }
 
 export const ShareCompHistoryCard = forwardRef<
   HTMLDivElement,
   ShareCompHistoryCardProps
->(function ShareCompHistoryCard(
-  { athleteName, teamName, meetResults, maxRows = 14 },
-  ref,
-) {
-  const allMeets = buildMeetSummaries(meetResults);
-  const meets = allMeets.slice(0, maxRows);
-  const wins = allMeets.filter((m) => m.place_numeric === 1).length;
+>(function ShareCompHistoryCard({ athleteName, teamName, meets }, ref) {
+  const wins = meets.filter((m) => m.place_numeric === 1).length;
   const bestTotal =
-    allMeets.length > 0
-      ? Math.max(...allMeets.map((m) => m.total_lbs))
-      : 0;
-  const bestDots = allMeets.reduce<number | null>((best, m) => {
+    meets.length > 0 ? Math.max(...meets.map((m) => m.total_lbs)) : 0;
+  const bestDots = meets.reduce<number | null>((best, m) => {
     if (m.dots_score == null) return best;
     if (best == null) return m.dots_score;
     return m.dots_score > best ? m.dots_score : best;
   }, null);
 
-  const rowHeight = 72;
+  // Deltas: meets[i].total - meets[i+1].total. The oldest (last in array)
+  // has no delta. Negatives have already been filtered upstream by
+  // hideNegativeDeltas, but we render defensively.
+  const deltas = meets.map((m, i) => {
+    const prior = meets[i + 1];
+    if (!prior) return null;
+    const diff = m.total_lbs - prior.total_lbs;
+    if (diff <= 0) return null;
+    return diff;
+  });
+
+  const rowHeight = 76;
   const headerSpace = 360;
   const footerSpace = 110;
   const tableSpace = (meets.length + 1) * rowHeight + 24;
-  const cardHeight = headerSpace + tableSpace + footerSpace;
+  const cardHeight = Math.max(headerSpace + tableSpace + footerSpace, 1080);
 
   return (
     <div
@@ -185,7 +226,7 @@ export const ShareCompHistoryCard = forwardRef<
       </div>
 
       <div style={{ display: 'flex', gap: 20, marginTop: 36 }}>
-        <SummaryTile label="Meets" value={String(allMeets.length)} />
+        <SummaryTile label="Meets" value={String(meets.length)} />
         <SummaryTile label="Wins" value={String(wins)} accent={wins > 0} />
         <SummaryTile label="Best total" value={`${formatLbs(bestTotal)} lbs`} />
         <SummaryTile
@@ -206,20 +247,13 @@ export const ShareCompHistoryCard = forwardRef<
       >
         <TableHeader />
         {meets.map((m, i) => (
-          <TableRow key={m.meet_key} meet={m} alt={i % 2 === 1} />
+          <TableRow
+            key={m.meet_key}
+            meet={m}
+            alt={i % 2 === 1}
+            delta={deltas[i]}
+          />
         ))}
-        {allMeets.length > meets.length && (
-          <div
-            style={{
-              padding: '14px 24px',
-              fontSize: 14,
-              color: SHARE_BRAND.fgMuted,
-              textAlign: 'center',
-            }}
-          >
-            + {allMeets.length - meets.length} more
-          </div>
-        )}
       </div>
 
       <div
@@ -286,7 +320,7 @@ const COL_STYLE = {
   squat: { width: 70, textAlign: 'right' as const },
   bench: { width: 70, textAlign: 'right' as const },
   deadlift: { width: 80, textAlign: 'right' as const },
-  total: { width: 96, textAlign: 'right' as const },
+  total: { width: 130, textAlign: 'right' as const },
   dots: { width: 76, textAlign: 'right' as const },
 };
 
@@ -320,7 +354,15 @@ function TableHeader() {
   );
 }
 
-function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
+function TableRow({
+  meet,
+  alt,
+  delta,
+}: {
+  meet: MeetSummary;
+  alt: boolean;
+  delta: number | null;
+}) {
   const cell = {
     fontSize: 16,
     fontWeight: 500,
@@ -332,6 +374,9 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
     letterSpacing: '-0.01em',
   };
   const isWin = meet.place_numeric === 1;
+  const subline = [meet.federation, meet.weight_class]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <div
       style={{
@@ -382,7 +427,7 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
         >
           {meet.meet_name ?? '—'}
         </div>
-        {meet.federation && (
+        {subline && (
           <div
             style={{
               fontSize: 12,
@@ -392,7 +437,7 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
               marginTop: 2,
             }}
           >
-            {meet.federation}
+            {subline}
           </div>
         )}
       </div>
@@ -405,9 +450,25 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
           ...COL_STYLE.total,
           ...totalCell,
           color: isWin ? SHARE_BRAND.blueText : SHARE_BRAND.paper,
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'flex-end',
+          gap: 8,
         }}
       >
-        {formatLbs(meet.total_lbs)}
+        {delta != null && (
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: SUCCESS_GREEN,
+              letterSpacing: '0',
+            }}
+          >
+            +{Math.round(delta)}
+          </span>
+        )}
+        <span>{formatLbs(meet.total_lbs)}</span>
       </div>
       <div style={{ ...cell, ...COL_STYLE.dots, color: SHARE_BRAND.fgMuted }}>
         {meet.dots_score != null ? meet.dots_score.toFixed(2) : '—'}
