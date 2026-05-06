@@ -38,6 +38,8 @@ import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
 import { ShareProfileDialog } from "@/components/share-profile-dialog";
 import { ShareRecentPRDialog } from "@/components/share-recent-pr-dialog";
+import { ShareCompHistoryDialog } from "@/components/share-comp-history-dialog";
+import { ShareAchievementsDialog } from "@/components/share-achievements-dialog";
 import { AthleteBadges } from "@/components/athlete-badges";
 import {
   DropdownMenu,
@@ -7468,6 +7470,8 @@ export default function AthleteDetailPage() {
   const [isShowingDetails, setIsShowingDetails] = useState(false);
   const [isShareProfileOpen, setIsShareProfileOpen] = useState(false);
   const [isShareRecentPROpen, setIsShareRecentPROpen] = useState(false);
+  const [isShareCompHistoryOpen, setIsShareCompHistoryOpen] = useState(false);
+  const [isShareAchievementsOpen, setIsShareAchievementsOpen] = useState(false);
 
   
   const [highlightedExercise, setHighlightedExercise] = useState<HighlightedExercise | null>(null);
@@ -7931,17 +7935,11 @@ export default function AthleteDetailPage() {
                     <DropdownMenuItem onClick={() => setIsShareRecentPROpen(true)}>
                       Recent PR
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
+                    <DropdownMenuItem onClick={() => setIsShareCompHistoryOpen(true)}>
                       Competition History
-                      <span className="ml-auto cloud-text-muted" style={{ fontSize: 11 }}>
-                        Soon
-                      </span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
+                    <DropdownMenuItem onClick={() => setIsShareAchievementsOpen(true)}>
                       Achievements
-                      <span className="ml-auto cloud-text-muted" style={{ fontSize: 11 }}>
-                        Soon
-                      </span>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
@@ -8074,6 +8072,18 @@ export default function AthleteDetailPage() {
           athlete={athlete}
           open={isShareRecentPROpen}
           onOpenChange={setIsShareRecentPROpen}
+        />
+
+        <ShareCompHistoryDialog
+          athlete={athlete}
+          open={isShareCompHistoryOpen}
+          onOpenChange={setIsShareCompHistoryOpen}
+        />
+
+        <ShareAchievementsDialog
+          athlete={athlete}
+          open={isShareAchievementsOpen}
+          onOpenChange={setIsShareAchievementsOpen}
         />
 
         {}
