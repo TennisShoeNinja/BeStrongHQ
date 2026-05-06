@@ -18,10 +18,12 @@ from bestrong.models.orm import (
     ExerciseAlias,
     ExerciseEntry,
     MaxHistory,
+    MeetResult,
     Program,
     Session as SessionModel,
 )
-from bestrong.services.pr_tracking import log_prs_for_program
+from bestrong.services.max_tracking import sync_competition_lane_prs
+from bestrong.services.pr_tracking import COMP_MATCH_SOURCE, log_prs_for_program
 
 
 @pytest.fixture()
@@ -245,3 +247,148 @@ def test_coach_declared_aliases_fold_into_one_pr_lane(session):
 
     assert rows[0].exercise_name == "Pause Deadlift 0-1-0 (just off the floor)"
     assert rows[1].exercise_name == "Paused Deadlift (0-1-0) (right off the floor)"
+
+
+def _make_meet_attempt(session, athlete_id, lift, weight, meet_date="2025-09-05", meet_name="Test Meet"):
+    row = MeetResult(
+        athlete_id=athlete_id,
+        meet_id=None,
+        meet_name=meet_name,
+        meet_date=meet_date,
+        lift=lift,
+        attempt_number=2,
+        weight_lbs=weight,
+        made=True,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def test_training_single_tying_comp_pr_logs_comp_match_row(session):
+    """A training single that ties an existing comp PR fires a Comp Match
+    row, not a +0 PR over the prior training value.
+
+    Pre-fix: the per-exercise lane only saw training rows, so a 540 in
+    the gym after a 540 at a meet would land as a "+6 PR" over the
+    prior training single of 534. After fix: the comp 540 is synced
+    into the lane via sync_competition_lane_prs, the lane prev becomes
+    540, and pr_tracking writes a tagged comp_match row instead of
+    treating the tie as a regression.
+    """
+    athlete = Athlete(name="Tester")
+    session.add(athlete)
+    session.flush()
+
+    # Comp 540 happened first at the meet.
+    _make_meet_attempt(session, athlete.id, "deadlift", 540.0)
+    sync_competition_lane_prs(session, athlete.id, source="meet")
+    session.flush()
+
+    # A prior training single at 534 sets the lane's training history.
+    p_old = _make_program(session, athlete.id, program_number=1, date_start="2025-08-01")
+    _make_top_set(
+        session, p_old, week=2, day=4, weight=534.0, reps=1,
+        exercise="Competition Deadlift", lift_category="deadlift",
+    )
+
+    # Then a training session ties the comp PR at 540.
+    p_match = _make_program(session, athlete.id, program_number=2, date_start="2026-04-01")
+    _make_top_set(
+        session, p_match, week=3, day=4, weight=540.0, reps=1,
+        exercise="Competition Deadlift", lift_category="deadlift",
+    )
+    session.commit()
+
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p_old.id, source="import")
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p_match.id, source="import")
+    session.flush()
+
+    rows = (
+        session.query(MaxHistory)
+        .filter(MaxHistory.athlete_id == athlete.id)
+        .filter(MaxHistory.lift == "deadlift")
+        .filter(MaxHistory.reps == 1)
+        .order_by(MaxHistory.id)
+        .all()
+    )
+    sources = [r.source for r in rows]
+    values = [(r.old_value, r.new_value) for r in rows]
+    assert COMP_MATCH_SOURCE in sources, (
+        f"expected a comp_match row for the training tie of comp 540; got sources={sources}, values={values}"
+    )
+    match_row = next(r for r in rows if r.source == COMP_MATCH_SOURCE)
+    assert match_row.new_value == 540.0
+    assert match_row.old_value == 540.0
+
+
+def test_comp_match_does_not_fire_twice_at_same_weight(session):
+    """Once a training rep has matched the comp PR, subsequent training
+    reps at the same weight don't re-fire the celebration. The card is
+    "first time you matched it," not "every time you match it."
+    """
+    athlete = Athlete(name="Tester")
+    session.add(athlete)
+    session.flush()
+
+    _make_meet_attempt(session, athlete.id, "deadlift", 540.0)
+    sync_competition_lane_prs(session, athlete.id, source="meet")
+
+    p1 = _make_program(session, athlete.id, program_number=1, date_start="2026-04-01")
+    _make_top_set(
+        session, p1, week=3, day=4, weight=540.0, reps=1,
+        exercise="Competition Deadlift", lift_category="deadlift",
+    )
+    p2 = _make_program(session, athlete.id, program_number=2, date_start="2026-05-01")
+    _make_top_set(
+        session, p2, week=2, day=4, weight=540.0, reps=1,
+        exercise="Competition Deadlift", lift_category="deadlift",
+    )
+    session.commit()
+
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p1.id, source="import")
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p2.id, source="import")
+    session.flush()
+
+    match_rows = (
+        session.query(MaxHistory)
+        .filter(MaxHistory.athlete_id == athlete.id)
+        .filter(MaxHistory.source == COMP_MATCH_SOURCE)
+        .all()
+    )
+    assert len(match_rows) == 1, (
+        f"comp_match should fire only the first time training catches up; got {len(match_rows)} rows"
+    )
+
+
+def test_pause_variant_does_not_trigger_comp_match(session):
+    """Comp Match only fires on the comp variant of the lift. Variations
+    like Pause Bench or High Bar Squat happening at the same weight as
+    the comp PR are ordinary in-lane PRs, not comp matches.
+    """
+    athlete = Athlete(name="Tester")
+    session.add(athlete)
+    session.flush()
+
+    _make_meet_attempt(session, athlete.id, "bench", 285.0)
+    sync_competition_lane_prs(session, athlete.id, source="meet")
+
+    p = _make_program(session, athlete.id, program_number=1, date_start="2026-04-01")
+    _make_top_set(
+        session, p, week=1, day=1, weight=285.0, reps=1,
+        exercise="Pause Bench Press", lift_category="bench",
+    )
+    session.commit()
+
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p.id, source="import")
+    session.flush()
+
+    match_rows = (
+        session.query(MaxHistory)
+        .filter(MaxHistory.athlete_id == athlete.id)
+        .filter(MaxHistory.source == COMP_MATCH_SOURCE)
+        .all()
+    )
+    assert match_rows == [], (
+        "A pause-bench tie of the comp PR is not a comp match — different exercise"
+    )

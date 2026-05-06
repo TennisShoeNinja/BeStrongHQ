@@ -1069,17 +1069,17 @@ function NewPRsBanner({
     const inRange = history.filter((h) => {
       if (h.lift.toLowerCase() === "accessory") return false;
       const isTotal = h.lift.toLowerCase() === "total";
-      
-      
-      
+
       if (!isTotal && (h.reps == null || h.exercise_name == null)) return false;
-      
-      
-      
-      
+
       if (h.old_value == null) return false;
-      if (h.new_value <= h.old_value) return false;
-      
+
+      // Comp Match rows tie the prior value (training rep matched the
+      // comp PR), so allow them through the strict greater-than gate.
+      // Everything else still has to be a real improvement.
+      const isCompMatch = h.source === "comp_match";
+      if (!isCompMatch && h.new_value <= h.old_value) return false;
+
       if (!isTotal) {
         const key = `${h.lift}|${h.exercise_name}|${h.reps}`;
         if (newLaneKeys.has(key)) return false;
@@ -1173,9 +1173,10 @@ function NewPRsBanner({
             const repLabel = pr.reps != null ? `${pr.reps}RM` : pr.lift === "total" ? "Total" : "";
             const name = pr.exercise_name ?? pr.lift.charAt(0).toUpperCase() + pr.lift.slice(1);
             const weight = formatWeight(pr.new_value, unit, { decimals: 0 });
+            const isCompMatch = pr.source === "comp_match";
             const deltaLbs = pr.old_value != null ? pr.new_value - pr.old_value : null;
             const delta =
-              deltaLbs != null
+              !isCompMatch && deltaLbs != null
                 ? ` (+${Math.round(convertWeight(deltaLbs, unit))} ${unit})`
                 : "";
             return (
@@ -1183,7 +1184,7 @@ function NewPRsBanner({
                 key={pr.id}
                 type="button"
                 onClick={() => setSelectedPR(pr)}
-                title="See full progression"
+                title={isCompMatch ? "Matched competition PR in training" : "See full progression"}
                 className="cloud-text-muted block text-left w-full rounded px-1 -mx-1 py-0.5 transition-colors hover:bg-[rgba(251,191,36,0.1)]"
                 style={{ fontSize: 12 }}
               >
@@ -1193,7 +1194,13 @@ function NewPRsBanner({
                   {weight}
                   {pr.reps != null && pr.reps > 1 ? ` × ${pr.reps}` : ""}
                 </span>
-                {delta && <span className="ml-1" style={{ color: "#86efac", fontSize: 11 }}>{delta}</span>}
+                {isCompMatch ? (
+                  <span className="ml-1" style={{ color: "#fcd34d", fontSize: 11, fontWeight: 500 }}>
+                    · Comp Match
+                  </span>
+                ) : (
+                  delta && <span className="ml-1" style={{ color: "#86efac", fontSize: 11 }}>{delta}</span>
+                )}
               </button>
             );
           })}

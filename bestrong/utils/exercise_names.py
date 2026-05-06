@@ -52,6 +52,19 @@ def _singularize(word: str) -> str:
 
 _TOKEN_SPLIT = re.compile(r"(\s+)")
 
+# Trailing tempo notation that some coaches append to the exercise
+# name in their spreadsheet ("Competition Bench Press 0-1-0",
+# "Pause Squat (3-1-0)"). Tempo is metadata about how the rep is
+# performed, not a different exercise, so strip it before the
+# structural fold so "Competition Bench Press" and
+# "Competition Bench Press 0-1-0" collapse to the same lane. Only
+# dash-separated triples are recognized; bare space-separated digits
+# stay put so a numeric suffix that means something else (set count,
+# attempt number) doesn't accidentally vanish.
+_TEMPO_SUFFIX = re.compile(
+    r"\s*\(?\s*\d+\s*-\s*\d+\s*-\s*\d+\s*\)?\s*$"
+)
+
 
 def canonicalize_exercise_name(name: str | None) -> str:
     """Return a comparable key for an exercise name.
@@ -67,6 +80,9 @@ def canonicalize_exercise_name(name: str | None) -> str:
     if not text:
         return ""
 
+    text = _TEMPO_SUFFIX.sub("", text).strip()
+    if not text:
+        return ""
 
     text = " ".join(text.split())
     tokens = text.split(" ")

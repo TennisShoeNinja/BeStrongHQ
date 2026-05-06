@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..models.orm import Athlete, Meet, MeetResult
-from ..services.max_tracking import log_max_changes
+from ..services.max_tracking import log_max_changes, sync_competition_lane_prs
 from .deps import get_db
 from .schemas import (
     CompetitionMaxForLift,
@@ -171,6 +171,10 @@ def save_meet_results(
         )
         for field, value in max_updates.items():
             setattr(athlete, field, value)
+
+    if created:
+        db.flush()
+        sync_competition_lane_prs(db, athlete_id, source="meet")
 
     db.commit()
     for row in created:

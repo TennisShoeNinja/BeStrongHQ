@@ -40,10 +40,30 @@ class TestCanonicalize:
 
     def test_double_s_preserved(self):
 
-        assert canonicalize_exercise_name("Competition Bench Press 0-1-0") == "competition bench press 0-1-0"
+        # Tempo notation strips off the tail; the lift name itself is
+        # what survives. "Press" is preserved (double-s singularizer
+        # ignores it) so the canonical form is just "competition bench
+        # press".
+        assert canonicalize_exercise_name("Competition Bench Press 0-1-0") == "competition bench press"
 
         assert canonicalize_exercise_name("Competition Bench Presses") == canonicalize_exercise_name(
             "Competition Bench Press"
+        )
+
+    def test_tempo_notation_stripped(self):
+
+        # Trailing tempo metadata is not a different exercise. A bare
+        # name and the same name with tempo collapse to one lane so the
+        # progression series doesn't fragment when a coach sometimes
+        # writes the tempo and sometimes doesn't.
+        assert canonicalize_exercise_name("Competition Bench Press 0-1-0") == canonicalize_exercise_name(
+            "Competition Bench Press"
+        )
+        assert canonicalize_exercise_name("Tempo Squat (3-1-0)") == canonicalize_exercise_name(
+            "Tempo Squat"
+        )
+        assert canonicalize_exercise_name("Pause Deadlift  3 - 1 - 0") == canonicalize_exercise_name(
+            "Pause Deadlift"
         )
 
     def test_known_typo_fix(self):
@@ -73,11 +93,17 @@ class TestCanonicalize:
             "Pause Deadlift 0-1-0 (just off the floor)"
         ) != canonicalize_exercise_name("BELTLESS Pause Deadlift (0-1-0)")
 
-    def test_punctuation_and_numbers_preserved(self):
+    def test_non_tempo_punctuation_preserved(self):
 
-
-        assert canonicalize_exercise_name("Paused Squat (0-1-0)") == "pause squat (0-1-0)"
-        assert canonicalize_exercise_name("Tempo Squats (3-1-0)") == "tempo squat (3-1-0)"
+        # Tempo-shaped triples in the middle of a name (not at the
+        # trailing edge) stay put — only the very tail is treated as
+        # metadata. Same goes for any non-numeric parenthetical.
+        assert canonicalize_exercise_name(
+            "Slow To Knee Deadlifts (3-0-0) ( Full Reset)"
+        ) == "slow to knee deadlift (3-0-0) ( full reset)"
+        assert canonicalize_exercise_name(
+            "Pause Deadlift 0-1-0 (just off the floor)"
+        ) == "pause deadlift 0-1-0 (just off the floor)"
 
     def test_short_words_not_singularized(self):
 

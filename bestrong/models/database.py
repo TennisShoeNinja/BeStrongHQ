@@ -381,6 +381,51 @@ _DATA_MIGRATIONS: list[tuple[int, str, str]] = [
         WHERE id = (SELECT MIN(id) FROM allowed_users)
           AND is_admin = 0
     """),
+    (3, "backfill competition PR lane rows from meet_results", """
+        INSERT INTO max_history (
+            athlete_id, lift, old_value, new_value, source, note,
+            recorded_at, reps, exercise_name
+        )
+        SELECT
+            sub.athlete_id,
+            sub.lift,
+            NULL,
+            sub.weight_lbs,
+            'meet',
+            sub.meet_name,
+            COALESCE(sub.meet_date, CURRENT_TIMESTAMP),
+            1,
+            sub.canonical_name
+        FROM (
+            SELECT
+                mr.athlete_id,
+                mr.lift,
+                mr.weight_lbs,
+                mr.meet_name,
+                mr.meet_date,
+                CASE mr.lift
+                    WHEN 'squat' THEN 'Competition Squat'
+                    WHEN 'bench' THEN 'Competition Bench Press'
+                    WHEN 'deadlift' THEN 'Competition Deadlift'
+                END AS canonical_name,
+                ROW_NUMBER() OVER (
+                    PARTITION BY mr.athlete_id, mr.lift
+                    ORDER BY mr.weight_lbs DESC, mr.id ASC
+                ) AS rn
+            FROM meet_results mr
+            WHERE mr.made = 1
+              AND mr.lift IN ('squat', 'bench', 'deadlift')
+        ) sub
+        WHERE sub.rn = 1
+          AND NOT EXISTS (
+              SELECT 1 FROM max_history mh
+              WHERE mh.athlete_id = sub.athlete_id
+                AND mh.lift = sub.lift
+                AND mh.exercise_name = sub.canonical_name
+                AND mh.reps = 1
+                AND mh.source IN ('meet', 'opl')
+          )
+    """),
 ]
 
 

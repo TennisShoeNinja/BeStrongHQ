@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from ..models.orm import Athlete, MeetResult, OplLink
 from ..opl import OplError, fetch_lifter_csv, search_lifters
 from ..opl.client import OPL_BASE
-from ..services.max_tracking import reconcile_competition_maxes
+from ..services.max_tracking import reconcile_competition_maxes, sync_competition_lane_prs
 from .deps import get_db
 from .error_helpers import safe_error
 
@@ -205,10 +205,15 @@ def _refresh_athlete_maxes(db: Session, athlete: Athlete) -> None:
     declared baseline. Routine flows only add evidence so the cached
     max only rises in the common case; demotions happen when OPL
     retires a meet and no other source supports the previous peak.
+
+    Also keeps the per-exercise comp PR lane in sync with the imported
+    meet results so the athlete-profile progression modal shows OPL
+    bests alongside training entries.
     """
     reconcile_competition_maxes(
         db, athlete, source="opl", note="OpenPowerlifting import"
     )
+    sync_competition_lane_prs(db, athlete.id, source="opl")
 
 
 def _ensure_athlete(db: Session, athlete_id: int) -> Athlete:

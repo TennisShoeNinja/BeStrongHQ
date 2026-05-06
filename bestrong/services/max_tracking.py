@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session as DBSession
@@ -23,6 +23,17 @@ MAX_FIELD_BY_LIFT = {
     "squat": "squat_max_lbs",
     "bench": "bench_max_lbs",
     "deadlift": "deadlift_max_lbs",
+}
+
+# Canonical exercise_name written to MaxHistory for the per-exercise PR
+# lane corresponding to each competition lift. Keeps comp results visible
+# in the same progression series the athlete profile shows for training
+# 1RMs, so a coach reading "Competition Deadlift / 1RM" sees both meet
+# and gym entries on the same timeline.
+CANONICAL_COMP_LANE_NAME = {
+    "squat": "Competition Squat",
+    "bench": "Competition Bench Press",
+    "deadlift": "Competition Deadlift",
 }
 
 # Meets older than this don't drive the cached max. Backdated imports
@@ -147,6 +158,85 @@ def reconcile_competition_maxes(
     log_max_changes(db, athlete, updates, source=source, note=note)
     for field, value in updates.items():
         setattr(athlete, field, value)
+
+
+def _meet_date_to_datetime(meet_date_str: str | None) -> datetime:
+    """Coerce a MeetResult.meet_date (ISO string or None) to a datetime
+    suitable for ``MaxHistory.recorded_at``. Falls back to ``utcnow`` when
+    the string is missing or unparseable so the row still lands at a
+    sensible spot on the timeline."""
+    if meet_date_str:
+        try:
+            return datetime.combine(date.fromisoformat(meet_date_str), datetime.min.time())
+        except (ValueError, TypeError):
+            pass
+    return datetime.utcnow()
+
+
+def sync_competition_lane_prs(
+    db: DBSession,
+    athlete_id: int,
+    *,
+    source: str = "meet",
+) -> int:
+    """Ensure each competition lift's per-exercise PR lane reflects the
+    athlete's all-time best made attempt across every MeetResult on
+    record.
+
+    The athlete-profile PR card and "Competition <Lift> / 1RM" modal
+    both pull from MaxHistory rows with a populated ``exercise_name`` +
+    ``reps``. Comp results otherwise only update the lift-cap fields
+    (squat_max_lbs etc.) and write MaxHistory rows with no
+    exercise_name, so the per-exercise lane misses them entirely.
+    Without this sync, a training single matching a comp PR reads as a
+    new PR over the prior training value instead of a tie of the
+    athlete's actual best.
+
+    No-op for any lift whose lane top already meets or exceeds the
+    current best meet attempt. Returns the number of rows written.
+    """
+    written = 0
+    for lift in COMPETITION_LIFTS:
+        best_row = (
+            db.query(MeetResult)
+            .filter(
+                MeetResult.athlete_id == athlete_id,
+                MeetResult.lift == lift,
+                MeetResult.made.is_(True),
+            )
+            .order_by(MeetResult.weight_lbs.desc(), MeetResult.id.asc())
+            .first()
+        )
+        if best_row is None:
+            continue
+        canonical_name = CANONICAL_COMP_LANE_NAME[lift]
+        prior = (
+            db.query(func.max(MaxHistory.new_value))
+            .filter(
+                MaxHistory.athlete_id == athlete_id,
+                MaxHistory.lift == lift,
+                MaxHistory.exercise_name == canonical_name,
+                MaxHistory.reps == 1,
+            )
+            .scalar()
+        )
+        if prior is not None and best_row.weight_lbs <= prior:
+            continue
+        db.add(
+            MaxHistory(
+                athlete_id=athlete_id,
+                lift=lift,
+                old_value=prior,
+                new_value=best_row.weight_lbs,
+                source=source,
+                note=best_row.meet_name,
+                recorded_at=_meet_date_to_datetime(best_row.meet_date),
+                reps=1,
+                exercise_name=canonical_name,
+            )
+        )
+        written += 1
+    return written
 
 
 def log_max_changes(

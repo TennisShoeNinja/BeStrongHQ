@@ -35,13 +35,65 @@ from datetime import datetime, timedelta
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session as DBSession
 
-from ..models.orm import Athlete, ExerciseEntry, MaxHistory, Program, Session as SessionModel
+from ..models.orm import Athlete, ExerciseEntry, MaxHistory, MeetResult, Program, Session as SessionModel
 from ..utils.dates import parse_program_start, session_is_future
-from ..utils.exercise_names import canonicalize_with_aliases, load_alias_map
+from ..utils.exercise_names import (
+    canonicalize_exercise_name,
+    canonicalize_with_aliases,
+    load_alias_map,
+)
 
 logger = logging.getLogger(__name__)
 
 _COMPETITION_LIFTS = ("squat", "bench", "deadlift")
+
+# Source tag for MaxHistory rows where a training single ties an
+# existing competition PR for the same lift. The athlete profile
+# reframes these as "Comp Match" instead of celebrating a +0 lb PR.
+COMP_MATCH_SOURCE = "comp_match"
+
+# Names that count as the competition variant of a given lift, for
+# Comp Match purposes only. Pulls in the bare lift name and a couple
+# of common synonyms so coaches who log "Bench" or "Bench Press" in
+# the gym still get the Comp Match callout, while specific variations
+# ("Pause Bench", "High Bar Squat", "Block Pulls") stay separate.
+# Values are pre-canonicalized so tempo notation, casing, and plural
+# drift on the input side fold to the same key.
+_COMP_VARIANT_NAMES = {
+    lift: frozenset(canonicalize_exercise_name(n) for n in names)
+    for lift, names in {
+        "squat": (
+            "squat",
+            "back squat",
+            "low bar squat",
+            "competition squat",
+            "competition back squat",
+            "competition low bar squat",
+        ),
+        "bench": (
+            "bench",
+            "bench press",
+            "competition bench",
+            "competition bench press",
+        ),
+        "deadlift": (
+            "deadlift",
+            "conventional deadlift",
+            "sumo deadlift",
+            "competition deadlift",
+            "competition conventional deadlift",
+            "competition sumo deadlift",
+        ),
+    }.items()
+}
+
+
+def _is_comp_variant_name(name: str | None, lift: str) -> bool:
+    if not name:
+        return False
+    return canonicalize_exercise_name(name) in _COMP_VARIANT_NAMES.get(
+        lift, frozenset()
+    )
 
 
 MAX_REP_PR_COUNT = 10
@@ -130,6 +182,66 @@ def _current_rep_prs(
     return rep_prs
 
 
+def _competition_maxes_by_lift(
+    db: DBSession, athlete_id: int
+) -> dict[str, float]:
+    """Best made attempt per lift across every MeetResult on file.
+
+    Used as the ceiling against which a training single is compared
+    when deciding whether the rep is a real PR or a Comp Match (a tie
+    of the athlete's all-time competition best).
+    """
+    rows = (
+        db.query(MeetResult.lift, sa_func.max(MeetResult.weight_lbs))
+        .filter(
+            MeetResult.athlete_id == athlete_id,
+            MeetResult.made.is_(True),
+            MeetResult.lift.in_(_COMPETITION_LIFTS),
+        )
+        .group_by(MeetResult.lift)
+        .all()
+    )
+    return {lift: float(weight) for lift, weight in rows if weight is not None}
+
+
+def _existing_comp_match_high(
+    db: DBSession,
+    athlete_id: int,
+    alias_map: dict[str, str] | None,
+) -> dict[tuple[str, str], float]:
+    """Highest weight already celebrated as a comp_match per lane.
+
+    Returned as ``{(lift, canonical_exercise_name): max_weight}``. The
+    caller only fires a new celebration when the incoming training
+    weight strictly exceeds this prior bar, so a lifter who hits the
+    same comp PR weekly only gets one card per comp PR; subsequent
+    cards require the comp PR itself to have moved.
+    """
+    rows = (
+        db.query(
+            MaxHistory.lift,
+            MaxHistory.exercise_name,
+            sa_func.max(MaxHistory.new_value),
+        )
+        .filter(
+            MaxHistory.athlete_id == athlete_id,
+            MaxHistory.source == COMP_MATCH_SOURCE,
+            MaxHistory.exercise_name.isnot(None),
+        )
+        .group_by(MaxHistory.lift, MaxHistory.exercise_name)
+        .all()
+    )
+    out: dict[tuple[str, str], float] = {}
+    for lift, exname, weight in rows:
+        if weight is None:
+            continue
+        key = (lift, canonicalize_with_aliases(exname, alias_map))
+        cur = out.get(key)
+        if cur is None or weight > cur:
+            out[key] = float(weight)
+    return out
+
+
 def log_prs_for_program(
     db: DBSession,
     athlete_id: int,
@@ -162,6 +274,15 @@ def log_prs_for_program(
 
     lift_ath = _current_lift_ath(db, athlete_id)
     rep_prs = _current_rep_prs(db, athlete_id, alias_map)
+
+    # Comp PR per lift, used to reframe a training tie of the
+    # competition best as "Comp Match" instead of a +0 PR. The
+    # `comp_match_high` dict carries the highest weight already
+    # celebrated as a comp_match per lane so the same PR doesn't
+    # re-fire on every later training rep at the same weight; a new
+    # comp_match only fires when the comp PR itself has climbed.
+    comp_max_by_lift = _competition_maxes_by_lift(db, athlete_id)
+    comp_match_high = _existing_comp_match_high(db, athlete_id, alias_map)
 
     rows = (
         db.query(ExerciseEntry, SessionModel)
@@ -234,25 +355,41 @@ def log_prs_for_program(
             session_rep_keys, key=lambda x: (x[0], x[1], x[2])
         ):
             prev = rep_prs.get((lift, canon, reps))
-            if prev is None or weight > prev:
+            is_pr = prev is None or weight > prev
+            comp_max = comp_max_by_lift.get(lift)
+            is_comp_match = (
+                not is_pr
+                and reps == 1
+                and lift in _COMPETITION_LIFTS
+                and comp_max is not None
+                and weight == comp_max
+                and prev is not None
+                and weight == prev
+                and weight > comp_match_high.get((lift, canon), 0.0)
+                and _is_comp_variant_name(raw, lift)
+            )
+            if is_pr or is_comp_match:
                 db.add(
                     MaxHistory(
                         athlete_id=athlete_id,
                         lift=lift,
                         old_value=prev,
                         new_value=weight,
-                        source=source,
+                        source=COMP_MATCH_SOURCE if is_comp_match else source,
                         note=note_base,
                         recorded_at=timestamp,
                         reps=reps,
                         exercise_name=raw,
                     )
                 )
-                rep_prs[(lift, canon, reps)] = weight
                 entries_created += 1
 
+                if is_comp_match:
+                    comp_match_high[(lift, canon)] = weight
+                else:
+                    rep_prs[(lift, canon, reps)] = weight
 
-                if reps == 1:
+                if is_pr and reps == 1:
                     current = lift_ath.get(lift)
                     if current is None or weight > current:
                         lift_ath[lift] = weight

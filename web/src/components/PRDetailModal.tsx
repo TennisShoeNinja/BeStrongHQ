@@ -87,7 +87,7 @@ export default function PRDetailModal({
   const exerciseTitle = pr.exercise_name ?? (cat === "total" ? "Training total" : pr.lift);
   const titleColor = LIFT_COLORS[cat] ?? "var(--cloud-text)";
 
-  
+  const isCompMatch = pr.source === "comp_match";
   const deltaLbs = pr.old_value != null ? pr.new_value - pr.old_value : null;
   const deltaPct =
     pr.old_value != null && pr.old_value > 0
@@ -210,7 +210,28 @@ export default function PRDetailModal({
         </div>
 
         {}
-        {deltaDisplay != null && deltaDisplay !== 0 && (
+        {isCompMatch && (
+          <div
+            style={{
+              background: "rgba(245, 158, 11, 0.08)",
+              border: "1px solid rgba(245, 158, 11, 0.35)",
+              borderRadius: "var(--cloud-r-sm)",
+              padding: "10px 14px",
+              marginBottom: 16,
+              fontSize: 13,
+              color: "var(--cloud-text-muted)",
+            }}
+          >
+            <span style={{ fontSize: 14, color: "#fcd34d", fontWeight: 600 }}>
+              Comp Match
+            </span>
+            <span style={{ marginLeft: 8 }}>
+              matched competition PR of {formatWeight(pr.new_value, unit, { decimals: 0 })} in training
+            </span>
+          </div>
+        )}
+
+        {!isCompMatch && deltaDisplay != null && deltaDisplay !== 0 && (
           <div
             style={{
               background: "rgba(255,255,255,0.02)",
@@ -256,7 +277,7 @@ export default function PRDetailModal({
           </div>
         )}
 
-        {pr.old_value == null && (
+        {!isCompMatch && pr.old_value == null && (
           <div
             style={{
               background: "rgba(255,255,255,0.02)",
@@ -289,6 +310,8 @@ export default function PRDetailModal({
           <div style={{ display: "flex", flexDirection: "column" }}>
             {lane.map((entry, idx) => {
               const isCurrent = entry.id === pr.id;
+              const isEntryCompMatch = entry.source === "comp_match";
+              const isEntryMeet = entry.source === "meet" || entry.source === "opl";
               const { programNumber, weekDay, programLabel } = parseNote(entry.note);
               const matchedProgram = programIndex?.find((p) =>
                 programNumber != null ? p.program_number === programNumber : false
@@ -336,7 +359,7 @@ export default function PRDetailModal({
                         </span>
                       )}
                     </span>
-                    {stepDeltaDisplay != null && stepDeltaDisplay !== 0 && (
+                    {!isEntryCompMatch && stepDeltaDisplay != null && stepDeltaDisplay !== 0 && (
                       <span
                         style={{
                           fontSize: 11,
@@ -346,6 +369,40 @@ export default function PRDetailModal({
                       >
                         {stepDeltaDisplay > 0 ? "+" : ""}
                         {stepDeltaDisplay}
+                      </span>
+                    )}
+                    {isEntryCompMatch && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 500,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          backgroundColor: "rgba(245, 158, 11, 0.12)",
+                          color: "#fcd34d",
+                          border: "1px solid rgba(245, 158, 11, 0.35)",
+                        }}
+                      >
+                        Comp Match
+                      </span>
+                    )}
+                    {isEntryMeet && !isEntryCompMatch && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 500,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          backgroundColor: "rgba(96, 165, 250, 0.12)",
+                          color: "#93c5fd",
+                          border: "1px solid rgba(96, 165, 250, 0.35)",
+                        }}
+                      >
+                        Meet
                       </span>
                     )}
                   </div>
