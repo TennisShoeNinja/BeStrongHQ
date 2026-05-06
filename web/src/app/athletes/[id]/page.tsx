@@ -2869,6 +2869,7 @@ function ProgressionCharts({
     y: number;
     payload: ReadonlyArray<{ payload: Record<string, unknown> }>;
   } | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
   const tooltipCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelTooltipClose = useCallback(() => {
     if (tooltipCloseTimerRef.current) {
@@ -2882,6 +2883,7 @@ function ProgressionCharts({
     }
     tooltipCloseTimerRef.current = setTimeout(() => {
       setTooltipVisible(false);
+      setHoverPosition(null);
       tooltipCloseTimerRef.current = null;
     }, ms);
   }, []);
@@ -2901,8 +2903,35 @@ function ProgressionCharts({
 
   
   const chartsContainerRef = useRef<HTMLDivElement | null>(null);
-  
+
   const peakChartRef = useRef<HTMLDivElement | null>(null);
+  const [peakChartWidth, setPeakChartWidth] = useState(0);
+  useEffect(() => {
+    const node = peakChartRef.current;
+    if (!node) return;
+    setPeakChartWidth(node.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setPeakChartWidth(entry.contentRect.width);
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+
+
+  const clampTooltipX = useCallback(
+    (cx: number) => {
+      const TOOLTIP_WIDTH_ESTIMATE = 280;
+      const TOOLTIP_OFFSET = 20;
+      if (peakChartWidth <= 0) return cx;
+      if (cx + TOOLTIP_WIDTH_ESTIMATE + TOOLTIP_OFFSET > peakChartWidth) {
+        return Math.max(0, cx - TOOLTIP_WIDTH_ESTIMATE - TOOLTIP_OFFSET);
+      }
+      return cx;
+    },
+    [peakChartWidth],
+  );
   useEffect(() => {
     if (!pinnedTooltip) return;
     const handler = (e: MouseEvent) => {
@@ -3644,8 +3673,9 @@ function ProgressionCharts({
           e.stopPropagation();
           cancelTooltipClose();
           setTooltipVisible(false);
+          setHoverPosition(null);
           setPinnedTooltip({
-            x: cx,
+            x: clampTooltipX(cx),
             y: cy,
             payload: [{ payload: payload as Record<string, unknown> }],
           });
@@ -3686,7 +3716,7 @@ function ProgressionCharts({
       }
       return OutlierDotRenderer;
     },
-    [cancelTooltipClose],
+    [cancelTooltipClose, clampTooltipX],
   );
 
   const isLoading =
@@ -4438,23 +4468,29 @@ function ProgressionCharts({
             <LineChart
               data={compareMode ? compareChartData : e1rmChartData}
               onMouseMove={(state) => {
-                
-                
+
+
                 if (pinnedTooltip) return;
-                
-                
-                
-                
-                
+
+
+
+
+
                 const s = state as
                   | {
                       isTooltipActive?: boolean;
                       activeIndex?: number | string;
+                      activeCoordinate?: { x?: number; y?: number };
                     }
                   | undefined;
                 if (!s?.isTooltipActive) return;
                 cancelTooltipClose();
                 setTooltipVisible(true);
+                const ax = s.activeCoordinate?.x;
+                const ay = s.activeCoordinate?.y;
+                if (typeof ax === "number" && typeof ay === "number") {
+                  setHoverPosition({ x: clampTooltipX(ax), y: ay });
+                }
                 const idx =
                   typeof s.activeIndex === "number"
                     ? s.activeIndex
@@ -4498,7 +4534,13 @@ function ProgressionCharts({
                     : { stroke: chartColors.axis, strokeOpacity: 0.3 }
                 }
                 wrapperStyle={{ pointerEvents: "auto" }}
-                position={pinnedTooltip ? { x: pinnedTooltip.x, y: pinnedTooltip.y } : undefined}
+                position={
+                  pinnedTooltip
+                    ? { x: pinnedTooltip.x, y: pinnedTooltip.y }
+                    : hoverPosition
+                    ? { x: hoverPosition.x, y: hoverPosition.y }
+                    : undefined
+                }
                 content={({ payload }) => {
                   
                   
@@ -4750,8 +4792,9 @@ function ProgressionCharts({
                         e.stopPropagation();
                         cancelTooltipClose();
                         setTooltipVisible(false);
+                        setHoverPosition(null);
                         setPinnedTooltip({
-                          x: cx,
+                          x: clampTooltipX(cx),
                           y: cy,
                           payload: [{ payload: payload as Record<string, unknown> }],
                         });
