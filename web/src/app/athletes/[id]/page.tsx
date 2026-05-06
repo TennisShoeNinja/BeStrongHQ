@@ -46,9 +46,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -7910,6 +7907,34 @@ export default function AthleteDetailPage() {
               <DropdownMenuTrigger
                 className="cloud-btn cloud-btn-ghost"
                 style={{ padding: "7px var(--cloud-s2)" }}
+                aria-label="Share"
+                title="Share"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={6}
+                className="cloud-panel-raised min-w-[200px]"
+              >
+                <DropdownMenuItem onClick={() => setIsShareProfileOpen(true)}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsShareRecentPROpen(true)}>
+                  Recent PR
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsShareCompHistoryOpen(true)}>
+                  Competition History
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsShareAchievementsOpen(true)}>
+                  Achievements
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="cloud-btn cloud-btn-ghost"
+                style={{ padding: "7px var(--cloud-s2)" }}
                 aria-label="More actions"
               >
                 <MoreVertical className="h-3.5 w-3.5" />
@@ -7923,26 +7948,6 @@ export default function AthleteDetailPage() {
                   <Info className="w-3.5 h-3.5" />
                   Details
                 </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Share2 className="w-3.5 h-3.5" />
-                    Share
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="cloud-panel-raised min-w-[200px]">
-                    <DropdownMenuItem onClick={() => setIsShareProfileOpen(true)}>
-                      Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsShareRecentPROpen(true)}>
-                      Recent PR
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsShareCompHistoryOpen(true)}>
-                      Competition History
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsShareAchievementsOpen(true)}>
-                      Achievements
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
                 <DropdownMenuItem onClick={() => setIsUpdatingMaxes(true)}>
                   <ArrowUpDown className="w-3.5 h-3.5" />
                   Update Maxes
