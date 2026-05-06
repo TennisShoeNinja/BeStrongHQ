@@ -37,6 +37,7 @@ import BlockReviewSummary from "@/components/BlockReviewSummary";
 import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
 import { ShareProfileDialog } from "@/components/share-profile-dialog";
+import { AthleteBadges } from "@/components/athlete-badges";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -7868,6 +7869,9 @@ export default function AthleteDetailPage() {
                   Last Synced: {lastSyncedRelative}
                 </p>
               )}
+              <div style={{ marginTop: 12 }}>
+                <AthleteBadges athleteId={athleteId} />
+              </div>
             </div>
           </div>
 
