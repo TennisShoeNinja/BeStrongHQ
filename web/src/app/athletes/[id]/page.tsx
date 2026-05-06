@@ -7926,9 +7926,6 @@ export default function AthleteDetailPage() {
                 <DropdownMenuItem onClick={() => setIsShareCompHistoryOpen(true)}>
                   Competition History
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsShareAchievementsOpen(true)}>
-                  Achievements
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
