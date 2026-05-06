@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { FeedbackDialog } from "@/components/feedback-dialog";
+import { WhatsNewButton } from "@/components/whats-new";
 
 function humanize(segment: string): string {
   return segment
@@ -366,6 +367,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps = {}) {
           <Bell className="w-4 h-4" />
           {notificationCount > 0 && <span className="cloud-icon-dot" />}
         </Link>
+        <WhatsNewButton />
         <FeedbackDialog />
         {authEnabled && user ? (
           <DropdownMenu>
