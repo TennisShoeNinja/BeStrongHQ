@@ -210,7 +210,7 @@ export default function BlockReviewSummary({
     const empty = {
       rows: [] as Types.MaxHistoryEntry[],
       newLanes: 0,
-      newLiftsList: [] as Array<{ lift: string; exercise: string; reps: number[] }>,
+      newLiftsList: [] as Types.MaxHistoryEntry[],
     };
     if (!prData?.length || !currentProgram) return empty;
     const programStart = parseDateLoose(currentProgram.date_start ?? null);
@@ -288,25 +288,32 @@ export default function BlockReviewSummary({
     
     
     
-    const newLiftsMap = new Map<string, { lift: string; exercise: string; reps: number[] }>();
-    for (const key of newLaneKeys) {
-      const parts = key.split("|");
-      if (parts.length < 3) continue;
-      const [lift, exercise, repsStr] = parts;
-      const reps = parseInt(repsStr, 10);
-      if (Number.isNaN(reps)) continue;
-      const eKey = `${lift}|${exercise}`;
-      const existing = newLiftsMap.get(eKey);
-      if (existing) {
-        existing.reps.push(reps);
-      } else {
-        newLiftsMap.set(eKey, { lift, exercise, reps: [reps] });
+
+
+    const bestNewByLane = new Map<string, Types.MaxHistoryEntry>();
+    for (const pr of prData) {
+      if (pr.reps == null || pr.exercise_name == null) continue;
+      const key = `${pr.lift}|${pr.exercise_name}|${pr.reps}`;
+      if (!newLaneKeys.has(key)) continue;
+      const t = new Date(pr.recorded_at).getTime();
+      if (t < startWindow || t > endWindow) continue;
+      const existing = bestNewByLane.get(key);
+      if (!existing || pr.new_value > existing.new_value) {
+        bestNewByLane.set(key, pr);
       }
     }
-    const newLiftsList = Array.from(newLiftsMap.values()).map((item) => ({
-      ...item,
-      reps: item.reps.slice().sort((a, b) => a - b),
-    }));
+    const liftOrderIndex = (lift: string): number => {
+      const i = LIFT_ORDER.indexOf(lift.toLowerCase());
+      return i === -1 ? LIFT_ORDER.length : i;
+    };
+    const newLiftsList = Array.from(bestNewByLane.values()).sort((a, b) => {
+      const ai = liftOrderIndex(a.lift);
+      const bi = liftOrderIndex(b.lift);
+      if (ai !== bi) return ai - bi;
+      const ax = (a.exercise_name ?? "").localeCompare(b.exercise_name ?? "");
+      if (ax !== 0) return ax;
+      return (a.reps ?? 0) - (b.reps ?? 0);
+    });
     return { rows, newLanes: newLiftsList.length, newLiftsList };
   }, [prData, currentProgram]);
 
@@ -633,6 +640,7 @@ export default function BlockReviewSummary({
                   list={newLiftsList}
                   expanded={showNewLifts}
                   onToggle={() => setShowNewLifts((v) => !v)}
+                  onSelect={setSelectedPR}
                 />
               )}
             </div>
@@ -756,6 +764,7 @@ export default function BlockReviewSummary({
                   list={newLiftsList}
                   expanded={showNewLifts}
                   onToggle={() => setShowNewLifts((v) => !v)}
+                  onSelect={setSelectedPR}
                 />
               )}
             </div>
@@ -790,18 +799,20 @@ function NewLiftsFootnote({
   list,
   expanded,
   onToggle,
+  onSelect,
 }: {
   count: number;
-  list: Array<{ lift: string; exercise: string; reps: number[] }>;
+  list: Types.MaxHistoryEntry[];
   expanded: boolean;
   onToggle: () => void;
+  onSelect: (pr: Types.MaxHistoryEntry) => void;
 }) {
   return (
     <div style={{ marginTop: "0.35rem" }}>
       <button
         type="button"
         onClick={onToggle}
-        title="The athlete's first time on these (lift, exercise, reps) lanes. Click to see which exercises debuted."
+        title="The athlete's first time on these (lift, exercise, reps) lanes. Click a row to see the weight in context."
         style={{
           background: "none",
           border: "none",
@@ -818,44 +829,104 @@ function NewLiftsFootnote({
         {expanded ? "− " : "+ "}{count} new lift{count === 1 ? "" : "s"} established this block
       </button>
       {expanded && (
-        <ul
+        <div
           style={{
-            listStyle: "none",
             padding: "0.35rem 0 0 0.75rem",
-            margin: 0,
             display: "flex",
             flexDirection: "column",
-            gap: "0.2rem",
+            gap: "0.15rem",
           }}
         >
-          {list.map((item) => (
-            <li
-              key={`${item.lift}|${item.exercise}`}
-              style={{
-                fontSize: 11,
-                color: "var(--cloud-text-muted)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <span
+          {list.map((pr) => {
+            const cat = pr.lift.toLowerCase();
+            const repLabel = pr.reps != null ? `${pr.reps}RM` : null;
+            return (
+              <button
+                key={pr.id}
+                type="button"
+                onClick={() => onSelect(pr)}
+                title="See full progression"
                 style={{
-                  color: LIFT_COLORS[item.lift.toLowerCase()] ?? "var(--cloud-text-dim)",
-                  fontWeight: 600,
-                  textTransform: "capitalize",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  flexWrap: "wrap",
+                  background: "none",
+                  border: "none",
+                  padding: "0.1rem 0.25rem",
+                  margin: "-0.1rem -0.25rem",
+                  borderRadius: "0.25rem",
+                  cursor: "pointer",
+                  color: "inherit",
+                  textAlign: "left",
+                  width: "calc(100% + 0.5rem)",
+                  opacity: 0.78,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.03)";
+                  e.currentTarget.style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.opacity = "0.78";
                 }}
               >
-                {item.lift}
-              </span>
-              <span style={{ color: "var(--cloud-text)" }}>{item.exercise}</span>
-              <span style={{ color: "var(--cloud-text-dim)" }}>
-                ({item.reps.map((r) => `${r}RM`).join(", ")})
-              </span>
-            </li>
-          ))}
-        </ul>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: LIFT_COLORS[cat] || "var(--cloud-text-dim)",
+                    fontWeight: 600,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {pr.lift}
+                </span>
+                {repLabel && (
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 600,
+                      letterSpacing: "0.04em",
+                      padding: "0.05rem 0.28rem",
+                      borderRadius: "0.2rem",
+                      backgroundColor: "rgba(148, 163, 184, 0.12)",
+                      color: "var(--cloud-text-muted)",
+                      border: "1px solid rgba(148, 163, 184, 0.22)",
+                    }}
+                  >
+                    {repLabel}
+                  </span>
+                )}
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--cloud-text-muted)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {Math.round(pr.new_value)}
+                  {pr.reps != null && pr.reps > 1 ? ` × ${pr.reps}` : ""}
+                </span>
+                {pr.exercise_name && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--cloud-text-dim)",
+                      flex: "1 1 auto",
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={pr.exercise_name}
+                  >
+                    {pr.exercise_name}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
