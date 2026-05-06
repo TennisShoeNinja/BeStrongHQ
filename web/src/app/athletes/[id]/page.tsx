@@ -36,11 +36,15 @@ import { Input } from "@/components/ui/input";
 import BlockReviewSummary from "@/components/BlockReviewSummary";
 import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
+import { ShareProfileDialog } from "@/components/share-profile-dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -79,6 +83,7 @@ import {
   CalendarOff,
   UserCheck,
   UserX,
+  Share2,
 } from "lucide-react";
 import {
   LineChart,
@@ -7459,6 +7464,7 @@ export default function AthleteDetailPage() {
   
   const [isUpdatingMaxes, setIsUpdatingMaxes] = useState(false);
   const [isShowingDetails, setIsShowingDetails] = useState(false);
+  const [isShareProfileOpen, setIsShareProfileOpen] = useState(false);
 
   
   const [highlightedExercise, setHighlightedExercise] = useState<HighlightedExercise | null>(null);
@@ -7907,6 +7913,35 @@ export default function AthleteDetailPage() {
                   <Info className="w-3.5 h-3.5" />
                   Details
                 </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Share2 className="w-3.5 h-3.5" />
+                    Share
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="cloud-panel-raised min-w-[200px]">
+                    <DropdownMenuItem onClick={() => setIsShareProfileOpen(true)}>
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      Recent PR
+                      <span className="ml-auto cloud-text-muted" style={{ fontSize: 11 }}>
+                        Soon
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      Competition History
+                      <span className="ml-auto cloud-text-muted" style={{ fontSize: 11 }}>
+                        Soon
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      Achievements
+                      <span className="ml-auto cloud-text-muted" style={{ fontSize: 11 }}>
+                        Soon
+                      </span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuItem onClick={() => setIsUpdatingMaxes(true)}>
                   <ArrowUpDown className="w-3.5 h-3.5" />
                   Update Maxes
@@ -8024,6 +8059,12 @@ export default function AthleteDetailPage() {
           onOpenChange={setIsOplDialogOpen}
           athleteId={athleteId}
           athleteName={athlete.name}
+        />
+
+        <ShareProfileDialog
+          athlete={athlete}
+          open={isShareProfileOpen}
+          onOpenChange={setIsShareProfileOpen}
         />
 
         {}
