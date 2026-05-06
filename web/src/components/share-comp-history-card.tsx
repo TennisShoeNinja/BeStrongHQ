@@ -4,7 +4,11 @@ import { forwardRef } from 'react';
 import * as Types from '@/lib/types';
 
 const CARD_WIDTH = 1080;
-const ACCENT = '#ef4444';
+import {
+  SHARE_BRAND,
+  ShareCardLockup,
+  CardEyebrow,
+} from '@/components/share-card-brand';
 
 interface MeetSummary {
   meet_key: string;
@@ -146,44 +150,36 @@ export const ShareCompHistoryCard = forwardRef<
       style={{
         width: CARD_WIDTH,
         height: cardHeight,
-        background: 'radial-gradient(ellipse at top, #1c0a0a 0%, #0a0a0a 45%, #050505 100%)',
-        color: '#fafafa',
-        fontFamily: 'var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif',
+        background: SHARE_BRAND.bgGradient,
+        color: SHARE_BRAND.paper,
+        fontFamily: SHARE_BRAND.fontSans,
+        fontVariantNumeric: 'tabular-nums',
         padding: 64,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        border: `1px solid ${ACCENT}33`,
-        borderRadius: 32,
+        border: `1px solid ${SHARE_BRAND.cardBorder}`,
+        borderRadius: 20,
         overflow: 'hidden',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
+          <CardEyebrow size="lg">{teamName}</CardEyebrow>
           <div
             style={{
-              fontSize: 28,
-              fontWeight: 700,
-              letterSpacing: '0.05em',
+              fontSize: 13,
+              color: SHARE_BRAND.fgDim,
+              letterSpacing: '0.16em',
               textTransform: 'uppercase',
+              marginTop: 6,
+              fontWeight: 500,
             }}
           >
-            {teamName}
-            <span style={{ color: ACCENT, marginLeft: 8 }}>HQ</span>
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              color: 'rgba(250,250,250,0.5)',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              marginTop: 4,
-            }}
-          >
-            Competition History
+            Competition history
           </div>
         </div>
-        <div style={{ fontSize: 22, color: 'rgba(250,250,250,0.7)', fontWeight: 500 }}>
+        <div style={{ fontSize: 22, color: SHARE_BRAND.fgMuted, fontWeight: 500 }}>
           {athleteName}
         </div>
       </div>
@@ -191,7 +187,7 @@ export const ShareCompHistoryCard = forwardRef<
       <div style={{ display: 'flex', gap: 20, marginTop: 36 }}>
         <SummaryTile label="Meets" value={String(allMeets.length)} />
         <SummaryTile label="Wins" value={String(wins)} accent={wins > 0} />
-        <SummaryTile label="Best Total" value={`${formatLbs(bestTotal)} lbs`} />
+        <SummaryTile label="Best total" value={`${formatLbs(bestTotal)} lbs`} />
         <SummaryTile
           label="Best DOTS"
           value={bestDots != null ? bestDots.toFixed(2) : '—'}
@@ -202,9 +198,9 @@ export const ShareCompHistoryCard = forwardRef<
         style={{
           marginTop: 28,
           flex: 1,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 20,
+          background: SHARE_BRAND.panel,
+          border: `1px solid ${SHARE_BRAND.border}`,
+          borderRadius: 14,
           overflow: 'hidden',
         }}
       >
@@ -217,7 +213,7 @@ export const ShareCompHistoryCard = forwardRef<
             style={{
               padding: '14px 24px',
               fontSize: 14,
-              color: 'rgba(250,250,250,0.5)',
+              color: SHARE_BRAND.fgMuted,
               textAlign: 'center',
             }}
           >
@@ -230,14 +226,16 @@ export const ShareCompHistoryCard = forwardRef<
         style={{
           marginTop: 24,
           paddingTop: 24,
-          borderTop: `1px solid ${ACCENT}33`,
-          fontSize: 16,
-          color: 'rgba(250,250,250,0.55)',
+          borderTop: `1px solid ${SHARE_BRAND.border}`,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 12,
         }}
       >
-        {teamName}
-        <span style={{ color: ACCENT, marginLeft: 6 }}>HQ</span>
-        <span style={{ marginLeft: 8 }}>powerlifting analytics</span>
+        <ShareCardLockup />
+        <span style={{ fontSize: 16, color: SHARE_BRAND.fgMuted }}>
+          powerlifting analytics
+        </span>
       </div>
     </div>
   );
@@ -257,32 +255,22 @@ function SummaryTile({
       style={{
         flex: 1,
         background: accent
-          ? 'linear-gradient(135deg, rgba(239,68,68,0.10), rgba(239,68,68,0.02))'
-          : 'rgba(255,255,255,0.03)',
+          ? `linear-gradient(135deg, ${SHARE_BRAND.blueGlowSoft}, rgba(12,92,171,0.02))`
+          : SHARE_BRAND.panel,
         border: accent
-          ? `1px solid ${ACCENT}40`
-          : '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 16,
+          ? `1px solid ${SHARE_BRAND.blueGlowRim}`
+          : `1px solid ${SHARE_BRAND.border}`,
+        borderRadius: 10,
         padding: '18px 22px',
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: accent ? ACCENT : 'rgba(250,250,250,0.5)',
-        }}
-      >
-        {label}
-      </div>
+      <CardEyebrow size="sm">{label}</CardEyebrow>
       <div
         style={{
           fontSize: 32,
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: '-0.02em',
-          marginTop: 4,
+          marginTop: 6,
         }}
       >
         {value}
@@ -306,9 +294,9 @@ function TableHeader() {
   const labelStyle = {
     fontSize: 12,
     fontWeight: 600,
-    letterSpacing: '0.12em',
+    letterSpacing: '0.10em',
     textTransform: 'uppercase' as const,
-    color: 'rgba(250,250,250,0.45)',
+    color: SHARE_BRAND.fgFaint,
   };
   return (
     <div
@@ -317,7 +305,7 @@ function TableHeader() {
         alignItems: 'center',
         gap: 16,
         padding: '20px 24px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: `1px solid ${SHARE_BRAND.border}`,
       }}
     >
       <div style={{ ...labelStyle, ...COL_STYLE.date }}>Date</div>
@@ -336,11 +324,11 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
   const cell = {
     fontSize: 16,
     fontWeight: 500,
-    color: 'rgba(250,250,250,0.85)',
+    color: SHARE_BRAND.fgMuted,
   };
   const totalCell = {
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 600,
     letterSpacing: '-0.01em',
   };
   const isWin = meet.place_numeric === 1;
@@ -355,10 +343,25 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
         borderBottom: '1px solid rgba(255,255,255,0.04)',
       }}
     >
-      <div style={{ ...cell, ...COL_STYLE.date, color: 'rgba(250,250,250,0.6)' }}>
+      <div style={{ ...cell, ...COL_STYLE.date, color: SHARE_BRAND.fgMuted }}>
         {formatMeetDate(meet.meet_date)}
       </div>
-      <div style={{ ...cell, ...COL_STYLE.place, fontSize: 22 }}>
+      <div
+        style={{
+          ...cell,
+          ...COL_STYLE.place,
+          fontSize:
+            meet.place_numeric != null &&
+            meet.place_numeric >= 1 &&
+            meet.place_numeric <= 3
+              ? 22
+              : 14,
+          color:
+            meet.place_numeric === 1
+              ? SHARE_BRAND.paper
+              : SHARE_BRAND.fgDim,
+        }}
+      >
         {formatPlace(meet.place_numeric)}
       </div>
       <div
@@ -374,6 +377,7 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             fontWeight: isWin ? 600 : 500,
+            color: SHARE_BRAND.paper,
           }}
         >
           {meet.meet_name ?? '—'}
@@ -382,7 +386,7 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
           <div
             style={{
               fontSize: 12,
-              color: 'rgba(250,250,250,0.45)',
+              color: SHARE_BRAND.fgFaint,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               marginTop: 2,
@@ -400,12 +404,12 @@ function TableRow({ meet, alt }: { meet: MeetSummary; alt: boolean }) {
           ...cell,
           ...COL_STYLE.total,
           ...totalCell,
-          color: isWin ? ACCENT : 'rgba(250,250,250,0.95)',
+          color: isWin ? SHARE_BRAND.blueText : SHARE_BRAND.paper,
         }}
       >
         {formatLbs(meet.total_lbs)}
       </div>
-      <div style={{ ...cell, ...COL_STYLE.dots, color: 'rgba(250,250,250,0.6)' }}>
+      <div style={{ ...cell, ...COL_STYLE.dots, color: SHARE_BRAND.fgMuted }}>
         {meet.dots_score != null ? meet.dots_score.toFixed(2) : '—'}
       </div>
     </div>

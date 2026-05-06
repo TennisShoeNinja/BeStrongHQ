@@ -19,7 +19,11 @@ import {
 import type { EarnedBadge } from '@/lib/badges';
 
 const CARD_WIDTH = 1080;
-const ACCENT = '#ef4444';
+import {
+  SHARE_BRAND,
+  ShareCardLockup,
+  CardEyebrow,
+} from '@/components/share-card-brand';
 
 interface TierStyle {
   ring: string;
@@ -112,44 +116,36 @@ export const ShareAchievementsCard = forwardRef<
       style={{
         width: CARD_WIDTH,
         height: cardHeight,
-        background: 'radial-gradient(ellipse at top, #1c0a0a 0%, #0a0a0a 45%, #050505 100%)',
-        color: '#fafafa',
-        fontFamily: 'var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif',
+        background: SHARE_BRAND.bgGradient,
+        color: SHARE_BRAND.paper,
+        fontFamily: SHARE_BRAND.fontSans,
+        fontVariantNumeric: 'tabular-nums',
         padding: 64,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        border: `1px solid ${ACCENT}33`,
-        borderRadius: 32,
+        border: `1px solid ${SHARE_BRAND.cardBorder}`,
+        borderRadius: 20,
         overflow: 'hidden',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
+          <CardEyebrow size="lg">{teamName}</CardEyebrow>
           <div
             style={{
-              fontSize: 28,
-              fontWeight: 700,
-              letterSpacing: '0.05em',
+              fontSize: 13,
+              color: SHARE_BRAND.fgDim,
+              letterSpacing: '0.16em',
               textTransform: 'uppercase',
-            }}
-          >
-            {teamName}
-            <span style={{ color: ACCENT, marginLeft: 8 }}>HQ</span>
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              color: 'rgba(250,250,250,0.5)',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              marginTop: 4,
+              marginTop: 6,
+              fontWeight: 500,
             }}
           >
             Achievements
           </div>
         </div>
-        <div style={{ fontSize: 22, color: 'rgba(250,250,250,0.7)', fontWeight: 500 }}>
+        <div style={{ fontSize: 22, color: SHARE_BRAND.fgMuted, fontWeight: 500 }}>
           {athleteName}
         </div>
       </div>
@@ -158,8 +154,8 @@ export const ShareAchievementsCard = forwardRef<
         <div
           style={{
             fontSize: 80,
-            fontWeight: 700,
-            letterSpacing: '-0.04em',
+            fontWeight: 600,
+            letterSpacing: '-0.035em',
             lineHeight: 1.0,
           }}
         >
@@ -168,13 +164,13 @@ export const ShareAchievementsCard = forwardRef<
         <div
           style={{
             fontSize: 22,
-            color: 'rgba(250,250,250,0.7)',
+            color: SHARE_BRAND.fgMuted,
             marginTop: 8,
           }}
         >
           {badges.length === 1 ? 'achievement unlocked' : 'achievements unlocked'}
           {tiers.size > 0 && (
-            <span style={{ color: 'rgba(250,250,250,0.5)' }}>
+            <span style={{ color: SHARE_BRAND.fgDim }}>
               {' '}
               · {tiers.size} {tiers.size === 1 ? 'category' : 'categories'} · {totalCount} total
             </span>
@@ -199,14 +195,16 @@ export const ShareAchievementsCard = forwardRef<
         style={{
           marginTop: 'auto',
           paddingTop: 32,
-          borderTop: `1px solid ${ACCENT}33`,
-          fontSize: 16,
-          color: 'rgba(250,250,250,0.55)',
+          borderTop: `1px solid ${SHARE_BRAND.border}`,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 12,
         }}
       >
-        {teamName}
-        <span style={{ color: ACCENT, marginLeft: 6 }}>HQ</span>
-        <span style={{ marginLeft: 8 }}>powerlifting analytics</span>
+        <ShareCardLockup />
+        <span style={{ fontSize: 16, color: SHARE_BRAND.fgMuted }}>
+          powerlifting analytics
+        </span>
       </div>
     </div>
   );
@@ -220,7 +218,7 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
       style={{
         background: tier.bg,
         border: `1px solid ${tier.ring}`,
-        borderRadius: 18,
+        borderRadius: 14,
         padding: 20,
         display: 'flex',
         flexDirection: 'column',
@@ -233,7 +231,7 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
         style={{
           width: 56,
           height: 56,
-          borderRadius: 14,
+          borderRadius: 10,
           background: 'rgba(0,0,0,0.35)',
           border: `1px solid ${tier.ring}`,
           color: tier.fg,
@@ -250,7 +248,7 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
           fontWeight: 600,
           letterSpacing: '-0.015em',
           marginTop: 4,
-          color: 'rgba(250,250,250,0.95)',
+          color: SHARE_BRAND.paper,
         }}
       >
         {badge.label}
@@ -258,7 +256,7 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
       <div
         style={{
           fontSize: 13,
-          color: 'rgba(250,250,250,0.55)',
+          color: SHARE_BRAND.fgMuted,
           lineHeight: 1.4,
           flex: 1,
         }}
@@ -279,7 +277,7 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
             border: `1px solid ${tier.ring}`,
             color: tier.fg,
             fontSize: 14,
-            fontWeight: 700,
+            fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

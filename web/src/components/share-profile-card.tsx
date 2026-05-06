@@ -2,10 +2,14 @@
 
 import { forwardRef, type CSSProperties } from 'react';
 import * as Types from '@/lib/types';
+import {
+  SHARE_BRAND,
+  ShareCardLockup,
+  CardEyebrow,
+} from '@/components/share-card-brand';
 
 const CARD_WIDTH = 1080;
 const CARD_HEIGHT = 1920;
-const ACCENT = '#ef4444';
 
 const LIFTS = ['squat', 'bench', 'deadlift'] as const;
 type Lift = (typeof LIFTS)[number];
@@ -203,17 +207,18 @@ export const ShareProfileCard = forwardRef<HTMLDivElement, ShareProfileCardProps
         style={{
           width: CARD_WIDTH,
           height: CARD_HEIGHT,
-          background: 'radial-gradient(ellipse at top, #1c0a0a 0%, #0a0a0a 45%, #050505 100%)',
-          color: '#fafafa',
-          fontFamily: 'var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif',
+          background: SHARE_BRAND.bgGradient,
+          color: SHARE_BRAND.paper,
+          fontFamily: SHARE_BRAND.fontSans,
+          fontVariantNumeric: 'tabular-nums',
           padding: 64,
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
           overflow: 'hidden',
-          border: `1px solid ${ACCENT}33`,
-          borderRadius: 32,
+          border: `1px solid ${SHARE_BRAND.cardBorder}`,
+          borderRadius: 20,
         }}
       >
         <CardHeader teamName={teamName} />
@@ -223,8 +228,8 @@ export const ShareProfileCard = forwardRef<HTMLDivElement, ShareProfileCardProps
             style={{
               fontSize: 88,
               lineHeight: 1.0,
-              fontWeight: 700,
-              letterSpacing: '-0.04em',
+              fontWeight: 600,
+              letterSpacing: '-0.035em',
               margin: 0,
             }}
           >
@@ -267,27 +272,18 @@ function CardHeader({ teamName }: { teamName: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
       <div>
+        <CardEyebrow size="lg">{teamName}</CardEyebrow>
         <div
           style={{
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: '0.05em',
+            fontSize: 13,
+            color: SHARE_BRAND.fgDim,
+            letterSpacing: '0.16em',
             textTransform: 'uppercase',
+            marginTop: 6,
+            fontWeight: 500,
           }}
         >
-          {teamName}
-          <span style={{ color: ACCENT, marginLeft: 8 }}>HQ</span>
-        </div>
-        <div
-          style={{
-            fontSize: 14,
-            color: 'rgba(250,250,250,0.5)',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            marginTop: 4,
-          }}
-        >
-          Profile Card
+          Profile card
         </div>
       </div>
     </div>
@@ -301,9 +297,9 @@ function CardPill({ children }: { children: React.ReactNode }) {
         fontSize: 22,
         padding: '8px 18px',
         borderRadius: 999,
-        background: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        color: 'rgba(250,250,250,0.85)',
+        background: SHARE_BRAND.panelHover,
+        border: `1px solid ${SHARE_BRAND.borderStrong}`,
+        color: SHARE_BRAND.fgMuted,
         fontWeight: 500,
       }}
     >
@@ -333,9 +329,9 @@ function BestTotalPanel({
       <div
         style={{
           flex: 1,
-          background: 'linear-gradient(135deg, rgba(239,68,68,0.10) 0%, rgba(239,68,68,0.02) 100%)',
-          border: `1px solid ${ACCENT}40`,
-          borderRadius: 20,
+          background: `linear-gradient(135deg, ${SHARE_BRAND.blueGlowSoft} 0%, rgba(12,92,171,0.02) 100%)`,
+          border: `1px solid ${SHARE_BRAND.blueGlowRim}`,
+          borderRadius: 14,
           padding: '32px 36px',
           position: 'relative',
         }}
@@ -347,28 +343,18 @@ function BestTotalPanel({
             top: 24,
             bottom: 24,
             width: 4,
-            background: ACCENT,
+            background: SHARE_BRAND.blue,
             borderRadius: 2,
           }}
         />
-        <div
-          style={{
-            fontSize: 16,
-            fontWeight: 600,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: ACCENT,
-          }}
-        >
-          Best Total
-        </div>
+        <CardEyebrow>Best total</CardEyebrow>
         <div
           style={{
             fontSize: 96,
-            fontWeight: 700,
-            letterSpacing: '-0.04em',
+            fontWeight: 600,
+            letterSpacing: '-0.035em',
             lineHeight: 1.0,
-            marginTop: 8,
+            marginTop: 12,
           }}
         >
           {formatLbs(headline)}
@@ -377,7 +363,7 @@ function BestTotalPanel({
           <div
             style={{
               fontSize: 22,
-              color: 'rgba(250,250,250,0.65)',
+              color: SHARE_BRAND.fgMuted,
               marginTop: 12,
             }}
           >
@@ -390,30 +376,20 @@ function BestTotalPanel({
         <div
           style={{
             width: 220,
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 20,
+            background: SHARE_BRAND.panel,
+            border: `1px solid ${SHARE_BRAND.border}`,
+            borderRadius: 14,
             padding: '24px 28px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
           }}
         >
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'rgba(250,250,250,0.5)',
-            }}
-          >
-            Best DOTS
-          </div>
+          <CardEyebrow size="sm">Best DOTS</CardEyebrow>
           <div
             style={{
               fontSize: 44,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: '-0.02em',
               marginTop: 6,
             }}
@@ -448,9 +424,9 @@ function ChartPanel({
     <div
       style={{
         marginTop: 32,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 20,
+        background: SHARE_BRAND.panel,
+        border: `1px solid ${SHARE_BRAND.border}`,
+        borderRadius: 14,
         padding: 28,
       }}
     >
@@ -475,7 +451,7 @@ function ChartPanel({
               <text
                 x={0}
                 y={y + 5}
-                fill="rgba(250,250,250,0.55)"
+                fill={SHARE_BRAND.fgMuted}
                 fontSize={18}
                 fontWeight={500}
               >
@@ -488,7 +464,7 @@ function ChartPanel({
           <path
             d={chart.path}
             fill="none"
-            stroke={ACCENT}
+            stroke={SHARE_BRAND.blue}
             strokeWidth={4}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -499,8 +475,8 @@ function ChartPanel({
               cx={d.x}
               cy={d.y}
               r={6}
-              fill="#0a0a0a"
-              stroke={ACCENT}
+              fill={SHARE_BRAND.ink}
+              stroke={SHARE_BRAND.blue}
               strokeWidth={3}
             />
           ))}
@@ -511,7 +487,7 @@ function ChartPanel({
           display: 'flex',
           justifyContent: 'space-between',
           fontSize: 18,
-          color: 'rgba(250,250,250,0.55)',
+          color: SHARE_BRAND.fgMuted,
           marginTop: 8,
           paddingLeft: 70,
         }}
@@ -536,23 +512,14 @@ function BestLiftsPanel({
     <div
       style={{
         marginTop: 32,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 20,
+        background: SHARE_BRAND.panel,
+        border: `1px solid ${SHARE_BRAND.border}`,
+        borderRadius: 14,
         padding: 32,
       }}
     >
-      <div
-        style={{
-          fontSize: 16,
-          fontWeight: 600,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: ACCENT,
-          marginBottom: 24,
-        }}
-      >
-        Best Lifts
+      <div style={{ marginBottom: 24 }}>
+        <CardEyebrow>Best lifts</CardEyebrow>
       </div>
       <div style={{ display: 'flex', gap: 24 }}>
         <BestLiftCell label="Squat" lift={squat} />
@@ -568,12 +535,12 @@ function BestLiftCell({ label, lift }: { label: string; lift: BestPerLift | null
     <div style={{ flex: 1, minWidth: 0 }}>
       <div
         style={{
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: 600,
-          letterSpacing: '0.14em',
+          letterSpacing: '0.10em',
           textTransform: 'uppercase',
-          color: 'rgba(250,250,250,0.55)',
-          marginBottom: 6,
+          color: SHARE_BRAND.fgDim,
+          marginBottom: 8,
         }}
       >
         {label}
@@ -581,7 +548,7 @@ function BestLiftCell({ label, lift }: { label: string; lift: BestPerLift | null
       <div
         style={{
           fontSize: 56,
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: '-0.03em',
           lineHeight: 1.0,
         }}
@@ -592,7 +559,7 @@ function BestLiftCell({ label, lift }: { label: string; lift: BestPerLift | null
         <div
           style={{
             fontSize: 16,
-            color: 'rgba(250,250,250,0.5)',
+            color: SHARE_BRAND.fgDim,
             marginTop: 8,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -626,9 +593,9 @@ function FooterStats({
     <div
       style={{
         marginTop: 24,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 20,
+        background: SHARE_BRAND.panel,
+        border: `1px solid ${SHARE_BRAND.border}`,
+        borderRadius: 14,
         padding: '24px 32px',
         display: 'flex',
         gap: 24,
@@ -651,9 +618,9 @@ function FooterStatCell({ label, value }: { label: string; value: string }) {
         style={{
           fontSize: 13,
           fontWeight: 600,
-          letterSpacing: '0.14em',
+          letterSpacing: '0.10em',
           textTransform: 'uppercase',
-          color: 'rgba(250,250,250,0.5)',
+          color: SHARE_BRAND.fgDim,
         }}
       >
         {label}
@@ -661,7 +628,7 @@ function FooterStatCell({ label, value }: { label: string; value: string }) {
       <div
         style={{
           fontSize: 36,
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: '-0.02em',
           marginTop: 4,
         }}
@@ -672,30 +639,20 @@ function FooterStatCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CardFooter({ teamName }: { teamName: string }) {
+function CardFooter(_: { teamName: string }) {
   const wrapperStyle: CSSProperties = {
     marginTop: 'auto',
     paddingTop: 32,
-    borderTop: `1px solid ${ACCENT}33`,
+    borderTop: `1px solid ${SHARE_BRAND.border}`,
   };
   return (
     <div style={wrapperStyle}>
-      <div
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: '0.05em',
-          textTransform: 'uppercase',
-        }}
-      >
-        {teamName}
-        <span style={{ color: ACCENT, marginLeft: 8 }}>HQ</span>
-      </div>
+      <ShareCardLockup />
       <div
         style={{
           fontSize: 16,
-          color: 'rgba(250,250,250,0.55)',
-          marginTop: 4,
+          color: SHARE_BRAND.fgMuted,
+          marginTop: 6,
         }}
       >
         Powerlifting coaching analytics

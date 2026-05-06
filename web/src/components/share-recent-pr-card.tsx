@@ -6,7 +6,11 @@ import * as Types from '@/lib/types';
 const CARD_WIDTH = 1080;
 const CARD_HEIGHT_SINGLE = 1350;
 const CARD_HEIGHT_LIST = 1620;
-const ACCENT = '#ef4444';
+import {
+  SHARE_BRAND,
+  ShareCardLockup,
+  CardEyebrow,
+} from '@/components/share-card-brand';
 
 export interface ShareRecentPRDisplayOptions {
   showDate: boolean;
@@ -79,38 +83,30 @@ export const ShareRecentPRCard = forwardRef<HTMLDivElement, ShareRecentPRCardPro
         style={{
           width: CARD_WIDTH,
           height: cardHeight,
-          background: 'radial-gradient(ellipse at top, #1c0a0a 0%, #0a0a0a 45%, #050505 100%)',
-          color: '#fafafa',
-          fontFamily: 'var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif',
+          background: SHARE_BRAND.bgGradient,
+          color: SHARE_BRAND.paper,
+          fontFamily: SHARE_BRAND.fontSans,
+          fontVariantNumeric: 'tabular-nums',
           padding: 64,
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
-          border: `1px solid ${ACCENT}33`,
-          borderRadius: 32,
+          border: `1px solid ${SHARE_BRAND.cardBorder}`,
+          borderRadius: 20,
           overflow: 'hidden',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
+            <CardEyebrow size="lg">{teamName}</CardEyebrow>
             <div
               style={{
-                fontSize: 28,
-                fontWeight: 700,
-                letterSpacing: '0.05em',
+                fontSize: 13,
+                color: SHARE_BRAND.fgDim,
+                letterSpacing: '0.16em',
                 textTransform: 'uppercase',
-              }}
-            >
-              {teamName}
-              <span style={{ color: ACCENT, marginLeft: 8 }}>HQ</span>
-            </div>
-            <div
-              style={{
-                fontSize: 14,
-                color: 'rgba(250,250,250,0.5)',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                marginTop: 4,
+                marginTop: 6,
+                fontWeight: 500,
               }}
             >
               {isList ? 'Recent PRs' : 'New PR'}
@@ -119,7 +115,7 @@ export const ShareRecentPRCard = forwardRef<HTMLDivElement, ShareRecentPRCardPro
           <div
             style={{
               fontSize: 20,
-              color: 'rgba(250,250,250,0.7)',
+              color: SHARE_BRAND.fgMuted,
               fontWeight: 500,
             }}
           >
@@ -139,14 +135,16 @@ export const ShareRecentPRCard = forwardRef<HTMLDivElement, ShareRecentPRCardPro
           style={{
             marginTop: 'auto',
             paddingTop: 32,
-            borderTop: `1px solid ${ACCENT}33`,
-            fontSize: 16,
-            color: 'rgba(250,250,250,0.55)',
+            borderTop: `1px solid ${SHARE_BRAND.border}`,
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 12,
           }}
         >
-          {teamName}
-          <span style={{ color: ACCENT, marginLeft: 6 }}>HQ</span>
-          <span style={{ marginLeft: 8 }}>powerlifting analytics</span>
+          <ShareCardLockup />
+          <span style={{ fontSize: 16, color: SHARE_BRAND.fgMuted }}>
+            powerlifting analytics
+          </span>
         </div>
       </div>
     );
@@ -168,9 +166,9 @@ function PRSingle({
   return (
     <div
       style={{
-        background: 'linear-gradient(135deg, rgba(239,68,68,0.10) 0%, rgba(239,68,68,0.02) 100%)',
-        border: `1px solid ${ACCENT}40`,
-        borderRadius: 24,
+        background: `linear-gradient(135deg, ${SHARE_BRAND.blueGlowSoft} 0%, rgba(12,92,171,0.02) 100%)`,
+        border: `1px solid ${SHARE_BRAND.blueGlowRim}`,
+        borderRadius: 14,
         padding: '64px 56px',
         position: 'relative',
         flex: 1,
@@ -186,28 +184,18 @@ function PRSingle({
           top: 56,
           bottom: 56,
           width: 4,
-          background: ACCENT,
+          background: SHARE_BRAND.blue,
           borderRadius: 2,
         }}
       />
-      <div
-        style={{
-          fontSize: 18,
-          fontWeight: 600,
-          letterSpacing: '0.16em',
-          textTransform: 'uppercase',
-          color: ACCENT,
-        }}
-      >
-        Personal Record
-      </div>
+      <CardEyebrow size="lg">Personal record</CardEyebrow>
       <div
         style={{
           fontSize: 60,
           fontWeight: 600,
           letterSpacing: '-0.02em',
           marginTop: 12,
-          color: 'rgba(250,250,250,0.92)',
+          color: SHARE_BRAND.paper,
         }}
       >
         {liftDisplayName(entry)}
@@ -215,8 +203,8 @@ function PRSingle({
       <div
         style={{
           fontSize: 168,
-          fontWeight: 700,
-          letterSpacing: '-0.04em',
+          fontWeight: 600,
+          letterSpacing: '-0.035em',
           lineHeight: 1.0,
           marginTop: 24,
         }}
@@ -249,15 +237,10 @@ function PRList({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
         style={{
-          fontSize: 18,
-          fontWeight: 600,
-          letterSpacing: '0.16em',
-          textTransform: 'uppercase',
-          color: ACCENT,
           marginBottom: 4,
         }}
       >
-        Personal Records
+        <CardEyebrow size="lg">Personal records</CardEyebrow>
       </div>
       {entries.map((entry, i) => (
         <PRListRow
@@ -287,12 +270,12 @@ function PRListRow({
     <div
       style={{
         background: isFirst
-          ? 'linear-gradient(135deg, rgba(239,68,68,0.10) 0%, rgba(239,68,68,0.02) 100%)'
-          : 'rgba(255,255,255,0.03)',
+          ? `linear-gradient(135deg, ${SHARE_BRAND.blueGlowSoft} 0%, rgba(12,92,171,0.02) 100%)`
+          : SHARE_BRAND.panel,
         border: isFirst
-          ? `1px solid ${ACCENT}40`
-          : '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 18,
+          ? `1px solid ${SHARE_BRAND.blueGlowRim}`
+          : `1px solid ${SHARE_BRAND.border}`,
+        borderRadius: 14,
         padding: '24px 32px',
         display: 'flex',
         alignItems: 'center',
@@ -306,7 +289,7 @@ function PRListRow({
             fontSize: 36,
             fontWeight: 600,
             letterSpacing: '-0.02em',
-            color: 'rgba(250,250,250,0.92)',
+            color: SHARE_BRAND.paper,
           }}
         >
           {liftDisplayName(entry)}
@@ -314,7 +297,7 @@ function PRListRow({
         <div
           style={{
             fontSize: 16,
-            color: 'rgba(250,250,250,0.55)',
+            color: SHARE_BRAND.fgMuted,
             marginTop: 6,
             display: 'flex',
             flexWrap: 'wrap',
@@ -329,7 +312,7 @@ function PRListRow({
         <div
           style={{
             fontSize: 56,
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: '-0.03em',
             lineHeight: 1.0,
           }}
@@ -340,7 +323,7 @@ function PRListRow({
           <div
             style={{
               fontSize: 16,
-              color: ACCENT,
+              color: SHARE_BRAND.blueText,
               fontWeight: 600,
               marginTop: 4,
               letterSpacing: '0.02em',
@@ -359,11 +342,11 @@ function MetaLine({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', gap: 16, alignItems: 'baseline' }}>
       <div
         style={{
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: 600,
-          letterSpacing: '0.16em',
+          letterSpacing: '0.10em',
           textTransform: 'uppercase',
-          color: 'rgba(250,250,250,0.45)',
+          color: SHARE_BRAND.fgDim,
           width: 110,
         }}
       >
@@ -373,7 +356,7 @@ function MetaLine({ label, value }: { label: string; value: string }) {
         style={{
           fontSize: 26,
           fontWeight: 500,
-          color: 'rgba(250,250,250,0.85)',
+          color: SHARE_BRAND.paper,
         }}
       >
         {value}
