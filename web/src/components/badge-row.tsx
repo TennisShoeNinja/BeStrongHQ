@@ -11,6 +11,10 @@ import {
   Target,
   CheckCheck,
   RotateCcw,
+  TrendingUp,
+  Flame,
+  Layers,
+  Zap,
 } from 'lucide-react';
 import type { EarnedBadge } from '@/lib/badges';
 import { BadgeDetailModal } from '@/components/badge-detail-modal';
@@ -59,6 +63,12 @@ const TIER_STYLE: Record<EarnedBadge['tier'], TierStyle> = {
     fg: '#f9a8d4',
     icon: (p) => <Medal {...p} />,
   },
+  pr: {
+    ring: 'rgba(251, 146, 60, 0.55)',
+    bg: 'rgba(251, 146, 60, 0.10)',
+    fg: '#fdba74',
+    icon: (p) => <TrendingUp {...p} />,
+  },
 };
 
 const ID_ICON: Record<string, (p: { className?: string }) => ReactNode> = {
@@ -67,6 +77,11 @@ const ID_ICON: Record<string, (p: { className?: string }) => ReactNode> = {
   'multi-fed-champ': (p) => <Crown {...p} />,
   comeback: (p) => <RotateCcw {...p} />,
   'nine-for-nine': (p) => <CheckCheck {...p} />,
+  'pr-streak-3': (p) => <Flame {...p} />,
+  'pr-streak-6': (p) => <Flame {...p} />,
+  'pr-streak-12': (p) => <Flame {...p} />,
+  'triple-threat': (p) => <Layers {...p} />,
+  'big-jump': (p) => <Zap {...p} />,
 };
 
 interface BadgeRowProps {
