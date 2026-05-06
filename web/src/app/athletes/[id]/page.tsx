@@ -2868,7 +2868,7 @@ function ProgressionCharts({
     }, ms);
   }, []);
   const scheduleTooltipCloseFromChart = useCallback(
-    () => scheduleTooltipClose(1500),
+    () => scheduleTooltipClose(200),
     [scheduleTooltipClose],
   );
   const scheduleTooltipCloseFromTooltip = useCallback(
