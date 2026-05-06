@@ -123,6 +123,7 @@ def _enrich_notification(notif: Notification) -> NotificationResponse:
 @router.get("", response_model=list[NotificationResponse])
 def list_notifications(
     include_archived: bool = Query(False),
+    limit: int | None = Query(None, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     """List notifications (inbox). Auto-generates reminders on each call."""
@@ -132,7 +133,11 @@ def list_notifications(
     if not include_archived:
         query = query.filter(Notification.archived == False)  # noqa: E712
 
-    notifications = query.order_by(Notification.created_at.desc()).all()
+    query = query.order_by(Notification.created_at.desc())
+    if limit is not None:
+        query = query.limit(limit)
+
+    notifications = query.all()
     return [_enrich_notification(n) for n in notifications]
 
 

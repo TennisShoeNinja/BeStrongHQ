@@ -545,13 +545,16 @@ class APIClient {
    * List all notifications (global inbox)
    */
   async listNotifications(
-    includeArchived: boolean = false
+    includeArchived: boolean = false,
+    limit?: number
   ): Promise<Types.NotificationResponse[]> {
+    const params: Record<string, unknown> = {
+      include_archived: includeArchived,
+    };
+    if (limit !== undefined) params.limit = limit;
     const response = await this.client.get<Types.NotificationResponse[]>(
       "/notifications",
-      {
-        params: { include_archived: includeArchived },
-      }
+      { params }
     );
     return response.data;
   }

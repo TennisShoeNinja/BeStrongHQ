@@ -6,7 +6,6 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Bell,
   LogOut,
   Search,
   Settings,
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { WhatsNewButton } from "@/components/whats-new";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 function humanize(segment: string): string {
   return segment
@@ -104,14 +104,6 @@ export function Topbar({ onOpenMobileNav }: TopbarProps = {}) {
     staleTime: 60000,
   });
   const teamName = settings?.team_name || "BeStrong";
-
-  const { data: notificationCount = 0 } = useQuery({
-    queryKey: ["notification-count"],
-    queryFn: () => apiClient.getNotificationCount(),
-    refetchInterval: 30000,
-    staleTime: 5000,
-    refetchOnWindowFocus: true,
-  });
 
   const [localSearch, setLocalSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -358,15 +350,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps = {}) {
       </div>
 
       <div className="cloud-topbar-actions">
-        <Link
-          href="/inbox"
-          className="cloud-icon-btn"
-          title="Inbox"
-          aria-label={`Inbox${notificationCount > 0 ? ` (${notificationCount} unread)` : ""}`}
-        >
-          <Bell className="w-4 h-4" />
-          {notificationCount > 0 && <span className="cloud-icon-dot" />}
-        </Link>
+        <NotificationsBell />
         <WhatsNewButton />
         <FeedbackDialog />
         {authEnabled && user ? (
