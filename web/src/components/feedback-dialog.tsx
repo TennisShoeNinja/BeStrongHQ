@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { useAuth } from "@/lib/auth-provider";
 import apiClient from "@/lib/api";
 
@@ -27,12 +28,13 @@ type FeedbackType = "bug" | "feedback" | "question";
 
 export function FeedbackDialog() {
   const { deploymentMode, instance } = useAuth();
-  const [open, setOpen] = useState(false);
-
-
-
-
   const useInAppForm = deploymentMode === "cloud" && instance?.subdomain !== "demo";
+
+  return useInAppForm ? <CloudFeedbackTrigger /> : <SelfHostedFeedbackTrigger />;
+}
+
+function CloudFeedbackTrigger() {
+  const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -45,48 +47,65 @@ export function FeedbackDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogTitle>Got feedback?</DialogTitle>
-        {useInAppForm ? (
-          <CloudFeedbackForm onDone={() => setOpen(false)} />
-        ) : (
-          <SelfHostedBody />
-        )}
+        <CloudFeedbackForm onDone={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function SelfHostedBody() {
+function SelfHostedFeedbackTrigger() {
   return (
-    <>
-      <DialogDescription>
-        BeStrong HQ is open source and shaped by coaches like you. File a bug
-        or share an idea on GitHub.
-      </DialogDescription>
-      <div className="flex flex-col gap-2 mt-1">
-        <GithubLink
-          href={`${REPO_URL}/issues/new?template=bug_report.yml`}
-          icon={Bug}
-          label="Report a bug"
-        />
-        <GithubLink
-          href={`${REPO_URL}/issues/new?template=feedback.yml`}
-          icon={MessageSquare}
-          label="Share feedback or an idea"
-        />
-      </div>
-      <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-border/50">
-        <SmallLink
-          href={`${REPO_URL}/issues`}
-          icon={ListChecks}
-          label="Browse existing issues"
-        />
-        <SmallLink
-          href={`${REPO_URL}/blob/main/CONTRIBUTING.md`}
-          icon={BookOpen}
-          label="Contributing guide"
-        />
-      </div>
-    </>
+    <PopoverPrimitive.Root>
+      <PopoverPrimitive.Trigger
+        className="cloud-icon-btn"
+        title="Send feedback"
+        aria-label="Send feedback"
+      >
+        <HelpCircle className="w-4 h-4" />
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Positioner side="bottom" align="end" sideOffset={8}>
+          <PopoverPrimitive.Popup
+            className="cloud-panel-raised z-50 w-[320px] origin-[var(--transform-origin)] rounded-xl p-4 text-sm outline-none ring-1 ring-foreground/10 transition-[transform,opacity] duration-150 ease-out data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-top-1 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-top-1"
+            style={{
+              boxShadow:
+                "0 20px 40px -16px rgba(0,0,0,0.6), 0 8px 16px -4px rgba(0,0,0,0.4)",
+            }}
+          >
+            <PopoverPrimitive.Title className="font-heading text-base leading-none font-medium">
+              Got feedback?
+            </PopoverPrimitive.Title>
+            <PopoverPrimitive.Description className="text-xs cloud-text-muted mt-1">
+              BeStrong HQ is open source and shaped by coaches like you.
+            </PopoverPrimitive.Description>
+            <div className="flex flex-col gap-2 mt-3">
+              <GithubLink
+                href={`${REPO_URL}/issues/new?template=bug_report.yml`}
+                icon={Bug}
+                label="Report a bug"
+              />
+              <GithubLink
+                href={`${REPO_URL}/issues/new?template=feedback.yml`}
+                icon={MessageSquare}
+                label="Share feedback or an idea"
+              />
+            </div>
+            <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-border/50">
+              <SmallLink
+                href={`${REPO_URL}/issues`}
+                icon={ListChecks}
+                label="Browse existing issues"
+              />
+              <SmallLink
+                href={`${REPO_URL}/blob/main/CONTRIBUTING.md`}
+                icon={BookOpen}
+                label="Contributing guide"
+              />
+            </div>
+          </PopoverPrimitive.Popup>
+        </PopoverPrimitive.Positioner>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   );
 }
 
