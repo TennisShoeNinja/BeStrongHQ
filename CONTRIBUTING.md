@@ -41,3 +41,4 @@ Every reporter, tester, and contributor who shapes a release is credited. You ca
 ## Code of conduct
 
 See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Be decent to each other.
+
