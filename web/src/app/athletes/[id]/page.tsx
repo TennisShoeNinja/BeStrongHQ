@@ -1016,7 +1016,7 @@ function NewPRsBanner({
     const empty = {
       rows: [] as typeof history,
       newLanes: 0,
-      newLiftsList: [] as Array<{ lift: string; exercise: string; reps: number[] }>,
+      newLiftsList: [] as Types.MaxHistoryEntry[],
     };
     if (!currentProgramStart) return empty;
     const start = (() => {
@@ -1104,25 +1104,29 @@ function NewPRsBanner({
     
     
     
-    const newLiftsMap = new Map<string, { lift: string; exercise: string; reps: number[] }>();
-    for (const key of newLaneKeys) {
-      const parts = key.split("|");
-      if (parts.length < 3) continue;
-      const [lift, exercise, repsStr] = parts;
-      const reps = parseInt(repsStr, 10);
-      if (Number.isNaN(reps)) continue;
-      const eKey = `${lift}|${exercise}`;
-      const existing = newLiftsMap.get(eKey);
-      if (existing) {
-        existing.reps.push(reps);
-      } else {
-        newLiftsMap.set(eKey, { lift, exercise, reps: [reps] });
+
+
+    const bestNewByLane = new Map<string, Types.MaxHistoryEntry>();
+    for (const h of history) {
+      if (h.reps == null || h.exercise_name == null) continue;
+      const key = `${h.lift}|${h.exercise_name}|${h.reps}`;
+      if (!newLaneKeys.has(key)) continue;
+      const t = new Date(h.recorded_at).getTime();
+      if (t < startMs || t > endMs) continue;
+      const existing = bestNewByLane.get(key);
+      if (!existing || h.new_value > existing.new_value) {
+        bestNewByLane.set(key, h);
       }
     }
-    const newLiftsList = Array.from(newLiftsMap.values()).map((item) => ({
-      ...item,
-      reps: item.reps.slice().sort((a, b) => a - b),
-    }));
+    const liftRank: Record<string, number> = { squat: 0, bench: 1, deadlift: 2 };
+    const newLiftsList = Array.from(bestNewByLane.values()).sort((a, b) => {
+      const ar = liftRank[a.lift.toLowerCase()] ?? 99;
+      const br = liftRank[b.lift.toLowerCase()] ?? 99;
+      if (ar !== br) return ar - br;
+      const ax = (a.exercise_name ?? "").localeCompare(b.exercise_name ?? "");
+      if (ax !== 0) return ax;
+      return (a.reps ?? 0) - (b.reps ?? 0);
+    });
     return { rows, newLanes: newLiftsList.length, newLiftsList };
   }, [history, currentProgramStart, currentProgramEnd]);
 
@@ -1210,33 +1214,47 @@ function NewPRsBanner({
             </button>
           )}
           {showNewLifts && newLifts > 0 && (
-            <ul className="mt-1.5 ml-3 space-y-0.5 list-none">
-              {newLiftsList.map((item) => {
+            <div className="mt-1.5 ml-3 space-y-0.5">
+              {newLiftsList.map((pr) => {
                 const liftTint: Record<string, string> = {
                   squat: "#fb923c",
                   bench: "#22d3ee",
                   deadlift: "#a78bfa",
                 };
+                const cat = pr.lift.toLowerCase();
+                const repLabel = pr.reps != null ? `${pr.reps}RM` : null;
+                const weight = formatWeight(pr.new_value, unit, { decimals: 0 });
                 return (
-                  <li
-                    key={`${item.lift}|${item.exercise}`}
-                    className="cloud-text-muted flex items-center gap-1.5 flex-wrap"
-                    style={{ fontSize: 11 }}
+                  <button
+                    key={pr.id}
+                    type="button"
+                    onClick={() => setSelectedPR(pr)}
+                    title="See full progression"
+                    className="cloud-text-muted block text-left w-full rounded px-1 -mx-1 py-0.5 transition-colors hover:bg-[rgba(251,191,36,0.1)]"
+                    style={{ fontSize: 11, opacity: 0.78 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.78"; }}
                   >
                     <span
                       className="font-semibold capitalize"
-                      style={{ color: liftTint[item.lift] ?? "var(--cloud-text-dim)" }}
+                      style={{ color: liftTint[cat] ?? "var(--cloud-text-dim)" }}
                     >
-                      {item.lift}
+                      {pr.lift}
                     </span>
-                    <span className="cloud-text">{item.exercise}</span>
-                    <span className="cloud-text-dim">
-                      ({item.reps.map((r) => `${r}RM`).join(", ")})
+                    {repLabel && (
+                      <span className="ml-1.5 cloud-text-dim">· {repLabel}</span>
+                    )}
+                    <span className="ml-1.5 cloud-text">
+                      {weight}
+                      {pr.reps != null && pr.reps > 1 ? ` × ${pr.reps}` : ""}
                     </span>
-                  </li>
+                    {pr.exercise_name && (
+                      <span className="ml-1.5 cloud-text-dim">{pr.exercise_name}</span>
+                    )}
+                  </button>
                 );
               })}
-            </ul>
+            </div>
           )}
         </div>
       </div>
