@@ -37,6 +37,7 @@ import BlockReviewSummary from "@/components/BlockReviewSummary";
 import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
 import { ShareProfileDialog } from "@/components/share-profile-dialog";
+import { ShareRecentPRDialog } from "@/components/share-recent-pr-dialog";
 import { AthleteBadges } from "@/components/athlete-badges";
 import {
   DropdownMenu,
@@ -7466,6 +7467,7 @@ export default function AthleteDetailPage() {
   const [isUpdatingMaxes, setIsUpdatingMaxes] = useState(false);
   const [isShowingDetails, setIsShowingDetails] = useState(false);
   const [isShareProfileOpen, setIsShareProfileOpen] = useState(false);
+  const [isShareRecentPROpen, setIsShareRecentPROpen] = useState(false);
 
   
   const [highlightedExercise, setHighlightedExercise] = useState<HighlightedExercise | null>(null);
@@ -7926,11 +7928,8 @@ export default function AthleteDetailPage() {
                     <DropdownMenuItem onClick={() => setIsShareProfileOpen(true)}>
                       Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
+                    <DropdownMenuItem onClick={() => setIsShareRecentPROpen(true)}>
                       Recent PR
-                      <span className="ml-auto cloud-text-muted" style={{ fontSize: 11 }}>
-                        Soon
-                      </span>
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled>
                       Competition History
@@ -8069,6 +8068,12 @@ export default function AthleteDetailPage() {
           athlete={athlete}
           open={isShareProfileOpen}
           onOpenChange={setIsShareProfileOpen}
+        />
+
+        <ShareRecentPRDialog
+          athlete={athlete}
+          open={isShareRecentPROpen}
+          onOpenChange={setIsShareRecentPROpen}
         />
 
         {}
