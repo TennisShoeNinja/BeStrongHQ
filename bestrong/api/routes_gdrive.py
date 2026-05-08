@@ -308,7 +308,7 @@ def gdrive_auth_callback(
             request=request,
             detail=f"oauth_error={error}",
         )
-        return RedirectResponse(url=f"{settings_url}?error={error}")
+        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': error})}")
 
 
     oauth_state = (

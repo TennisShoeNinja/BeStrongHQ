@@ -17,6 +17,7 @@ import logging
 import os
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 import requests as http_requests
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -224,7 +225,7 @@ def auth_callback(
             request=request,
             detail=f"oauth_error={error}",
         )
-        return RedirectResponse(url=f"{settings_url}?error={error}")
+        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': error})}")
 
 
     oauth_state = (
