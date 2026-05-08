@@ -691,8 +691,9 @@ def import_athletes_csv(file: UploadFile = File(...), db: Session = Depends(get_
 
             except ValueError as e:
                 errors.append(f"Row {row_num}: Invalid data - {str(e)}")
-            except Exception as e:
-                errors.append(f"Row {row_num}: Error - {str(e)}")
+            except Exception:
+                logger.exception("CSV import failed at row %d", row_num)
+                errors.append(f"Row {row_num}: Unexpected error processing this row")
 
         db.commit()
 
