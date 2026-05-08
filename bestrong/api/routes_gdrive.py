@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/gdrive", tags=["gdrive"])
 
 
+_ALLOWED_OAUTH_ERRORS = frozenset({
+    "access_denied",
+    "invalid_request",
+    "unauthorized_client",
+    "unsupported_response_type",
+    "invalid_scope",
+    "server_error",
+    "temporarily_unavailable",
+})
+
+
 def _session_db_path(db: Session) -> Path | None:
     """Best-effort extraction of the current session's SQLite file path."""
     bind = db.get_bind()
@@ -308,7 +319,8 @@ def gdrive_auth_callback(
             request=request,
             detail=f"oauth_error={error}",
         )
-        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': error})}")
+        safe_err = error if error in _ALLOWED_OAUTH_ERRORS else "oauth_error"
+        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': safe_err})}")
 
 
     oauth_state = (
