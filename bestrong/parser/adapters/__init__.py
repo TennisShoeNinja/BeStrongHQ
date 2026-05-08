@@ -170,7 +170,7 @@ def has_adapter(parser_id: str | None) -> bool:
     if parser_id is None:
         return True
     load_overlay_adapters()
-    importlib.import_module("bestrong.parser.adapters.bestrong_parser")
+    load_local_adapters()
     return any(cls.name == parser_id for cls in _registry)
 
 
@@ -206,4 +206,35 @@ def load_overlay_adapters(package_name: str = "bestrong_cloud.parser.adapters") 
         count += 1
 
     _overlay_loaded = True
+    return count
+
+
+_local_loaded = False
+
+
+def load_local_adapters() -> int:
+    """Import every sibling adapter module in this package.
+
+    Custom adapters dropped into ``bestrong/parser/adapters/`` are picked
+    up here so users don't need to edit ``__init__.py``. The bundled
+    ``bestrong_parser`` is imported last so a more specific custom
+    adapter wins ``can_parse`` ordering during auto-detection.
+
+    Idempotent: repeat calls are no-ops after the first successful run.
+    """
+    global _local_loaded
+    if _local_loaded:
+        return 0
+
+    pkg = importlib.import_module("bestrong.parser.adapters")
+    count = 0
+    for module_info in pkgutil.iter_modules(pkg.__path__):
+        name = module_info.name
+        if name.startswith("_") or name == "bestrong_parser":
+            continue
+        importlib.import_module(f"bestrong.parser.adapters.{name}")
+        count += 1
+
+    importlib.import_module("bestrong.parser.adapters.bestrong_parser")
+    _local_loaded = True
     return count
