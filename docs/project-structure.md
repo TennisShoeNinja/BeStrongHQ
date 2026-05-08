@@ -25,5 +25,5 @@ BeStrongHQ/
 
 - **Adding a new API route?** `bestrong/api/routes_*.py`. Pydantic schemas live in `bestrong/api/schemas.py` or inline in the route file.
 - **Adding a new database column?** Update the ORM in `bestrong/models/` *and* add a migration to `migrate_db()` in `bestrong/models/database.py`.
-- **Writing a parser for a new spreadsheet format?** Drop an adapter in `bestrong/parser/adapters/`. See the [Custom Parser Guide](custom-parser-guide.md).
+- **Writing a parser for a new spreadsheet format?** Add a uniquely named adapter module in `bestrong/parser/adapters/` and rebuild Docker. See the [Custom Parser Guide](custom-parser-guide.md).
 - **Adding a frontend page?** `web/src/app/<route>/page.tsx`. API calls go through the `APIClient` class in `web/src/lib/api.ts`, never raw `fetch`/`axios`.

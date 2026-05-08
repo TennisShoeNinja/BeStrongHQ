@@ -1,94 +1,166 @@
 # Google Setup
 
-BeStrong HQ needs two things from your Google account before your first sync will work:
+BeStrong HQ uses Google OAuth to connect to your Google account for:
 
-1. **OAuth credentials** so you can sign in and grant BeStrong HQ access to your Drive.
-2. **A tidy Drive folder layout** so the parser can map spreadsheets to athletes.
+- Google Drive program imports
+- Google Drive folder organization tools
+- Google Calendar meet and reminder sync
 
-Work through both before starting BeStrong HQ for the first time.
+For the normal self-hosted setup, create one Google Cloud project, one OAuth
+client, and enable both Drive and Calendar APIs.
 
-## OAuth credentials
+## What BeStrong HQ Requests
 
-Without this, the first login fails with `invalid_client`.
+The local app requests Google Drive, Google Calendar, and email identity scopes.
+Drive access is not read-only: BeStrong HQ can read program spreadsheets, list
+folders, inspect sharing metadata, and, when you use the organizer, create
+folders or move files in your Drive.
 
-### Step 1: Create a Google Cloud project
+Use a Google account you control and only choose folders you want BeStrong HQ to
+work with.
 
-Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project (or reuse an existing one).
+## Step 1: Create a Google Cloud Project
 
-### Step 2: Configure the OAuth consent screen
+1. Go to <https://console.cloud.google.com>.
+2. Create a project.
+3. A name like `BeStrong HQ Local` is fine.
 
-Under **APIs & Services → OAuth consent screen**:
+## Step 2: Configure the OAuth Consent Screen
 
-- Choose **External** user type.
-- Leave it in **Testing** mode.
-- Add your own Google account under **Test users**.
+Go to **APIs & Services -> OAuth consent screen**.
 
-Testing mode is fine for personal use. You do not need to submit for verification.
+Use:
 
-### Step 3: Enable the APIs you'll use
+- User type: **External**
+- Publishing status: **Testing**
+- Test users: add your own Google account
 
-Under **APIs & Services → Library**, enable:
+You do not need to publish or verify the app for personal local use. While the
+app is in Testing mode, Google expires refresh tokens after 7 days. BeStrong HQ
+shows a renewal banner when you need to reconnect.
 
-- **Google Drive API** (required, for spreadsheet syncing)
-- **Google Calendar API** (optional, if you want meet calendar sync)
+If Google asks for scopes during consent-screen setup, include:
 
-### Step 4: Create OAuth client credentials
-
-Under **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
-
-- Choose **Web application**.
-- Add these **Authorized redirect URIs**:
-  - `http://127.0.0.1:8080/api/auth/callback`
-  - `http://127.0.0.1:8080/api/gdrive/auth/callback`
-  - `http://127.0.0.1:8080/api/calendar/auth/callback` *(only if you'll use Calendar sync)*
-
-If you're running on a domain instead of localhost, replace `http://127.0.0.1:8080` with your origin (e.g. `https://bestrong.example.com`). The Calendar callback path is `/api/calendar/auth/callback`.
-
-For the full official walkthrough, see Google's guide: [Setting up OAuth 2.0](https://support.google.com/cloud/answer/6158849).
-
-### Step 5: Copy credentials into `.env`
-
-From the `BeStrongHQ` folder:
-
-```bash
-cp .env.example .env
+```text
+https://www.googleapis.com/auth/drive
+https://www.googleapis.com/auth/calendar
+https://www.googleapis.com/auth/userinfo.email
 ```
 
-Open `.env` and paste in your client ID and secret:
+## Step 3: Enable Google APIs
 
+Go to **APIs & Services -> Library** and enable:
+
+- **Google Drive API**
+- **Google Calendar API**
+
+Drive and Calendar use the same OAuth connection in BeStrong HQ, so enable both
+even if you plan to test Drive first.
+
+## Step 4: Create OAuth Client Credentials
+
+Go to **APIs & Services -> Credentials -> Create Credentials -> OAuth client ID**.
+
+Choose:
+
+```text
+Application type: Web application
 ```
+
+Add these **Authorized redirect URIs**:
+
+```text
+http://127.0.0.1:8080/api/gdrive/auth/callback
+http://127.0.0.1:8080/api/calendar/auth/callback
+```
+
+Use `127.0.0.1`, not `localhost`, unless you register both. Google requires the
+redirect URI to match exactly.
+
+Copy the OAuth client:
+
+- Client ID
+- Client Secret
+
+## Step 5: Put Credentials in `.env`
+
+The full `.env` setup with platform-specific commands is covered in
+[Install guide → Part 4](install.md#part-4-add-google-credentials). The values
+you need from this guide are:
+
+```env
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_OAUTH_TESTING_MODE=true
 ```
 
-Restart the container so it picks up the new values:
+After saving `.env`, restart the container so it picks up the new credentials.
 
-```bash
-cd BeStrongHQ/docker
-docker compose down
-docker compose up -d
-```
+## Step 6: Connect Google in BeStrong HQ
 
-### Heads-up on Testing mode
+1. Open <http://127.0.0.1:3000>.
+2. Go to **Google Drive sync**.
+3. Click **Connect Google Drive**.
+4. Sign in with the same Google account you added as a test user.
+5. Accept the requested Drive and Calendar permissions.
+6. Choose the folders you want BeStrong HQ to watch.
 
-Google expires refresh tokens after 7 days while your consent screen is in Testing. You'll see a "renew" banner in the app when that happens, just sign in again. Flip `GOOGLE_OAUTH_TESTING_MODE=false` in `.env` only after you publish your consent screen.
+The Calendar page should show as connected after Drive auth because the Drive
+connection also grants the Calendar scope.
 
-## Recommended Drive layout
+## Recommended Drive Layout
 
-Set your Google Drive up like this before your first sync:
+Set up your Drive like this before the first real sync:
 
-```
+```text
 My Drive/
-└── Coaching/                ← your top-level coaching folder
+└── Coaching/
     ├── Ed Coan/
     │   └── Ed Coan's Program 35 - (02/01/26 - 02/22/26) - Strength Block
     ├── Jen Thompson/
-    │   └── Jen Thompson's Program 12 - (03/15/26 - 04/05/26) - Peaking
+    │   └── Jen Thompson's Program 12 - (03/15/26 - 04/05/26) - Peaking Block
     └── ...
 ```
 
-- **One top-level folder** for coaching work. Call it whatever fits your style: `Coaching`, `Training`, or any name you prefer. Point BeStrong HQ at this folder on first sync.
-- **One subfolder per athlete**, named `FirstName LastName`. BeStrong HQ maps each folder to an athlete record automatically.
-- **Each athlete's program file** goes in their folder. It's a copy of the BeStrong HQ Google Sheets template, renamed to match the filename convention below.
-- **Default filename convention:** `{athlete}'s Program {number} - ({dates}) - {theme}`. Example: `Ed Coan's Program 35 - (02/01/26 - 02/22/26) - Strength Block`. The parser pulls athlete, program number, date range, and theme straight from the filename.
-- **Using a different naming pattern?** Configure your own under **Settings → Google Drive → Naming Pattern**.
+Use:
+
+- One top-level coaching folder
+- One subfolder per athlete
+- Program spreadsheets inside the athlete folder
+
+Default filename pattern:
+
+```text
+{athlete}'s Program {number} - ({start date} - {end date}) - {theme}
+```
+
+Example:
+
+```text
+Ed Coan's Program 35 - (02/01/26 - 02/22/26) - Strength Block
+```
+
+Using another naming style? Configure it in BeStrong HQ under
+**Google Drive sync -> Naming pattern**.
+
+## Common Google Errors
+
+### `invalid_client`
+
+The `.env` credentials are missing or wrong, or Docker was not restarted after
+editing `.env`.
+
+### `redirect_uri_mismatch`
+
+The URL Google received does not exactly match your authorized redirect URI.
+Check `127.0.0.1` vs `localhost`, the port `8080`, and the callback path.
+
+### App not verified
+
+Expected for a local Testing-mode app. Continue only if you created the Google
+Cloud project yourself and are signing in with your own test-user account.
+
+### Reconnect after 7 days
+
+Expected in Testing mode. Reconnect Google Drive when BeStrong HQ asks. Only set
+`GOOGLE_OAUTH_TESTING_MODE=false` after you publish your OAuth consent screen.

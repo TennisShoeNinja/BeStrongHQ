@@ -56,23 +56,23 @@ Everything you need on open:
 - **Weather** for the city you set, so you know what your athletes are training in
 
 ### Integrations
-- **Sign in with Google:** no separate password to manage, use your existing Google account
+- **Connect Google Drive:** authenticate once with your Google account, no separate password for the app
 - **Google Drive:** sync your athletes' programs straight from Drive, each athlete matched to their folder
 - **Google Calendar:** push meets, program-due dates, availability, and birthdays to a dedicated team calendar
 
 ### Settings & Customization
-- **Team name:** shown on your login page and throughout the app
+- **Team name:** shown throughout the app
 - **Coach display name:** used in your dashboard greeting
 - **Weather location:** drives the weather on your home dashboard
 - **Default weight unit:** pick lbs or kg, used everywhere in the app
 
 ## Community Edition
 
-Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** — same image works on Windows, macOS, Linux, and Raspberry Pi. No need to install Python, Node.js, or Git on your host.
+Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** - same image works on Windows, macOS, Linux, and Raspberry Pi. No need to install Python, Node.js, or a database on your host. Git is optional; you can also download the repo as a ZIP.
 
-**Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or `curl -fsSL https://get.docker.com | sudo bash` (Linux / Pi).
+**Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or Docker Engine (Linux / Pi).
 
-**Then:**
+**Then (Git install):**
 
 ```bash
 git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
@@ -80,38 +80,21 @@ cd BeStrongHQ/docker
 docker compose up -d
 ```
 
+No Git? Download the repo as a ZIP from the green **Code** button on
+GitHub, extract it, then run `docker compose up -d` from the `docker/`
+folder. Full step-by-step in the install guide below.
+
 Open **http://127.0.0.1:3000**.
 
-[Full install guide →](docs/install.md) · [Docker reference →](docker/README.md)
+Google Drive is required for program imports, and the same Google connection can also power Calendar sync. Follow the [full install guide](docs/install.md) for the beginner-friendly Windows/Mac/Linux setup, Google OAuth walkthrough, ZIP option, and troubleshooting.
+
+[Full install guide](docs/install.md) · [Google setup](docs/google-setup.md) · [Docker reference](docker/README.md)
 
 ## How It Works
 
 1. **Connect your Drive.** Point BeStrong HQ at the folder where your athletes' sheets live. OAuth in, done: no file uploads, no drag-and-drop.
 2. **Click Sync.** BeStrong HQ parses sets, reps, RPE, accessories, primary lift days: all structured, all queryable.
 3. **Review progression.** Your dashboard shows what's trending up, what's stalling, and who's ready to hit a meet PR.
-
-## Hosted Version
-
-Don't want to self-host? [bestronghq.com](https://bestronghq.com) is the managed version of BeStrong HQ. The free version gives you the full self-hosted app, which you can run on your own laptop, desktop, or Raspberry Pi. It only works when your device is on and online. The hosted version is already online, so you can log in from anywhere while we handle the setup and maintenance.
-
-| | Community Edition | Starter ($29/mo) | Pro ($99/mo) |
-|---|---|---|---|
-| Setup fee | $0 | $99 one-time | $99 one-time |
-| Athletes | Unlimited | Up to 15 | Unlimited |
-| Coaches | 1 | 1 | Unlimited |
-| Access from anywhere | - | ✓ | ✓ |
-| Branded subdomain | - | ✓ | ✓ |
-| Google Drive sync | When machine on | Always on | Always on |
-| Custom parser | DIY (or $150 one-time) | Built for you | Built for you |
-| Billing (Stripe, more to come) | - | ✓ | ✓ |
-| Revenue tracking | - | ✓ | ✓ |
-| Athlete portal (early access) | - | - | ✓ |
-| Automatic backups | - | ✓ | ✓ |
-| Priority support | Community | Email | Dedicated |
-
-The Starter and Pro setup fee covers the time it takes to build a parser tailored to your spreadsheet format. Subscription is cancelable anytime; the setup fee covers the parser build and is not refundable. Community-edition coaches who'd rather have us build their parser instead of writing it themselves can commission one for $150. See the [custom parser guide](docs/custom-parser-guide.md) for the DIY path.
-
-Hosted adds the operational pieces too: deployment, server uptime, backups, OAuth setup, billing integrations, revenue tracking, and custom parser work. The free version stays free, forever, for coaches who want to run their own setup.
 
 ## Contributors
 
