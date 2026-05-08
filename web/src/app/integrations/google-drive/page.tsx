@@ -979,7 +979,7 @@ export default function GoogleDriveSyncPage() {
                     </button>
                     {!isExpired && (
                       <p className="cloud-text-dim" style={{ fontSize: 12 }}>
-                        You will be redirected to Google to sign in and grant read-only access to your Drive.
+                        You will be redirected to Google to grant Drive and Calendar access for program imports, folder organization, and calendar sync.
                       </p>
                     )}
                   </div>

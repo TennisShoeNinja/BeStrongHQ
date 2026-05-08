@@ -32,7 +32,7 @@ services:
       - "127.0.0.1:8080:8080"
     env_file:
       # Read Google OAuth credentials and any other env vars from a
-      # .env file at the BeStrongApp root. Optional -- the app boots
+      # .env file at the BeStrongHQ repo root. Optional -- the app boots
       # without it, but Drive sync won't work until it's set up.
       - path: ../.env
         required: false
