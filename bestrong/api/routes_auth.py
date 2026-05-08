@@ -403,7 +403,7 @@ def callback(
     frontend_url = _get_frontend_url(request)
 
     if error:
-        return RedirectResponse(url=f"{frontend_url}/login?error={error}")
+        return RedirectResponse(url=f"{frontend_url}/login?{urlencode({'error': error})}")
 
 
     oauth_state = (
