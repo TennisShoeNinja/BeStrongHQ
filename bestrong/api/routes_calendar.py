@@ -17,7 +17,6 @@ import logging
 import os
 import secrets
 from datetime import datetime, timedelta
-from urllib.parse import urlencode
 
 import requests as http_requests
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -34,17 +33,6 @@ from .security_logging import security_log
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
-
-
-_ALLOWED_OAUTH_ERRORS = frozenset({
-    "access_denied",
-    "invalid_request",
-    "unauthorized_client",
-    "unsupported_response_type",
-    "invalid_scope",
-    "server_error",
-    "temporarily_unavailable",
-})
 
 
 class CalendarAuthStatus(BaseModel):
@@ -236,8 +224,7 @@ def auth_callback(
             request=request,
             detail=f"oauth_error={error}",
         )
-        safe_err = error if error in _ALLOWED_OAUTH_ERRORS else "oauth_error"
-        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': safe_err})}")
+        return RedirectResponse(url=f"{settings_url}?error=oauth_error")
 
 
     oauth_state = (
