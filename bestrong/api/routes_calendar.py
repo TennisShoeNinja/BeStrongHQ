@@ -36,6 +36,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
 
+_ALLOWED_OAUTH_ERRORS = frozenset({
+    "access_denied",
+    "invalid_request",
+    "unauthorized_client",
+    "unsupported_response_type",
+    "invalid_scope",
+    "server_error",
+    "temporarily_unavailable",
+})
+
+
 class CalendarAuthStatus(BaseModel):
     has_credentials: bool
     is_authenticated: bool
@@ -225,7 +236,8 @@ def auth_callback(
             request=request,
             detail=f"oauth_error={error}",
         )
-        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': error})}")
+        safe_err = error if error in _ALLOWED_OAUTH_ERRORS else "oauth_error"
+        return RedirectResponse(url=f"{settings_url}?{urlencode({'error': safe_err})}")
 
 
     oauth_state = (

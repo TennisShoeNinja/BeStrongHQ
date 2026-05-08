@@ -690,7 +690,8 @@ def import_athletes_csv(file: UploadFile = File(...), db: Session = Depends(get_
                     created_count += 1
 
             except ValueError as e:
-                errors.append(f"Row {row_num}: Invalid data - {str(e)}")
+                logger.info("CSV import row %d invalid data: %s", row_num, e)
+                errors.append(f"Row {row_num}: Invalid data")
             except Exception:
                 logger.exception("CSV import failed at row %d", row_num)
                 errors.append(f"Row {row_num}: Unexpected error processing this row")

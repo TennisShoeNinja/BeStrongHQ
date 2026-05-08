@@ -44,6 +44,17 @@ SESSION_DURATION_DAYS = 7
 SESSION_COOKIE = "bestrong_session"
 
 
+_ALLOWED_OAUTH_ERRORS = frozenset({
+    "access_denied",
+    "invalid_request",
+    "unauthorized_client",
+    "unsupported_response_type",
+    "invalid_scope",
+    "server_error",
+    "temporarily_unavailable",
+})
+
+
 def _hash_token(raw_token: str) -> str:
     """SHA-256 hash a raw session token for storage/comparison.
 
@@ -403,7 +414,8 @@ def callback(
     frontend_url = _get_frontend_url(request)
 
     if error:
-        return RedirectResponse(url=f"{frontend_url}/login?{urlencode({'error': error})}")
+        safe_err = error if error in _ALLOWED_OAUTH_ERRORS else "oauth_error"
+        return RedirectResponse(url=f"{frontend_url}/login?{urlencode({'error': safe_err})}")
 
 
     oauth_state = (
