@@ -11,13 +11,17 @@ from pathlib import Path
 
 import openpyxl
 
-from .adapters import ProgramData, find_adapter, find_adapter_by_id, load_overlay_adapters
+from .adapters import (
+    ProgramData,
+    find_adapter,
+    find_adapter_by_id,
+    load_local_adapters,
+    load_overlay_adapters,
+)
 
 
 load_overlay_adapters()
-
-
-from .adapters import bestrong_parser as _  # noqa: F401, E402
+load_local_adapters()
 
 
 class ParseError(Exception):
