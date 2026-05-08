@@ -32,7 +32,8 @@
   "overrides": {
     "axios": {
       "proxy-from-env": "1.1.0"
-    }
+    },
+    "postcss": "^8.5.10"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
