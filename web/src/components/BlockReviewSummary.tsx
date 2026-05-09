@@ -206,11 +206,16 @@ export default function BlockReviewSummary({
   
   
   
+  // Snapshot the clock at mount via useState's lazy initializer (runs once),
+  // not useSyncExternalStore + Date.now() which falls into an infinite render
+  // loop because every snapshot differs.
+  const [nowMs] = useState(() => Date.now());
   const blockPRsResult = useMemo(() => {
     const empty = {
       rows: [] as Types.MaxHistoryEntry[],
       newLanes: 0,
       newLiftsList: [] as Types.MaxHistoryEntry[],
+      carriedRows: [] as Types.MaxHistoryEntry[],
     };
     if (!prData?.length || !currentProgram) return empty;
     const programStart = parseDateLoose(currentProgram.date_start ?? null);
@@ -220,6 +225,13 @@ export default function BlockReviewSummary({
     const end = (programEnd ?? new Date(programStart.getTime() + 60 * 86400_000)).getTime();
     const startWindow = start - 86400_000;
     const endWindow = end + 86400_000;
+    // Carry-over: PRs earned in the 14 days before this block stay visible for
+    // the first 14 days of the new block, then fade out. Prevents a PR scored
+    // in the last week of the previous block from instantly disappearing.
+    const CARRY_DAYS = 14;
+    const carryMs = CARRY_DAYS * 86400_000;
+    const carryActive = nowMs <= start + carryMs;
+    const carryStart = start - carryMs;
 
     
     
@@ -314,12 +326,34 @@ export default function BlockReviewSummary({
       if (ax !== 0) return ax;
       return (a.reps ?? 0) - (b.reps ?? 0);
     });
-    return { rows, newLanes: newLiftsList.length, newLiftsList };
-  }, [prData, currentProgram]);
+
+    // Carry-over PRs: earned in the 14d before this block, visible for 14d into it.
+    const carriedBest = new Map<string, Types.MaxHistoryEntry>();
+    if (carryActive) {
+      for (const pr of prData) {
+        if (pr.lift.toLowerCase() === "accessory") continue;
+        const isTotal = pr.lift.toLowerCase() === "total";
+        if (!isTotal && (pr.reps == null || pr.exercise_name == null)) continue;
+        if (pr.old_value == null) continue;
+        if (pr.new_value <= pr.old_value) continue;
+        const t = new Date(pr.recorded_at).getTime();
+        if (t < carryStart || t >= start) continue;
+        const key = isTotal ? "total" : `${pr.lift}|${pr.exercise_name}|${pr.reps}`;
+        const existing = carriedBest.get(key);
+        if (!existing || pr.new_value > existing.new_value) carriedBest.set(key, pr);
+      }
+    }
+    const carriedRows = Array.from(carriedBest.values()).sort(
+      (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+    );
+
+    return { rows, newLanes: newLiftsList.length, newLiftsList, carriedRows };
+  }, [prData, currentProgram, nowMs]);
 
   const blockPRs = blockPRsResult.rows;
   const newLifts = blockPRsResult.newLanes;
   const newLiftsList = blockPRsResult.newLiftsList;
+  const carriedPRs = blockPRsResult.carriedRows;
   const [showNewLifts, setShowNewLifts] = useState(false);
   const [showAllPRs, setShowAllPRs] = useState(false);
   const PR_CAP = 5;
@@ -623,7 +657,7 @@ export default function BlockReviewSummary({
           }}
         >
           <p style={{ ...microLabel, margin: "0 0 0.375rem 0" }}>PRs This Block</p>
-          {blockPRs.length === 0 ? (
+          {blockPRs.length === 0 && carriedPRs.length === 0 ? (
             <div>
               <p
                 style={{
@@ -758,6 +792,111 @@ export default function BlockReviewSummary({
                     : `+ ${hiddenPRCount} more PR${hiddenPRCount === 1 ? "" : "s"}`}
                 </button>
               )}
+              {carriedPRs.map((pr) => {
+                const cat = pr.lift.toLowerCase();
+                const repLabel = pr.reps != null ? `${pr.reps}RM` : cat === "total" ? "Total" : null;
+                return (
+                  <button
+                    key={`carried-${pr.id}`}
+                    type="button"
+                    onClick={() => setSelectedPR(pr)}
+                    title="Earned in the previous block — still showing for the first 14 days of this one"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      flexWrap: "wrap",
+                      background: "none",
+                      border: "none",
+                      padding: "0.15rem 0.25rem",
+                      margin: "-0.15rem -0.25rem",
+                      borderRadius: "0.25rem",
+                      cursor: "pointer",
+                      color: "inherit",
+                      textAlign: "left",
+                      width: "calc(100% + 0.5rem)",
+                      opacity: 0.78,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.03)";
+                      e.currentTarget.style.opacity = "1";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.opacity = "0.78";
+                    }}
+                  >
+                    <span style={{ fontSize: 13 }}>&#127942;</span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: LIFT_COLORS[cat] || "var(--cloud-text-dim)",
+                        fontWeight: 600,
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {cat}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase",
+                        padding: "0.05rem 0.3rem",
+                        borderRadius: "0.25rem",
+                        backgroundColor: "rgba(148, 163, 184, 0.12)",
+                        color: "var(--cloud-text-dim)",
+                        border: "1px solid rgba(148, 163, 184, 0.3)",
+                      }}
+                    >
+                      Last block
+                    </span>
+                    {repLabel && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: "0.04em",
+                          padding: "0.05rem 0.3rem",
+                          borderRadius: "0.25rem",
+                          backgroundColor: "rgba(245, 158, 11, 0.15)",
+                          color: "#fcd34d",
+                          border: "1px solid rgba(245, 158, 11, 0.3)",
+                        }}
+                      >
+                        {repLabel}
+                      </span>
+                    )}
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: "var(--cloud-text)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {Math.round(pr.new_value)}
+                      {pr.reps != null && pr.reps > 1 ? ` × ${pr.reps}` : ""}
+                    </span>
+                    {pr.exercise_name && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--cloud-text-dim)",
+                          flex: "1 1 auto",
+                          minWidth: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={pr.exercise_name}
+                      >
+                        {pr.exercise_name}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
               {newLifts > 0 && (
                 <NewLiftsFootnote
                   count={newLifts}
