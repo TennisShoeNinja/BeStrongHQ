@@ -2999,25 +2999,33 @@ function ProgressionCharts({
   
   const chartsContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const peakChartRef = useRef<HTMLDivElement | null>(null);
+  const peakChartNodeRef = useRef<HTMLDivElement | null>(null);
+  const [peakChartNode, setPeakChartNode] = useState<HTMLDivElement | null>(null);
+  const peakChartRef = useCallback((node: HTMLDivElement | null) => {
+    peakChartNodeRef.current = node;
+    setPeakChartNode(node);
+  }, []);
   const [peakChartWidth, setPeakChartWidth] = useState(0);
   useEffect(() => {
-    const node = peakChartRef.current;
-    if (!node) return;
-    setPeakChartWidth(node.getBoundingClientRect().width);
+    if (!peakChartNode) {
+      setPeakChartWidth(0);
+      return;
+    }
+    setPeakChartWidth(peakChartNode.getBoundingClientRect().width);
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) setPeakChartWidth(entry.contentRect.width);
     });
-    ro.observe(node);
+    ro.observe(peakChartNode);
     return () => ro.disconnect();
-  }, []);
+  }, [peakChartNode]);
 
 
 
   const clampTooltipX = useCallback(
     (cx: number) => {
-      const TOOLTIP_WIDTH_ESTIMATE = 280;
+      // max-w-xs = 320px; pad a bit for the border + drop-shadow.
+      const TOOLTIP_WIDTH_ESTIMATE = 340;
       const TOOLTIP_OFFSET = 20;
       if (peakChartWidth <= 0) return cx;
       if (cx + TOOLTIP_WIDTH_ESTIMATE + TOOLTIP_OFFSET > peakChartWidth) {
@@ -3030,7 +3038,7 @@ function ProgressionCharts({
   useEffect(() => {
     if (!pinnedTooltip) return;
     const handler = (e: MouseEvent) => {
-      const node = peakChartRef.current;
+      const node = peakChartNodeRef.current;
       if (!node) return;
       if (!node.contains(e.target as Node)) {
         setPinnedTooltip(null);
