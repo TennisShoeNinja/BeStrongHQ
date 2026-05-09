@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Trophy, ExternalLink, X } from "lucide-react";
 import * as Types from "@/lib/types";
 import {
@@ -80,7 +81,14 @@ export default function PRDetailModal({
     );
   }, [pr, allHistory]);
 
-  if (!open || !pr) return null;
+  // SSR-safe gate so createPortal(document.body) only runs on the client.
+  const isClient = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  if (!open || !pr || !isClient) return null;
 
   const cat = pr.lift.toLowerCase();
   const repLabel = pr.reps != null ? `${pr.reps}RM` : cat === "total" ? "Training total" : "PR";
@@ -109,7 +117,7 @@ export default function PRDetailModal({
         )
       : null;
 
-  return (
+  return createPortal(
     <>
       {}
       <div
@@ -463,6 +471,7 @@ export default function PRDetailModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
