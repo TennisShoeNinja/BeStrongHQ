@@ -702,6 +702,17 @@ def _write_to_db(
         if val > current:
             setattr(athlete, field, val)
 
+    # PR detection only fires on strict greater-than, so a tied training
+    # rep can't lift a cached max that fell behind history (e.g. coach
+    # manually lowered bench to match a comp result, then athlete hits the
+    # old training PR weight again). Floor the cached max up to the best
+    # 1-rep evidence in max_history so the invariant holds after every
+    # import.
+    from .max_tracking import floor_declared_maxes_to_history
+    floor_declared_maxes_to_history(
+        db, athlete, source="floor_history", note=program.program_name
+    )
+
     return {
         "athlete_name": athlete.name,
         "athlete_id": athlete.id,

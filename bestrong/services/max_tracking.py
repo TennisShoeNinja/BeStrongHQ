@@ -7,7 +7,14 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session as DBSession
 
-from ..models.orm import Athlete, MaxHistory, MeetResult
+from ..models.orm import (
+    Athlete,
+    ExerciseEntry,
+    MaxHistory,
+    MeetResult,
+    Program,
+    Session as SessionModel,
+)
 
 
 MAX_FIELDS = {
@@ -145,6 +152,82 @@ def reconcile_competition_maxes(
         field = MAX_FIELD_BY_LIFT[lift]
         if getattr(athlete, field) != new_value:
             updates[field] = new_value
+
+    if not updates:
+        return
+
+    new_squat = updates.get("squat_max_lbs", athlete.squat_max_lbs)
+    new_bench = updates.get("bench_max_lbs", athlete.bench_max_lbs)
+    new_deadlift = updates.get("deadlift_max_lbs", athlete.deadlift_max_lbs)
+    if None not in (new_squat, new_bench, new_deadlift):
+        updates["total_lbs"] = new_squat + new_bench + new_deadlift
+
+    log_max_changes(db, athlete, updates, source=source, note=note)
+    for field, value in updates.items():
+        setattr(athlete, field, value)
+
+
+def floor_declared_maxes_to_history(
+    db: DBSession,
+    athlete: Athlete,
+    *,
+    source: str = "floor_history",
+    note: str | None = None,
+) -> None:
+    """Raise athlete.<lift>_max_lbs to the best made 1-rep evidence on file.
+
+    PR detection in pr_tracking only fires on strict greater-than, so a
+    cached max that fell behind evidence (manual edit dropped it below an
+    older training PR, prior bug, etc.) won't get lifted by a tied
+    training rep. Call this after ``log_prs_for_program`` to restore the
+    invariant: cached max >= best made 1-rep evidence on file.
+
+    Evidence sources:
+      * ``exercise_entries``: top-set, non-accessory, non-failed, reps=1.
+        Sourced direct from the workbook so failed attempts don't
+        contribute (some legacy ``max_history`` rows include failed reps
+        from a backfill that ran before the failed-flag filter existed).
+      * ``meet_results``: made attempts within the recency cutoff.
+
+    Floor-only: never lowers a cached max. A coach who has typed a value
+    above evidence keeps it.
+    """
+    cutoff = _meet_recency_cutoff()
+    updates: dict[str, float] = {}
+    for lift in COMPETITION_LIFTS:
+        best_training = (
+            db.query(func.max(ExerciseEntry.weight_lbs))
+            .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+            .join(Program, SessionModel.program_id == Program.id)
+            .filter(
+                Program.athlete_id == athlete.id,
+                ExerciseEntry.lift_category == lift,
+                ExerciseEntry.set_type == "top_set",
+                ExerciseEntry.is_accessory.is_(False),
+                ExerciseEntry.failed.is_(False),
+                ExerciseEntry.weight_lbs.isnot(None),
+                ExerciseEntry.reps == 1,
+            )
+            .scalar()
+        )
+        best_meet = (
+            db.query(func.max(MeetResult.weight_lbs))
+            .filter(
+                MeetResult.athlete_id == athlete.id,
+                MeetResult.lift == lift,
+                MeetResult.made.is_(True),
+                or_(MeetResult.meet_date.is_(None), MeetResult.meet_date >= cutoff),
+            )
+            .scalar()
+        )
+        candidates = [v for v in (best_training, best_meet) if v is not None]
+        if not candidates:
+            continue
+        evidence = max(candidates)
+        field = MAX_FIELD_BY_LIFT[lift]
+        current = getattr(athlete, field, None)
+        if current is None or evidence > current:
+            updates[field] = float(evidence)
 
     if not updates:
         return
