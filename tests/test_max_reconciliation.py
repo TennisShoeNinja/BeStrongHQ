@@ -19,10 +19,18 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from bestrong.models.orm import Athlete, Base, MaxHistory, MeetResult
+from bestrong.models.orm import (
+    Athlete,
+    Base,
+    ExerciseEntry,
+    MaxHistory,
+    MeetResult,
+    Program,
+    Session as SessionModel,
+)
 from bestrong.services.max_tracking import (
     MEET_RECENCY_CUTOFF_DAYS,
-    log_max_changes,
+    floor_declared_maxes_to_history,
     reconcile_competition_maxes,
     recompute_canonical_max,
 )
@@ -285,3 +293,179 @@ def test_old_meet_ignored_recent_meet_used_in_same_history(db):
     reconcile_competition_maxes(db, a, source="opl")
 
     assert a.squat_max_lbs == 360
+
+
+# --- floor_declared_maxes_to_history ---
+
+
+def _add_top_set(
+    db,
+    athlete,
+    lift,
+    weight,
+    *,
+    reps=1,
+    failed=False,
+    is_accessory=False,
+    set_type="top_set",
+    program=None,
+    session=None,
+):
+    """Seed an exercise_entries row, creating a Program+Session lazily.
+
+    The floor reads training evidence from exercise_entries directly so
+    failed attempts and accessory rows don't sneak into the cached max.
+    """
+    if program is None:
+        program = Program(athlete_id=athlete.id, program_name="Test")
+        db.add(program)
+        db.flush()
+    if session is None:
+        session = SessionModel(
+            program_id=program.id, week_number=1, day_number=1, day_name="Monday"
+        )
+        db.add(session)
+        db.flush()
+    db.add(
+        ExerciseEntry(
+            session_id=session.id,
+            exercise_name=f"Test {lift}",
+            exercise_order=1,
+            exercise_group=1,
+            set_type=set_type,
+            lift_category=lift,
+            sets=1,
+            reps=reps,
+            weight_lbs=weight,
+            is_accessory=is_accessory,
+            failed=failed,
+        )
+    )
+
+
+def test_floor_raises_cached_max_to_training_pr(db):
+    """Coach manually lowered bench_max_lbs below an existing training
+    PR (e.g. matched a comp result). The next import must restore the
+    cached value to the higher training evidence."""
+    a = _seed_athlete(db, bench_max_lbs=375)
+    _add_top_set(db, a, "bench", 380)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 380
+
+
+def test_floor_does_not_lower_cached_max(db):
+    """Floor is monotonic upward only. A coach value above evidence
+    (declared training max for programming) must stick."""
+    a = _seed_athlete(db, bench_max_lbs=400)
+    _add_top_set(db, a, "bench", 380)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 400
+
+
+def test_floor_ignores_failed_attempts(db):
+    """Critical: a missed single must NOT drive the cached max. Tray's
+    P22 W4D4 had a 595 made and a 628 failed — the floor must pick 595,
+    not 628. (Pre-fix, a backfill row in max_history with the failed
+    weight could leak through.)"""
+    a = _seed_athlete(db, deadlift_max_lbs=600)
+    program = Program(athlete_id=a.id, program_name="P22")
+    db.add(program)
+    db.flush()
+    session = SessionModel(
+        program_id=program.id, week_number=4, day_number=4, day_name="Saturday"
+    )
+    db.add(session)
+    db.flush()
+    _add_top_set(db, a, "deadlift", 595, program=program, session=session, failed=False)
+    _add_top_set(db, a, "deadlift", 628, program=program, session=session, failed=True)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.deadlift_max_lbs == 600, (
+        "Floor must ignore failed attempts; 628 was missed, 595 was made."
+    )
+
+
+def test_floor_ignores_accessory_and_backdown_rows(db):
+    """Accessory variants and backdowns aren't comp-lift PR evidence."""
+    a = _seed_athlete(db, bench_max_lbs=300)
+    _add_top_set(db, a, "bench", 350, is_accessory=True)
+    _add_top_set(db, a, "bench", 340, set_type="backdown")
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 300
+
+
+def test_floor_ignores_multi_rep_top_sets(db):
+    """A 3-rep top set isn't 1RM evidence."""
+    a = _seed_athlete(db, bench_max_lbs=275)
+    _add_top_set(db, a, "bench", 320, reps=3)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 275
+
+
+def test_floor_uses_meet_evidence_too(db):
+    """Made meet attempts within recency cutoff also raise the floor."""
+    a = _seed_athlete(db, bench_max_lbs=350)
+    _add_meet(db, a, "bench", 365, source="opl", meet_date=_iso_days_ago(30))
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 365
+
+
+def test_floor_recomputes_total_when_all_three_present(db):
+    a = _seed_athlete(
+        db, squat_max_lbs=400, bench_max_lbs=250, deadlift_max_lbs=500, total_lbs=1150
+    )
+    _add_top_set(db, a, "bench", 300)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 300
+    assert a.total_lbs == 1200
+
+
+def test_floor_logs_change_to_max_history(db):
+    a = _seed_athlete(db, bench_max_lbs=375)
+    _add_top_set(db, a, "bench", 380)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a, source="floor_history", note="P22")
+    db.commit()
+
+    floor_rows = (
+        db.query(MaxHistory)
+        .filter(
+            MaxHistory.athlete_id == a.id,
+            MaxHistory.source == "floor_history",
+        )
+        .all()
+    )
+    assert len(floor_rows) == 1
+    assert floor_rows[0].old_value == 375
+    assert floor_rows[0].new_value == 380
+    assert floor_rows[0].note == "P22"
+
+
+def test_floor_noop_when_no_evidence(db):
+    a = _seed_athlete(db, bench_max_lbs=375)
+    db.commit()
+
+    floor_declared_maxes_to_history(db, a)
+
+    assert a.bench_max_lbs == 375
