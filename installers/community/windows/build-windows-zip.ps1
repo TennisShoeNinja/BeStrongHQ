@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.1.0-preview"
+    [string]$Version = "0.1.0-early"
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,10 +8,10 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $CommunityDir = Split-Path -Parent $ScriptDir
 $RootDir = Split-Path -Parent (Split-Path -Parent $CommunityDir)
 $OutDir = Join-Path $RootDir "dist\installers"
-$StageRoot = Join-Path $RootDir "dist\windows-preview"
-$PackageName = "BeStrongHQ-Community-Windows-Preview-$Version"
+$StageRoot = Join-Path $RootDir "dist\windows-installer"
+$PackageName = "BeStrongHQ-Community-Windows-$Version"
 $StageDir = Join-Path $StageRoot $PackageName
-$ZipPath = Join-Path $OutDir "BeStrongHQ-Community-Windows-Preview.zip"
+$ZipPath = Join-Path $OutDir "BeStrongHQ-Community-Windows.zip"
 
 if (Test-Path $StageRoot) {
     Remove-Item -Recurse -Force $StageRoot
@@ -54,10 +54,10 @@ Write-Launcher -Name "Update BeStrong.cmd" -Command "update" -KeepOpen
 Write-Launcher -Name "Troubleshoot BeStrong.cmd" -Command "doctor" -KeepOpen
 
 @"
-BeStrong HQ Community Preview
+BeStrong HQ Community Edition
 
-This preview ZIP is unsigned. Windows may warn you because the first preview
-release is not code signed.
+This early installer ZIP is unsigned. Windows may warn you because this release
+is not code signed yet.
 
 Before opening BeStrong:
 

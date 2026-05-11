@@ -68,19 +68,19 @@ Everything you need on open:
 
 ## Community Edition
 
-Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** under the hood, with a no-cost Community Preview install path for Mac, Windows, and Linux.
+Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** under the hood, with a no-cost Community Edition install path for Mac, Windows, and Linux.
 
 **Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or Docker Engine (Linux / Pi).
 
-**Mac/Linux preview install:**
+**Mac/Linux install:**
 
 ```bash
 curl -fsSL https://bestronghq.com/install.sh | bash
 bestrong open
 ```
 
-**Windows preview install:** download
-[BeStrongHQ-Community-Windows-Preview.zip](https://github.com/TennisShoeNinja/BeStrongHQ/releases/latest/download/BeStrongHQ-Community-Windows-Preview.zip),
+**Windows early installer:** download
+[BeStrongHQ-Community-Windows.zip](https://github.com/TennisShoeNinja/BeStrongHQ/releases/latest/download/BeStrongHQ-Community-Windows.zip),
 extract it, then double-click `Open BeStrong.cmd`. See the
 [Windows instructions](docs/install.md#windows) if Docker is not already set up.
 
@@ -89,7 +89,7 @@ prefer them.
 
 Open **http://127.0.0.1:3000**.
 
-Google Drive is required for program imports, and the same Google connection can also power Calendar sync. Follow the [full install guide](docs/install.md) for the beginner-friendly Windows/Mac/Linux setup, Google OAuth walkthrough, preview commands, and troubleshooting.
+Google Drive is required for program imports, and the same Google connection can also power Calendar sync. Follow the [full install guide](docs/install.md) for the beginner-friendly Windows/Mac/Linux setup, Google OAuth walkthrough, early installer commands, and troubleshooting.
 
 [Full install guide](docs/install.md) · [Google setup](docs/google-setup.md) · [Docker reference](docker/README.md)
 

@@ -1004,7 +1004,7 @@ export default function GoogleDriveSyncPage() {
                           Google Cloud setup required
                         </p>
                         <p style={{ color: 'rgba(253, 230, 138, 0.8)', fontSize: 12 }}>
-                          This local preview uses your own Google OAuth client before Drive and Calendar can connect.
+                          This local Community Edition uses your own Google OAuth client before Drive and Calendar can connect.
                           Finish Google setup, paste the Client ID and Client Secret into the runtime config file, restart BeStrong, then return here.
                         </p>
                         <a

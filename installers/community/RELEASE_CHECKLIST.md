@@ -1,6 +1,6 @@
-# Community Preview Release Checklist
+# Community Edition Release Checklist
 
-Use this before publishing Community Edition preview assets to coaches.
+Use this before publishing Community Edition install assets to coaches.
 
 ## One-Time GitHub Setup
 
@@ -12,9 +12,9 @@ Use this before publishing Community Edition preview assets to coaches.
 - Configure `https://bestronghq.com/install.sh` to serve or redirect to the
   latest `install.sh` release asset.
 
-## Preview Build Order
+## Early Installer Build Order
 
-1. Merge the app image workflow and preview installer assets to `main`.
+1. Merge the app image workflow and early installer assets to `main`.
 2. Wait for **Publish Community Docker image** to finish.
 3. Verify the image can be pulled without authentication:
 
@@ -22,11 +22,11 @@ Use this before publishing Community Edition preview assets to coaches.
    docker pull ghcr.io/tennisshoeninja/bestrong-hq:latest
    ```
 
-4. Run **Package Community preview** with the preview version.
+4. Run **Package Community early installer** with the installer version.
 5. Download the generated artifacts:
    - `install.sh`
    - `bestrong-posix`
-   - `BeStrongHQ-Community-Windows-Preview.zip`
+   - `BeStrongHQ-Community-Windows.zip`
 6. Attach those assets to the GitHub Release.
 7. Generate checksums for the release assets.
 8. Update website download links:
@@ -54,10 +54,10 @@ For each case:
 
 ## Manual Local Builds
 
-Build the Windows preview ZIP:
+Build the Windows early installer ZIP:
 
 ```powershell
-installers/community/windows/build-preview-zip.ps1 -Version 1.3.0-preview.1
+installers/community/windows/build-windows-zip.ps1 -Version 1.3.0-early.1
 ```
 
 Prepare POSIX assets:
@@ -71,7 +71,7 @@ chmod +x dist/installers/install.sh dist/installers/bestrong-posix
 
 ## Later Paid Signing Path
 
-Only move to signed installers after the preview gets real demand.
+Only move to signed installers after the early installer gets real demand.
 
 Paid requirements:
 
@@ -85,7 +85,7 @@ Future signed assets:
 - macOS `.pkg` from `installers/community/macos/build-pkg.sh`
 - Windows `.exe` from `installers/community/windows/BeStrongSetup.iss`
 
-Do not publish unsigned `.pkg` or `.exe` assets to coaches. For the free preview,
+Do not publish unsigned `.pkg` or `.exe` assets to coaches. For the free early installer,
 use the terminal script and Windows ZIP instead.
 
 ## Known Follow-Ups

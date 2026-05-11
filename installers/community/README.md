@@ -1,15 +1,15 @@
-# BeStrong HQ Community Preview Packaging
+# BeStrong HQ Community Edition Packaging
 
-This directory contains the no-cost Community Edition preview install path.
+This directory contains the no-cost Community Edition early installer path.
 Docker remains the runtime, but coaches should interact with BeStrong through
 `bestrong` commands or Windows double-click launchers instead of direct Docker
 commands.
 
 The signed Mac and Windows installer scaffolds are still here for later, but
-the current preview release should use:
+the current Community Edition release should use:
 
 - macOS: `curl -fsSL https://bestronghq.com/install.sh | bash`
-- Windows: `BeStrongHQ-Community-Windows-Preview.zip`
+- Windows: `BeStrongHQ-Community-Windows.zip`
 - Linux: `curl -fsSL https://bestronghq.com/install.sh | bash`
 
 ## Runtime Model
@@ -38,12 +38,12 @@ bestrong doctor
 
 `update` backs up `bestrong.db` before pulling the newest image.
 
-## Windows Preview ZIP
+## Windows Early Installer ZIP
 
 Build locally:
 
 ```powershell
-installers/community/windows/build-preview-zip.ps1 -Version 1.3.0-preview.1
+installers/community/windows/build-windows-zip.ps1 -Version 1.3.0-early.1
 ```
 
 The ZIP contains:
@@ -74,12 +74,12 @@ latest GitHub Release and installs the POSIX manager into `~/.local/bin`.
 
 ## Packaging Workflow
 
-Run **Package Community preview** from GitHub Actions with a version number to
-produce preview artifacts:
+Run **Package Community early installer** from GitHub Actions with a version number to
+produce early installer artifacts:
 
 - `install.sh`
 - `bestrong-posix`
-- `BeStrongHQ-Community-Windows-Preview.zip`
+- `BeStrongHQ-Community-Windows.zip`
 
 Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before publishing anything to
 coaches.

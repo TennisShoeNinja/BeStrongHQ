@@ -1,11 +1,11 @@
-# Install BeStrong HQ Community Preview
+# Install BeStrong HQ Community Edition
 
-BeStrong HQ Community Edition runs on your own computer. This preview installer
+BeStrong HQ Community Edition runs on your own computer. The early installer
 uses Docker in the background, but normal use is just opening BeStrong in your
 browser.
 
-This is an early community install path. The Mac and Windows preview packages
-are unsigned so we can validate demand before paying for code signing.
+The current Mac and Windows install helpers are unsigned while we validate
+demand before paying for code signing.
 
 Your data stays on your machine in a regular BeStrong HQ data folder.
 
@@ -17,7 +17,7 @@ Your data stays on your machine in a regular BeStrong HQ data folder.
 
 Linux users need Docker Engine and the Docker Compose plugin.
 
-## Recommended Preview Install
+## Recommended Community Edition Install
 
 ### macOS
 
@@ -42,7 +42,7 @@ http://127.0.0.1:3000
 1. Install Docker Desktop from <https://www.docker.com/products/docker-desktop/>.
 2. Open Docker Desktop once and wait until it says Docker is running.
 3. Download
-   [BeStrongHQ-Community-Windows-Preview.zip](https://github.com/TennisShoeNinja/BeStrongHQ/releases/latest/download/BeStrongHQ-Community-Windows-Preview.zip).
+   [BeStrongHQ-Community-Windows.zip](https://github.com/TennisShoeNinja/BeStrongHQ/releases/latest/download/BeStrongHQ-Community-Windows.zip).
 4. Right-click the ZIP and choose **Extract All**.
 5. Open the extracted folder.
 6. Double-click **Open BeStrong.cmd**.
@@ -68,7 +68,7 @@ bestrong open
 The script expects Docker Engine and the Docker Compose plugin to already be
 installed.
 
-## Preview Commands
+## Early Installer Commands
 
 macOS and Linux get a `bestrong` terminal command:
 
@@ -91,7 +91,7 @@ The Windows ZIP includes double-click launchers:
 
 ## Data Location
 
-The preview stores your local data in a normal folder:
+The early installer stores your local data in a normal folder:
 
 | Platform | Data folder |
 |---|---|
@@ -207,8 +207,8 @@ Using a different naming pattern? Configure it in BeStrong HQ under
 ## Later Signed Installers
 
 The repo also contains scaffolding for future signed Mac and Windows installers.
-Those are not the preview recommendation because Apple and Windows signing cost
-money. Use the preview path above until real demand justifies that spend.
+Those are not the current recommendation because Apple and Windows signing cost
+money. Use the install path above until real demand justifies that spend.
 
 ## Manual Docker Reference
 
