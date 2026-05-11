@@ -185,6 +185,8 @@ function AthletesPageInner() {
   const viewParam = searchParams.get("view") as ViewType | null;
   const searchQuery = searchParams.get("q") ?? "";
   const now = useNow();
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
   const [currentView, setCurrentView] = useState<ViewType>(
     viewParam && ["Athletes", "Availability"].includes(viewParam)
       ? viewParam
@@ -499,7 +501,27 @@ function AthletesPageInner() {
     return (
       <div style={{ padding: "var(--cloud-s5)" }}>
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-semibold cloud-text" style={{ letterSpacing: "-0.02em" }}>
+          <p
+            className="cloud-eyebrow"
+            style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <span>{teamName}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: "50%",
+                background: "var(--cloud-text-dim)",
+                display: "inline-block",
+              }}
+            />
+            <span style={{ color: "var(--cloud-text-dim)" }}>Roster</span>
+          </p>
+          <h1
+            className="font-semibold cloud-text"
+            style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1 }}
+          >
             Athletes
           </h1>
           <div
@@ -534,6 +556,23 @@ function AthletesPageInner() {
         {}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ gap: "var(--cloud-s3)" }}>
           <div className="min-w-0">
+            <p
+              className="cloud-eyebrow"
+              style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span>{teamName}</span>
+              <span
+                aria-hidden
+                style={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: "50%",
+                  background: "var(--cloud-text-dim)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ color: "var(--cloud-text-dim)" }}>Roster</span>
+            </p>
             <h1
               className="font-semibold cloud-text"
               style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1 }}

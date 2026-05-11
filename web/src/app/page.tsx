@@ -23,7 +23,8 @@ import {
 import apiClient from '@/lib/api';
 import { useAuth } from '@/lib/auth-provider';
 import { MobileHome } from '@/components/mobile-home';
-import { Spark } from '@/components/spark';
+import { StatTile, StatTileSkeleton } from '@/components/stat-tile';
+import { EmptyState } from '@/components/empty-state';
 
 
 const weatherCodeMap: Record<number, { Icon: LucideIcon; description: string }> = {
@@ -162,98 +163,6 @@ function MeetsSkeleton() {
         />
       ))}
     </div>
-  );
-}
-
-function StatTileSkeleton() {
-  return (
-    <div
-      style={{
-        height: 72,
-        background: 'var(--cloud-panel)',
-        border: '1px solid var(--cloud-border)',
-        borderRadius: 10,
-      }}
-    />
-  );
-}
-
-
-function StatTile({
-  href,
-  label,
-  value,
-  icon,
-  iconTint,
-  sparkPoints,
-  sparkTone = 'primary',
-}: {
-  href: string;
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  iconTint: string;
-  sparkPoints?: number[];
-  sparkTone?: 'primary' | 'success' | 'danger' | 'warning';
-}) {
-  return (
-    <Link href={href} className="block">
-      <div
-        className="cloud-panel"
-        style={{
-          padding: '14px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          position: 'relative',
-          transition: 'border-color 0.15s, background 0.15s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = 'var(--cloud-border-strong)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = 'var(--cloud-border)';
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          <div style={MICRO_LABEL}>{label}</div>
-          <div style={{ ...BIG_STAT, marginTop: 4 }}>{value}</div>
-        </div>
-        {sparkPoints && sparkPoints.length >= 2 && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 10,
-              right: 56,
-              opacity: 0.85,
-              pointerEvents: 'none',
-            }}
-          >
-            <Spark
-              points={sparkPoints}
-              tone={sparkTone}
-              width={64}
-              height={18}
-              strokeWidth={1.6}
-            />
-          </div>
-        )}
-        <div
-          style={{
-            flexShrink: 0,
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            display: 'grid',
-            placeItems: 'center',
-            background: iconTint,
-          }}
-        >
-          {icon}
-        </div>
-      </div>
-    </Link>
   );
 }
 
@@ -483,21 +392,11 @@ export default function Home() {
             {notificationsLoading ? (
               <ProgramsDueSkeleton />
             ) : programsDue.length === 0 ? (
-              <div
-                className="cloud-panel"
-                style={{
-                  padding: 32,
-                  textAlign: 'center',
-                }}
-              >
-                <CheckCircle
-                  className="mx-auto"
-                  style={{ width: 32, height: 32, color: 'var(--cloud-success-text)', marginBottom: 10 }}
-                />
-                <p className="cloud-text-muted" style={{ fontSize: 13 }}>
-                  No programs due soon. You&apos;re all caught up.
-                </p>
-              </div>
+              <EmptyState
+                icon={CheckCircle}
+                iconTone="success"
+                body="No programs due soon. You're all caught up."
+              />
             ) : (
               <div className="flex flex-col" style={{ gap: 8 }}>
                 {programsDue.map((athlete) => {
@@ -661,18 +560,11 @@ export default function Home() {
               Failed to load meets
             </div>
           ) : upcomingMeets.length === 0 ? (
-            <div
-              className="cloud-panel"
-              style={{ padding: 32, textAlign: 'center' }}
-            >
-              <Trophy
-                className="mx-auto"
-                style={{ width: 32, height: 32, color: 'var(--cloud-text-dim)', marginBottom: 10 }}
-              />
-              <p className="cloud-text-muted" style={{ fontSize: 13 }}>
-                No upcoming meets scheduled
-              </p>
-            </div>
+            <EmptyState
+              icon={Trophy}
+              iconTone="muted"
+              body="No upcoming meets scheduled."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {upcomingMeets.map((meet) => {
