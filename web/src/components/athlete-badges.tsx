@@ -3,8 +3,10 @@
 import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import apiClient from '@/lib/api';
-import { evaluateBadges } from '@/lib/badges';
+import { computeLifetimeStats, evaluateBadges } from '@/lib/badges';
 import { BadgeRow } from '@/components/badge-row';
+import { NextMilestoneChip } from '@/components/next-milestone-chip';
+import { RecentAchievementsStrip } from '@/components/recent-achievements-strip';
 
 interface AthleteBadgesProps {
   athleteId: number;
@@ -34,9 +36,27 @@ export function AthleteBadges({ athleteId }: AthleteBadgesProps) {
       }),
     [meetResultsQuery.data, maxHistoryQuery.data],
   );
+  const athleteStats = useMemo(
+    () => computeLifetimeStats(meetResultsQuery.data ?? []),
+    [meetResultsQuery.data],
+  );
 
   const isLoading = meetResultsQuery.isLoading || maxHistoryQuery.isLoading;
   if (isLoading || badges.length === 0) return null;
 
-  return <BadgeRow badges={badges} />;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        minWidth: 0,
+        maxWidth: '100%',
+      }}
+    >
+      <BadgeRow badges={badges} />
+      <RecentAchievementsStrip badges={badges} />
+      <NextMilestoneChip badges={badges} athleteStats={athleteStats} />
+    </div>
+  );
 }
