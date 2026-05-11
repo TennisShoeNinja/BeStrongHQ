@@ -31,7 +31,7 @@ function formatDate(iso: string | null | undefined): string {
 
 function sortEvents(events: BadgeEvent[]): BadgeEvent[] {
   return [...events].sort((a, b) =>
-    (b.meet_date ?? '').localeCompare(a.meet_date ?? ''),
+    (a.meet_date ?? '').localeCompare(b.meet_date ?? ''),
   );
 }
 

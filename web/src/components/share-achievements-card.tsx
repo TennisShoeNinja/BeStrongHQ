@@ -1,94 +1,15 @@
 'use client';
 
-import { forwardRef, type ReactNode } from 'react';
-import {
-  Sparkles,
-  Trophy,
-  Medal,
-  Crown,
-  Hourglass,
-  Dumbbell,
-  Target,
-  CheckCheck,
-  RotateCcw,
-  TrendingUp,
-  Flame,
-  Layers,
-  Zap,
-} from 'lucide-react';
+import { forwardRef } from 'react';
 import type { EarnedBadge } from '@/lib/badges';
-
-const CARD_WIDTH = 1080;
 import {
   SHARE_BRAND,
   ShareCardLockup,
   CardEyebrow,
 } from '@/components/share-card-brand';
 
-interface TierStyle {
-  ring: string;
-  bg: string;
-  fg: string;
-  icon: (props: { className?: string }) => ReactNode;
-}
-
-const TIER_STYLE: Record<EarnedBadge['tier'], TierStyle> = {
-  milestone: {
-    ring: 'rgba(99, 102, 241, 0.55)',
-    bg: 'rgba(99, 102, 241, 0.12)',
-    fg: '#a5b4fc',
-    icon: (p) => <Sparkles {...p} />,
-  },
-  win: {
-    ring: 'rgba(234, 179, 8, 0.6)',
-    bg: 'rgba(234, 179, 8, 0.12)',
-    fg: '#facc15',
-    icon: (p) => <Trophy {...p} />,
-  },
-  longevity: {
-    ring: 'rgba(148, 163, 184, 0.55)',
-    bg: 'rgba(148, 163, 184, 0.12)',
-    fg: '#cbd5e1',
-    icon: (p) => <Hourglass {...p} />,
-  },
-  lift: {
-    ring: 'rgba(239, 68, 68, 0.6)',
-    bg: 'rgba(239, 68, 68, 0.12)',
-    fg: '#fca5a5',
-    icon: (p) => <Dumbbell {...p} />,
-  },
-  dots: {
-    ring: 'rgba(16, 185, 129, 0.6)',
-    bg: 'rgba(16, 185, 129, 0.12)',
-    fg: '#6ee7b7',
-    icon: (p) => <Target {...p} />,
-  },
-  special: {
-    ring: 'rgba(244, 114, 182, 0.6)',
-    bg: 'rgba(244, 114, 182, 0.12)',
-    fg: '#f9a8d4',
-    icon: (p) => <Medal {...p} />,
-  },
-  pr: {
-    ring: 'rgba(251, 146, 60, 0.6)',
-    bg: 'rgba(251, 146, 60, 0.12)',
-    fg: '#fdba74',
-    icon: (p) => <TrendingUp {...p} />,
-  },
-};
-
-const ID_ICON: Record<string, (p: { className?: string }) => ReactNode> = {
-  'first-place': (p) => <Trophy {...p} />,
-  'three-peat': (p) => <Crown {...p} />,
-  'multi-fed-champ': (p) => <Crown {...p} />,
-  comeback: (p) => <RotateCcw {...p} />,
-  'nine-for-nine': (p) => <CheckCheck {...p} />,
-  'pr-streak-3': (p) => <Flame {...p} />,
-  'pr-streak-6': (p) => <Flame {...p} />,
-  'pr-streak-12': (p) => <Flame {...p} />,
-  'triple-threat': (p) => <Layers {...p} />,
-  'big-jump': (p) => <Zap {...p} />,
-};
+const CARD_WIDTH = 1080;
+const MEDALLION_SIZE = 96;
 
 interface ShareAchievementsCardProps {
   athleteName: string;
@@ -211,13 +132,11 @@ export const ShareAchievementsCard = forwardRef<
 });
 
 function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
-  const tier = TIER_STYLE[badge.tier];
-  const Icon = ID_ICON[badge.id] ?? tier.icon;
   return (
     <div
       style={{
-        background: tier.bg,
-        border: `1px solid ${tier.ring}`,
+        background: SHARE_BRAND.panel,
+        border: `1px solid ${SHARE_BRAND.border}`,
         borderRadius: 14,
         padding: 20,
         display: 'flex',
@@ -229,18 +148,25 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
     >
       <div
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 10,
-          background: 'rgba(0,0,0,0.35)',
-          border: `1px solid ${tier.ring}`,
-          color: tier.fg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          width: MEDALLION_SIZE,
+          height: MEDALLION_SIZE,
+          position: 'relative',
         }}
       >
-        <Icon className="h-7 w-7" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/badges/${badge.id}.png`}
+          alt={badge.label}
+          width={MEDALLION_SIZE}
+          height={MEDALLION_SIZE}
+          draggable={false}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+          }}
+        />
       </div>
       <div
         style={{
@@ -273,15 +199,16 @@ function BadgeCardTile({ badge }: { badge: EarnedBadge }) {
             height: 32,
             padding: '0 10px',
             borderRadius: 999,
-            background: 'rgba(0,0,0,0.5)',
-            border: `1px solid ${tier.ring}`,
-            color: tier.fg,
+            background: SHARE_BRAND.ink,
+            border: '1px solid rgba(124, 180, 237, 0.5)',
+            color: SHARE_BRAND.blueText,
             fontSize: 14,
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            letterSpacing: '-0.02em',
+            letterSpacing: 0,
+            boxShadow: '0 1px 8px rgba(0, 0, 0, 0.45)',
           }}
         >
           {badge.count}

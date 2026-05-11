@@ -121,6 +121,128 @@ export interface BadgeEvaluatorInput {
   maxHistory?: MaxHistoryEntry[];
 }
 
+type ChainName =
+  | 'meets'
+  | 'career'
+  | 'totals'
+  | 'dots'
+  | 'pr-count'
+  | 'pr-streak';
+
+interface ChainMember {
+  id: string;
+  rank: number;
+}
+
+const BADGE_CHAINS: Record<ChainName, ChainMember[]> = {
+  meets: [
+    { id: 'first-meet', rank: 1 },
+    { id: 'meets-5', rank: 5 },
+    { id: 'meets-10', rank: 10 },
+    { id: 'meets-25', rank: 25 },
+    { id: 'meets-50', rank: 50 },
+  ],
+  career: [
+    { id: 'career-1y', rank: 1 },
+    { id: 'career-3y', rank: 3 },
+    { id: 'career-5y', rank: 5 },
+    { id: 'career-10y', rank: 10 },
+  ],
+  totals: [
+    { id: 'total-500kg', rank: 500 },
+    { id: 'total-600kg', rank: 600 },
+    { id: 'total-700kg', rank: 700 },
+    { id: 'total-800kg', rank: 800 },
+    { id: 'total-900kg', rank: 900 },
+  ],
+  dots: [
+    { id: 'dots-400', rank: 400 },
+    { id: 'dots-450', rank: 450 },
+    { id: 'dots-500', rank: 500 },
+    { id: 'dots-550', rank: 550 },
+  ],
+  'pr-count': [
+    { id: 'pr-count-5', rank: 5 },
+    { id: 'pr-count-10', rank: 10 },
+    { id: 'pr-count-25', rank: 25 },
+    { id: 'pr-count-50', rank: 50 },
+    { id: 'pr-count-100', rank: 100 },
+  ],
+  'pr-streak': [
+    { id: 'pr-streak-3', rank: 3 },
+    { id: 'pr-streak-6', rank: 6 },
+    { id: 'pr-streak-12', rank: 12 },
+  ],
+};
+
+function chainEventLabel(chainName: ChainName, member: ChainMember): string {
+  if (chainName === 'meets') {
+    return member.id === 'first-meet' ? 'First meet' : `${member.rank} meets`;
+  }
+  if (chainName === 'career') {
+    return member.rank === 1 ? '1 year' : `${member.rank} years`;
+  }
+  if (chainName === 'totals') return `${member.rank}kg`;
+  if (chainName === 'dots') return `${member.rank} DOTS`;
+  if (chainName === 'pr-count') return `${member.rank} PRs`;
+  return `${member.rank} months`;
+}
+
+function decorateChainEvent(
+  chainName: ChainName,
+  member: ChainMember,
+  event: BadgeEvent,
+): BadgeEvent {
+  const label = chainEventLabel(chainName, member);
+  const detail = event.detail?.trim();
+  return {
+    ...event,
+    detail: detail && detail !== label ? `${label}, ${detail}` : label,
+  };
+}
+
+function sortBadgeEvents(a: BadgeEvent, b: BadgeEvent): number {
+  const byDate = (a.meet_date ?? '').localeCompare(b.meet_date ?? '');
+  if (byDate !== 0) return byDate;
+  return (a.detail ?? '').localeCompare(b.detail ?? '');
+}
+
+function collapseChains(earned: EarnedBadge[]): EarnedBadge[] {
+  const byId = new Map(earned.map((badge) => [badge.id, badge]));
+  const dropped = new Set<string>();
+  const mergedEvents = new Map<string, BadgeEvent[]>();
+
+  for (const [chainName, members] of Object.entries(BADGE_CHAINS) as Array<
+    [ChainName, ChainMember[]]
+  >) {
+    const earnedInChain = members
+      .filter((member) => byId.has(member.id))
+      .sort((a, b) => a.rank - b.rank);
+    if (earnedInChain.length <= 1) continue;
+
+    const top = earnedInChain[earnedInChain.length - 1];
+    const chainEvents: BadgeEvent[] = [];
+    for (const member of earnedInChain) {
+      const badge = byId.get(member.id);
+      if (!badge) continue;
+      if (member.id !== top.id) dropped.add(member.id);
+      chainEvents.push(
+        ...badge.events.map((event) =>
+          decorateChainEvent(chainName, member, event),
+        ),
+      );
+    }
+    mergedEvents.set(top.id, chainEvents.sort(sortBadgeEvents));
+  }
+
+  return earned
+    .filter((badge) => !dropped.has(badge.id))
+    .map((badge) => {
+      const events = mergedEvents.get(badge.id);
+      return events ? { ...badge, events } : badge;
+    });
+}
+
 export function evaluateBadges(
   input: BadgeEvaluatorInput | MeetResultEntry[],
 ): EarnedBadge[] {
@@ -130,7 +252,7 @@ export function evaluateBadges(
   const earned: EarnedBadge[] = [];
   appendMeetBadges(earned, meetResults);
   appendPRHistoryBadges(earned, maxHistory);
-  return earned;
+  return collapseChains(earned);
 }
 
 function appendMeetBadges(earned: EarnedBadge[], rows: MeetResultEntry[]): void {
@@ -356,7 +478,7 @@ function appendPRHistoryBadges(
     (a.recorded_at ?? '').localeCompare(b.recorded_at ?? ''),
   );
 
-  // Lifetime PR count tiers — every MaxHistory row is a PR moment.
+  // Lifetime PR count tiers: every MaxHistory row is a PR moment.
   const prCountTiers = [5, 10, 25, 50, 100];
   for (const tier of prCountTiers) {
     if (sorted.length >= tier) {
@@ -371,12 +493,11 @@ function appendPRHistoryBadges(
     }
   }
 
-  // PR streak — consecutive months with at least one PR. Picks the longest run.
+  // PR streak: consecutive months with at least one PR. Picks the longest run.
   let bestRunLength = 0;
   let bestRunEndIndex = -1;
   let curRunLength = 0;
   let curRunPrevMonth: string | null = null;
-  let curRunStartIdx = 0;
   for (let i = 0; i < sorted.length; i++) {
     const recorded = sorted[i].recorded_at;
     if (!recorded) continue;
@@ -386,7 +507,6 @@ function appendPRHistoryBadges(
       curRunLength += 1;
     } else {
       curRunLength = 1;
-      curRunStartIdx = i;
     }
     curRunPrevMonth = mk;
     if (curRunLength > bestRunLength) {
@@ -413,7 +533,7 @@ function appendPRHistoryBadges(
     }
   }
 
-  // Triple Threat — first time S, B, and D each got a 1RM PR within a 90-day window.
+  // Triple Threat: first time S, B, and D each got a 1RM PR within a 90-day window.
   const oneRMBig = sorted.filter((r) => isBigLift(r) && isOneRepMax(r));
   for (let i = 0; i < oneRMBig.length; i++) {
     const lifts = new Set<string>();
@@ -446,7 +566,7 @@ function appendPRHistoryBadges(
     }
   }
 
-  // Big Jump — single PR that increased old → new by at least 20 lbs.
+  // Big Jump: single PR that increased old to new by at least 20 lbs.
   const jumps = sorted.filter(
     (r) =>
       r.old_value != null && r.old_value > 0 && r.new_value - r.old_value >= 20,
