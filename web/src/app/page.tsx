@@ -389,10 +389,24 @@ export default function Home() {
       <div className="hidden md:block" style={{ padding: 'var(--cloud-s5)' }}>
         <div className="flex flex-col" style={{ gap: 'var(--cloud-s5)' }}>
           {}
-        <div>
+        <div style={{ position: 'relative' }}>
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: -120,
+              left: -80,
+              width: 520,
+              height: 360,
+              background:
+                'radial-gradient(ellipse 50% 50% at 30% 60%, rgba(12, 92, 171, 0.20) 0%, transparent 65%)',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
           <p
             className="cloud-eyebrow"
-            style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}
           >
             <span>{teamName}</span>
             <span
@@ -411,19 +425,19 @@ export default function Home() {
             className="font-semibold cloud-text"
             style={{ fontSize: 32, letterSpacing: '-0.03em', lineHeight: 1.1 }}
           >
-            Good {timeOfDay}, <span className="cloud-text-grad-blue">{coachFirstName}</span>
+            {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)},{' '}
+            <span className="cloud-text-grad-blue">{coachFirstName}</span>.
           </h1>
           <div
             className="flex flex-wrap items-center cloud-text-muted"
             style={{ gap: 8, fontSize: 13, marginTop: 6 }}
           >
-            <span>{formatDate(currentDate)}</span>
+            {/* Date moved to the eyebrow above; weather row now leads with location. */}
             {currentWeather && !weatherLoading && (() => {
               const info = weatherCodeMap[currentWeather.weather_code] || FALLBACK_WEATHER;
               const Icon = info.Icon;
               return (
                 <>
-                  <span className="cloud-text-dim" aria-hidden>·</span>
                   <span>{settings?.weather_city || 'Houston, TX'}</span>
                   <span className="cloud-text-dim" aria-hidden>·</span>
                   <span className="flex items-center" style={{ gap: 6 }}>

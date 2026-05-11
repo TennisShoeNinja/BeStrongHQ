@@ -458,8 +458,15 @@ body {
     align-items: center;
     gap: var(--cloud-s3);
     padding: var(--cloud-s3) var(--cloud-s5);
-    border-bottom: 1px solid var(--cloud-border);
-    background: rgba(9, 9, 11, 0.7);
+    border-bottom: 1px solid transparent;
+    background:
+      linear-gradient(rgba(9, 9, 11, 0.7), rgba(9, 9, 11, 0.7)) padding-box,
+      linear-gradient(
+        90deg,
+        rgba(12, 92, 171, 0.30) 0%,
+        rgba(255, 255, 255, 0.08) 40%,
+        rgba(255, 255, 255, 0.08) 100%
+      ) border-box;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     position: sticky;
@@ -474,11 +481,19 @@ body {
     flex-shrink: 0;
   }
   .cloud-breadcrumb-home {
-    color: var(--cloud-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
     transition: color 0.15s;
   }
   .cloud-breadcrumb-home:hover {
-    color: var(--cloud-text);
+    color: #a8cbf3;
+  }
+  .cloud-breadcrumb-sep {
+    color: var(--cloud-text-dim);
+    user-select: none;
   }
   .cloud-topbar-search {
     margin-left: auto;
@@ -486,17 +501,25 @@ body {
     align-items: center;
     gap: var(--cloud-s2);
     padding: 6px var(--cloud-s3);
-    background: var(--cloud-panel);
+    background:
+      linear-gradient(rgba(12, 92, 171, 0.04), rgba(12, 92, 171, 0.04)),
+      var(--cloud-panel);
     border: 1px solid var(--cloud-border);
     border-radius: var(--cloud-r-sm);
     width: 340px;
     max-width: 40vw;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, background 0.15s;
     position: relative;
   }
   .cloud-topbar-search:focus-within {
     border-color: rgba(12, 92, 171, 0.5);
     box-shadow: 0 0 0 3px rgba(12, 92, 171, 0.15);
+    background:
+      linear-gradient(rgba(12, 92, 171, 0.08), rgba(12, 92, 171, 0.08)),
+      var(--cloud-panel);
+  }
+  .cloud-topbar-search:focus-within .cloud-topbar-search-icon-btn svg {
+    color: var(--cloud-primary-text);
   }
   .cloud-topbar-search input {
     flex: 1;
