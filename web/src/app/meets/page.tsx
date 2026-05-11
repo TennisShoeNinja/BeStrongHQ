@@ -4,6 +4,7 @@ import { useState, useMemo, type CSSProperties } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
+import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
 import { AlertCircle, ArrowUpDown, Plus, Search } from "lucide-react";
 
@@ -32,6 +33,8 @@ export default function MeetsPage() {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [showPast, setShowPast] = useState(false);
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
 
   const { data: meets = [], isLoading, error } = useQuery({
     queryKey: ["meets"],
@@ -175,6 +178,23 @@ export default function MeetsPage() {
         className="mx-auto"
         style={{ maxWidth: 960, padding: "var(--cloud-s5)" }}
       >
+        <p
+          className="cloud-eyebrow"
+          style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+        >
+          <span>{teamName}</span>
+          <span
+            aria-hidden
+            style={{
+              width: 3,
+              height: 3,
+              borderRadius: "50%",
+              background: "var(--cloud-text-dim)",
+              display: "inline-block",
+            }}
+          />
+          <span style={{ color: "var(--cloud-text-dim)" }}>Competitions</span>
+        </p>
         <h1
           className="cloud-text"
           style={{
@@ -223,6 +243,23 @@ export default function MeetsPage() {
           style={{ gap: 16 }}
         >
           <div>
+            <p
+              className="cloud-eyebrow"
+              style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span>{teamName}</span>
+              <span
+                aria-hidden
+                style={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: "50%",
+                  background: "var(--cloud-text-dim)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ color: "var(--cloud-text-dim)" }}>Competitions</span>
+            </p>
             <h1
               className="cloud-text"
               style={{
