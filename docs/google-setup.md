@@ -74,6 +74,9 @@ http://127.0.0.1:8080/api/gdrive/auth/callback
 http://127.0.0.1:8080/api/calendar/auth/callback
 ```
 
+BeStrong opens in your browser on port `3000`, but its local API runs on port
+`8080`. The Google redirect URIs use `8080`, and that is correct.
+
 Use `127.0.0.1`, not `localhost`, unless you register both. Google requires the
 redirect URI to match exactly.
 

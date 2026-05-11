@@ -57,6 +57,10 @@ fi
 
 chmod +x "$TARGET"
 
+if [[ "$(uname -s)" == "Darwin" ]] && command -v xattr >/dev/null 2>&1; then
+  xattr -d com.apple.quarantine "$TARGET" 2>/dev/null || true
+fi
+
 RESOLVED_BESTRONG="$(command -v bestrong 2>/dev/null || true)"
 if [[ "$RESOLVED_BESTRONG" != "$TARGET" ]]; then
   ensure_profile_path

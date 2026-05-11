@@ -18,7 +18,17 @@ detect_home() {
       printf '%s\n' "$HOME/Library/Application Support/BeStrongHQ"
       ;;
     *)
-      printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/bestrong-hq"
+      local linux_base
+      local current_home
+      local legacy_home
+      linux_base="${XDG_DATA_HOME:-$HOME/.local/share}"
+      current_home="$linux_base/BeStrongHQ"
+      legacy_home="$linux_base/bestrong-hq"
+      if [[ ! -d "$current_home" && -d "$legacy_home" ]]; then
+        printf '%s\n' "$legacy_home"
+      else
+        printf '%s\n' "$current_home"
+      fi
       ;;
   esac
 }

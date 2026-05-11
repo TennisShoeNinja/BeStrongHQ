@@ -59,6 +59,9 @@ BeStrong HQ Community Edition
 This early installer ZIP is unsigned. Windows may warn you because this release
 is not code signed yet.
 
+If Windows SmartScreen shows "Windows protected your PC", click More info,
+then Run anyway.
+
 Before opening BeStrong:
 
 1. Install Docker Desktop from https://www.docker.com/products/docker-desktop/

@@ -62,6 +62,10 @@ http://127.0.0.1:3000
 Windows uses Docker Desktop with WSL2. If Docker asks for a reboot, reboot,
 open Docker Desktop again, then double-click **Open BeStrong.cmd**.
 
+Because the early installer is not signed yet, Windows SmartScreen may show
+**Windows protected your PC** the first time you open it. Choose **More info**,
+then **Run anyway**.
+
 If Docker Desktop is installed but closed, **Open BeStrong.cmd** tries to open
 Docker Desktop and waits for it before starting BeStrong.
 
@@ -130,7 +134,7 @@ The early installer stores your local data in a normal folder:
 |---|---|
 | macOS | `~/Library/Application Support/BeStrongHQ/` |
 | Windows | `%LOCALAPPDATA%\BeStrongHQ\` |
-| Linux | `${XDG_DATA_HOME:-~/.local/share}/bestrong-hq/` |
+| Linux | `${XDG_DATA_HOME:-~/.local/share}/BeStrongHQ/` |
 
 `bestrong update` and **Update BeStrong.cmd** create a database backup before
 pulling a new image.
@@ -149,6 +153,9 @@ need one Google OAuth client before your first sync.
 http://127.0.0.1:8080/api/gdrive/auth/callback
 http://127.0.0.1:8080/api/calendar/auth/callback
 ```
+
+BeStrong opens in your browser on port `3000`, but its local API runs on port
+`8080`. The Google redirect URIs use `8080`, and that is correct.
 
 Then edit the BeStrong HQ runtime config file.
 

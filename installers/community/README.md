@@ -19,7 +19,7 @@ the current Community Edition release should use:
 - API: <http://127.0.0.1:8080>
 - macOS data: `~/Library/Application Support/BeStrongHQ/`
 - Windows data: `%LOCALAPPDATA%\BeStrongHQ\`
-- Linux data: `${XDG_DATA_HOME:-~/.local/share}/bestrong-hq/`
+- Linux data: `${XDG_DATA_HOME:-~/.local/share}/BeStrongHQ/`
 
 The manager writes a local Compose file and `.env` file into the runtime folder.
 Coach data is stored in a normal host folder, not an opaque Docker named volume.
