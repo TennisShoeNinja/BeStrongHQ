@@ -43,18 +43,54 @@ export function BadgeDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-md"
-        style={{ maxWidth: 460 }}
+        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-[480px]"
+        style={{ maxWidth: 480 }}
       >
-        <DialogHeader>
+        <DialogHeader
+          style={{
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          {badge && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginTop: 8,
+                marginBottom: 12,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/badges/${badge.id}.png`}
+                alt={badge.label}
+                width={192}
+                height={192}
+                draggable={false}
+                style={{
+                  display: 'block',
+                  width: 192,
+                  height: 192,
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.4))',
+                }}
+              />
+            </div>
+          )}
           <DialogTitle
-            style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              letterSpacing: '-0.015em',
+              textAlign: 'center',
+            }}
           >
             {badge?.label ?? 'Achievement'}
           </DialogTitle>
           <DialogDescription
             className="cloud-text-muted"
-            style={{ fontSize: 13, lineHeight: 1.45 }}
+            style={{ fontSize: 13, lineHeight: 1.45, textAlign: 'center' }}
           >
             {badge?.description ?? ''}
           </DialogDescription>
@@ -62,6 +98,14 @@ export function BadgeDetailModal({
 
         {badge && (
           <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div
+              aria-hidden="true"
+              style={{
+                height: 1,
+                background: 'var(--cloud-border)',
+                marginTop: 2,
+              }}
+            />
             <div
               className="cloud-text-muted"
               style={{
