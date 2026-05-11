@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-provider';
 import { SidebarWithNotifications } from '@/components/sidebar-with-notifications';
+import { BottomNav } from '@/components/bottom-nav';
 import { DriveStatusBanner } from '@/components/drive-status-banner';
 import { Topbar } from '@/components/topbar';
 import { EXTRA_BARE_LAYOUT_PREFIXES } from '@/config/auth-layout-config';
@@ -75,11 +76,14 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         mobileOpen={mobileNavOpen}
         onMobileOpenChange={setMobileNavOpen}
       />
-      <main className="flex-1 overflow-auto flex flex-col min-w-0">
-        <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+      <main className="flex-1 overflow-auto flex flex-col min-w-0 cloud-main-with-bottom-nav">
+        <div className="hidden md:contents">
+          <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+        </div>
         <DriveStatusBanner />
         <div className="flex-1">{children}</div>
       </main>
+      <BottomNav />
     </>
   );
 }

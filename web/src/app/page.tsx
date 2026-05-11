@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { MobileHome } from '@/components/mobile-home';
 
 
 const weatherCodeMap: Record<number, { Icon: LucideIcon; description: string }> = {
@@ -342,9 +343,13 @@ export default function Home() {
   const currentWeather = weather?.current;
 
   return (
-    <div style={{ padding: 'var(--cloud-s5)' }}>
-      <div className="flex flex-col" style={{ gap: 'var(--cloud-s5)' }}>
-        {}
+    <>
+      <div className="md:hidden">
+        <MobileHome />
+      </div>
+      <div className="hidden md:block" style={{ padding: 'var(--cloud-s5)' }}>
+        <div className="flex flex-col" style={{ gap: 'var(--cloud-s5)' }}>
+          {}
         <div>
           <h1
             className="font-semibold cloud-text"
@@ -740,5 +745,6 @@ export default function Home() {
         </div>
       </div>
     </div>
+    </>
   );
 }

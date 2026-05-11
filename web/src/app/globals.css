@@ -1126,4 +1126,636 @@ body {
       filter: drop-shadow(0 0 14px rgba(124, 180, 237, 0.4));
     }
   }
+
+  /* ============================================================
+     Brand-pull utilities
+     Patterns from mockups/phone-*.html; usable at all widths.
+     ============================================================ */
+
+  .cloud-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+  }
+  .cloud-eyebrow-sm {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+  }
+
+  .cloud-panel-primary {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(12, 92, 171, 0.14) 0%, rgba(12, 92, 171, 0) 75%),
+      var(--cloud-panel);
+    border: 1px solid rgba(12, 92, 171, 0.40);
+    border-radius: var(--cloud-r-lg);
+    overflow: hidden;
+  }
+  .cloud-panel-primary::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  .cloud-progress {
+    position: relative;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .cloud-progress-fill {
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, var(--cloud-primary) 0%, var(--cloud-primary-hover) 100%);
+    border-radius: 999px;
+    box-shadow: 0 0 16px -2px rgba(12, 92, 171, 0.55);
+  }
+
+  .cloud-text-grad-blue {
+    background: linear-gradient(180deg, #7cb4ed 0%, #0c5cab 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .cloud-text-grad {
+    background: linear-gradient(180deg, #fafafa 0%, rgba(250, 250, 250, 0.75) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ============================================================
+     Mobile bottom nav
+     Renders only at < md via Tailwind `md:hidden` on the element.
+     ============================================================ */
+
+  .cloud-bottom-nav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: rgba(9, 9, 11, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid var(--cloud-border);
+    padding: 10px var(--cloud-s3) calc(14px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    z-index: 40;
+  }
+  .cloud-bottom-nav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--cloud-text-dim);
+    text-decoration: none;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cloud-bottom-nav-tab[data-active="true"] { color: var(--cloud-text); }
+  .cloud-bottom-nav-tab[data-active="true"] .cloud-bottom-nav-icon {
+    stroke: var(--cloud-primary-text);
+  }
+  .cloud-bottom-nav-icon-wrap { position: relative; line-height: 0; }
+  .cloud-bottom-nav-icon {
+    width: 22px; height: 22px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+  }
+  .cloud-bottom-nav-badge {
+    position: absolute;
+    top: -4px; right: -8px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    background: var(--cloud-primary);
+    color: var(--cloud-text);
+    font-size: 9px;
+    font-weight: 600;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--cloud-surface);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Bottom-nav clearance on mobile (matches nav height + safe-area) */
+  .cloud-main-with-bottom-nav {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .cloud-main-with-bottom-nav { padding-bottom: 0; }
+  }
+
+  /* ============================================================
+     Mobile detail-page topbar
+     ============================================================ */
+
+  .cloud-mobile-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px var(--cloud-s3);
+    background: rgba(9, 9, 11, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .cloud-mobile-topbar-btn {
+    width: 38px; height: 38px;
+    border-radius: var(--cloud-r-md);
+    border: 1px solid var(--cloud-border);
+    background: var(--cloud-panel);
+    display: grid;
+    place-items: center;
+    color: var(--cloud-text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .cloud-mobile-topbar-btn:hover {
+    border-color: var(--cloud-border-strong);
+    background: var(--cloud-panel-hover);
+    color: var(--cloud-text);
+  }
+  .cloud-mobile-topbar-icon {
+    width: 18px; height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+  }
+
+  /* ============================================================
+     More sheet (mobile drawer of overflow nav items)
+     ============================================================ */
+
+  .cloud-more-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--cloud-s2);
+    padding: var(--cloud-s2) 0 var(--cloud-s4);
+  }
+  .cloud-more-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px var(--cloud-s3);
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    color: var(--cloud-text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    position: relative;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .cloud-more-item:hover {
+    border-color: var(--cloud-border-strong);
+    background: var(--cloud-panel-hover);
+  }
+  .cloud-more-icon {
+    width: 18px; height: 18px;
+    stroke: var(--cloud-primary-text);
+    fill: none;
+    stroke-width: 1.8;
+    flex: none;
+  }
+  .cloud-more-badge {
+    margin-left: auto;
+    background: var(--cloud-primary);
+    color: var(--cloud-text);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============================================================
+     Mobile home page — layout matching mockups/phone-dashboard.html
+     ============================================================ */
+
+  .cloud-mhome-wrap {
+    padding: var(--cloud-s3) var(--cloud-s4) 0;
+  }
+  .cloud-mhome-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--cloud-s3);
+    margin: var(--cloud-s2) 0 var(--cloud-s5);
+  }
+  .cloud-mhome-header .left { flex: 1; min-width: 0; }
+  .cloud-mhome-team-eyebrow {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+    margin: 0 0 var(--cloud-s2);
+    display: flex;
+    align-items: center;
+    gap: var(--cloud-s2);
+  }
+  .cloud-mhome-team-eyebrow .sep {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--cloud-text-dim);
+    display: inline-block;
+  }
+  .cloud-mhome-team-eyebrow .date {
+    color: var(--cloud-text-dim);
+    font-weight: 500;
+  }
+  .cloud-mhome-greeting {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0;
+    color: var(--cloud-text);
+  }
+  .cloud-mhome-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cloud-primary), var(--cloud-primary-hover));
+    display: grid; place-items: center;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--cloud-text);
+    border: 1px solid var(--cloud-border-strong);
+    flex: none;
+  }
+
+  /* Hero: training today */
+  .cloud-mhome-hero {
+    padding: var(--cloud-s4);
+    margin-bottom: var(--cloud-s3);
+  }
+  .cloud-mhome-hero .label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+    margin: 0 0 var(--cloud-s2);
+    position: relative;
+  }
+  .cloud-mhome-hero .count {
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin: 0;
+    color: var(--cloud-text);
+    font-variant-numeric: tabular-nums;
+    position: relative;
+  }
+  .cloud-mhome-hero .count .of {
+    font-size: 17px;
+    color: var(--cloud-text-dim);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-left: 2px;
+  }
+  .cloud-mhome-hero .bar {
+    position: relative;
+    display: flex;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    gap: 2px;
+    margin-top: var(--cloud-s3);
+  }
+  .cloud-mhome-hero .bar .seg { height: 100%; }
+  .cloud-mhome-hero .bar .seg.done {
+    background: linear-gradient(90deg, var(--cloud-primary) 0%, var(--cloud-primary-hover) 100%);
+    box-shadow: 0 0 12px -2px rgba(12, 92, 171, 0.65);
+  }
+  .cloud-mhome-hero .bar .seg.open {
+    background: repeating-linear-gradient(
+      135deg,
+      rgba(12, 92, 171, 0.55) 0 4px,
+      rgba(12, 92, 171, 0.30) 4px 8px
+    );
+  }
+  .cloud-mhome-hero .bar .seg.late {
+    background: var(--cloud-danger-text);
+    box-shadow: 0 0 12px -2px rgba(248, 113, 113, 0.45);
+  }
+  .cloud-mhome-hero .bar .seg:first-child { border-radius: 999px 0 0 999px; }
+  .cloud-mhome-hero .bar .seg:last-of-type { border-radius: 0 999px 999px 0; }
+  .cloud-mhome-hero .legend {
+    font-size: 12px;
+    color: var(--cloud-text-muted);
+    margin: 12px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: baseline;
+    position: relative;
+  }
+  .cloud-mhome-hero .legend .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cloud-mhome-hero .legend strong {
+    color: var(--cloud-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .cloud-mhome-hero .legend .swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .cloud-mhome-hero .legend .swatch.done { background: var(--cloud-primary-hover); }
+  .cloud-mhome-hero .legend .swatch.open {
+    background: rgba(12, 92, 171, 0.45);
+    border: 1px solid rgba(12, 92, 171, 0.55);
+  }
+  .cloud-mhome-hero .legend .swatch.late { background: var(--cloud-danger-text); }
+
+  /* Stat strip */
+  .cloud-mhome-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--cloud-s2);
+    margin-bottom: var(--cloud-s5);
+  }
+  .cloud-mhome-stat {
+    position: relative;
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    padding: var(--cloud-s3) 12px;
+    overflow: hidden;
+  }
+  .cloud-mhome-stat::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%);
+    pointer-events: none;
+  }
+  .cloud-mhome-stat .label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--cloud-text-dim);
+    margin: 0 0 var(--cloud-s1);
+  }
+  .cloud-mhome-stat .value {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin: 0;
+    color: var(--cloud-text);
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .cloud-mhome-stat .delta {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .cloud-mhome-stat .delta.up   { color: var(--cloud-success-text); }
+  .cloud-mhome-stat .delta.down { color: var(--cloud-danger-text); }
+  .cloud-mhome-stat .sub {
+    font-size: 10px;
+    color: var(--cloud-text-dim);
+    margin: var(--cloud-s2) 0 0;
+    letter-spacing: 0.02em;
+  }
+  .cloud-mhome-stat svg.spark {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    opacity: 0.85;
+  }
+
+  /* Section header (eyebrow + see-all) */
+  .cloud-mhome-section-h {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 0 var(--cloud-s3);
+  }
+  .cloud-mhome-section-h .eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+    margin: 0;
+  }
+  .cloud-mhome-section-h .meta {
+    color: var(--cloud-text-dim);
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .cloud-mhome-section-h a {
+    font-size: 12px;
+    color: var(--cloud-primary-text);
+    text-decoration: none;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cloud-mhome-section-h a svg {
+    width: 12px; height: 12px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+  }
+
+  /* Needs review cards */
+  .cloud-mhome-review {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cloud-s2);
+    margin-bottom: var(--cloud-s5);
+  }
+  .cloud-mhome-rcard {
+    position: relative;
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    padding: 14px var(--cloud-s3);
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: var(--cloud-s3);
+    align-items: center;
+  }
+  .cloud-mhome-rcard::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .cloud-mhome-rcard .ava {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--cloud-text);
+  }
+  .cloud-mhome-rcard .who {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+    position: relative;
+  }
+  .cloud-mhome-rcard .what {
+    font-size: 12px;
+    color: var(--cloud-text-muted);
+    margin: 2px 0 0;
+    line-height: 1.4;
+    position: relative;
+  }
+  .cloud-mhome-rcard .mono {
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .cloud-mhome-pill {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .cloud-mhome-pill.pr   { background: rgba(16, 185, 129, 0.12); color: var(--cloud-success-text); border-color: rgba(16, 185, 129, 0.25); }
+  .cloud-mhome-pill.miss { background: rgba(239, 68, 68, 0.12);   color: var(--cloud-danger-text);  border-color: rgba(239, 68, 68, 0.25); }
+  .cloud-mhome-pill.load { background: rgba(245, 158, 11, 0.12); color: var(--cloud-warning-text); border-color: rgba(245, 158, 11, 0.25); }
+
+  /* Today schedule */
+  .cloud-mhome-sched {
+    position: relative;
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    padding: var(--cloud-s3);
+    margin-bottom: var(--cloud-s4);
+    overflow: hidden;
+  }
+  .cloud-mhome-sched::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%);
+    pointer-events: none;
+  }
+  .cloud-mhome-sched .row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 56px 28px 1fr;
+    gap: 12px;
+    padding: var(--cloud-s3) 0;
+    border-top: 1px solid var(--cloud-border);
+    align-items: center;
+  }
+  .cloud-mhome-sched .row:first-of-type { border-top: 0; padding-top: var(--cloud-s1); }
+  .cloud-mhome-sched .row:last-of-type  { padding-bottom: var(--cloud-s1); }
+  .cloud-mhome-sched .time {
+    font-size: 11px;
+    color: var(--cloud-text-muted);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .cloud-mhome-sched .chip {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(12, 92, 171, 0.16);
+    border: 1px solid rgba(12, 92, 171, 0.30);
+    display: grid; place-items: center;
+    color: var(--cloud-primary-text);
+  }
+  .cloud-mhome-sched .chip svg {
+    width: 14px; height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+  }
+  .cloud-mhome-sched .title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .cloud-mhome-sched .meta {
+    font-size: 11px;
+    color: var(--cloud-text-dim);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  /* Review FAB */
+  .cloud-mhome-fab {
+    position: fixed;
+    right: var(--cloud-s4);
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    background: var(--cloud-primary);
+    color: var(--cloud-text);
+    border-radius: 999px;
+    padding: 13px var(--cloud-s4) 13px var(--cloud-s3);
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.15) inset,
+      0 1px 2px rgba(0, 0, 0, 0.30),
+      0 0 0 1px rgba(12, 92, 171, 0.40),
+      0 0 24px -6px rgba(12, 92, 171, 0.60);
+    text-decoration: none;
+    z-index: 35;
+    letter-spacing: -0.005em;
+  }
+  .cloud-mhome-fab:hover { background: var(--cloud-primary-hover); }
+  .cloud-mhome-fab svg {
+    width: 16px; height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+  }
+  .cloud-mhome-fab .fab-badge {
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--cloud-text);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
 }
