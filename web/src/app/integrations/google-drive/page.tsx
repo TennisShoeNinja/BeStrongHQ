@@ -532,6 +532,7 @@ export default function GoogleDriveSyncPage() {
   const [selectedFolders, setSelectedFolders] = useState<Map<string, string>>(new Map());
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showGoogleSetupHelp, setShowGoogleSetupHelp] = useState(false);
 
   
   useEffect(() => {
@@ -564,6 +565,9 @@ export default function GoogleDriveSyncPage() {
 
   const isAuthenticated = authStatusQuery.data?.authenticated === true;
   const isExpired = authStatusQuery.data?.connection_status === 'expired';
+  const hasGoogleCredentials = authStatusQuery.data?.has_credentials === true;
+  const needsGoogleSetup =
+    !authStatusQuery.isLoading && !isAuthenticated && !hasGoogleCredentials;
   const lastSuccessfulSyncAt = authStatusQuery.data?.last_successful_sync_at;
   const refreshTokenExpiresAt = authStatusQuery.data?.refresh_token_expires_at ?? null;
 
@@ -595,13 +599,24 @@ export default function GoogleDriveSyncPage() {
   };
 
   const startReauth = async () => {
+    if (!hasGoogleCredentials) {
+      setError(null);
+      setShowGoogleSetupHelp(true);
+      return;
+    }
+
     try {
       const { auth_url } = await apiClient.getGDriveAuthUrl();
       window.location.href = auth_url;
     } catch (err) {
       const apiErr = err as { data?: { detail?: string } };
       const detail = apiErr.data?.detail;
-      alert(detail || 'Failed to start Google Drive authorization. Check that the server is running.');
+      if (detail?.toLowerCase().includes('google oauth not configured')) {
+        setError(null);
+        setShowGoogleSetupHelp(true);
+        return;
+      }
+      setError(detail || 'Failed to start Google Drive authorization. Check that the server is running.');
     }
   };
 
@@ -951,7 +966,7 @@ export default function GoogleDriveSyncPage() {
                             ? `Google revoked the refresh token for ${authStatusQuery.data.connected_email}. `
                             : 'Google revoked the refresh token. '}
                           This is expected every 7 days while the app is in Google&apos;s verification testing mode.
-                          Sync has been paused — click below to reconnect.
+                          Sync has been paused. Click below to reconnect.
                         </p>
                         {lastSuccessfulSyncAt && (
                           <p
@@ -966,6 +981,48 @@ export default function GoogleDriveSyncPage() {
                         )}
                       </div>
                     )}
+                    {(needsGoogleSetup || showGoogleSetupHelp) && (
+                      <div
+                        style={{
+                          background: 'rgba(245, 158, 11, 0.08)',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          borderRadius: 10,
+                          padding: 12,
+                        }}
+                      >
+                        <p
+                          className="flex items-center"
+                          style={{
+                            gap: 6,
+                            color: '#fcd34d',
+                            fontSize: 13,
+                            fontWeight: 500,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <AlertCircle style={{ width: 14, height: 14 }} />
+                          Google Cloud setup required
+                        </p>
+                        <p style={{ color: 'rgba(253, 230, 138, 0.8)', fontSize: 12 }}>
+                          This local preview uses your own Google OAuth client before Drive and Calendar can connect.
+                          Finish Google setup, paste the Client ID and Client Secret into the runtime config file, restart BeStrong, then return here.
+                        </p>
+                        <a
+                          href="https://github.com/TennisShoeNinja/BeStrongHQ/blob/main/docs/install.md#google-drive-and-calendar-setup"
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            marginTop: 8,
+                            color: '#fcd34d',
+                            fontSize: 12,
+                            fontWeight: 500,
+                          }}
+                        >
+                          Open Google setup steps
+                        </a>
+                      </div>
+                    )}
                     <button
                       onClick={startReauth}
                       className="cloud-btn cloud-btn-primary"
@@ -975,9 +1032,13 @@ export default function GoogleDriveSyncPage() {
                           : undefined
                       }
                     >
-                      {isExpired ? 'Reconnect Google Drive' : 'Connect Google Drive'}
+                      {needsGoogleSetup
+                        ? 'Set up Google credentials'
+                        : isExpired
+                          ? 'Reconnect Google Drive'
+                          : 'Connect Google Drive'}
                     </button>
-                    {!isExpired && (
+                    {!isExpired && !needsGoogleSetup && (
                       <p className="cloud-text-dim" style={{ fontSize: 12 }}>
                         You will be redirected to Google to grant Drive and Calendar access for program imports, folder organization, and calendar sync.
                       </p>
