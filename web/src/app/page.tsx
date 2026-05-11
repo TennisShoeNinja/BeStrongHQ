@@ -21,7 +21,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { useAuth } from '@/lib/auth-provider';
 import { MobileHome } from '@/components/mobile-home';
+import { Spark } from '@/components/spark';
 
 
 const weatherCodeMap: Record<number, { Icon: LucideIcon; description: string }> = {
@@ -64,6 +66,14 @@ interface WeatherData {
     temperature_2m_max: number[];
     temperature_2m_min: number[];
   };
+}
+
+function formatCompactDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function formatDate(date: Date): string {
@@ -175,12 +185,16 @@ function StatTile({
   value,
   icon,
   iconTint,
+  sparkPoints,
+  sparkTone = 'primary',
 }: {
   href: string;
   label: string;
   value: number | string;
   icon: React.ReactNode;
   iconTint: string;
+  sparkPoints?: number[];
+  sparkTone?: 'primary' | 'success' | 'danger' | 'warning';
 }) {
   return (
     <Link href={href} className="block">
@@ -192,6 +206,7 @@ function StatTile({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 12,
+          position: 'relative',
           transition: 'border-color 0.15s, background 0.15s',
         }}
         onMouseEnter={(e) => {
@@ -205,6 +220,25 @@ function StatTile({
           <div style={MICRO_LABEL}>{label}</div>
           <div style={{ ...BIG_STAT, marginTop: 4 }}>{value}</div>
         </div>
+        {sparkPoints && sparkPoints.length >= 2 && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              right: 56,
+              opacity: 0.85,
+              pointerEvents: 'none',
+            }}
+          >
+            <Spark
+              points={sparkPoints}
+              tone={sparkTone}
+              width={64}
+              height={18}
+              strokeWidth={1.6}
+            />
+          </div>
+        )}
         <div
           style={{
             flexShrink: 0,
@@ -236,13 +270,18 @@ export default function Home() {
 
   const timeOfDay = getTimeOfDay(currentHour);
 
-  
+  const { instance } = useAuth();
+
+
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => apiClient.getSettings(),
   });
 
   const coachName = settings?.coach_display_name || 'Coach';
+  const coachFirstName = coachName.split(/\s+/)[0];
+  const teamName = instance?.org_name || 'BeStrong';
+  const compactDate = formatCompactDate(currentDate);
 
   
   const {
@@ -351,11 +390,28 @@ export default function Home() {
         <div className="flex flex-col" style={{ gap: 'var(--cloud-s5)' }}>
           {}
         <div>
+          <p
+            className="cloud-eyebrow"
+            style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            <span>{teamName}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: '50%',
+                background: 'var(--cloud-text-dim)',
+                display: 'inline-block',
+              }}
+            />
+            <span style={{ color: 'var(--cloud-text-dim)' }}>{compactDate}</span>
+          </p>
           <h1
             className="font-semibold cloud-text"
             style={{ fontSize: 32, letterSpacing: '-0.03em', lineHeight: 1.1 }}
           >
-            Good {timeOfDay}, {coachName}
+            Good {timeOfDay}, <span className="cloud-text-grad-blue">{coachFirstName}</span>
           </h1>
           <div
             className="flex flex-wrap items-center cloud-text-muted"
@@ -400,12 +456,8 @@ export default function Home() {
           <div className="lg:col-span-2 flex flex-col" style={{ gap: 12 }}>
             <div>
               <h2
-                className="cloud-text"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  letterSpacing: '-0.015em',
-                }}
+                className="cloud-eyebrow"
+                style={{ margin: 0 }}
               >
                 Programs due soon
               </h2>
@@ -510,12 +562,8 @@ export default function Home() {
           <div className="flex flex-col" style={{ gap: 12 }}>
             <div>
               <h2
-                className="cloud-text"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  letterSpacing: '-0.015em',
-                }}
+                className="cloud-eyebrow"
+                style={{ margin: 0 }}
               >
                 Quick stats
               </h2>
@@ -539,6 +587,9 @@ export default function Home() {
                     value={activeAthletes.length}
                     icon={<Users style={{ width: 16, height: 16, color: '#60a5fa' }} />}
                     iconTint="rgba(96, 165, 250, 0.12)"
+                    // TODO: wire to a weekly active-athletes history endpoint.
+                    sparkPoints={[5, 6, 5, 7, 6, 8, 7, 9]}
+                    sparkTone="primary"
                   />
                   <StatTile
                     href="/meets"
@@ -546,6 +597,9 @@ export default function Home() {
                     value={upcomingMeets.length}
                     icon={<Trophy style={{ width: 16, height: 16, color: '#facc15' }} />}
                     iconTint="rgba(250, 204, 21, 0.12)"
+                    // TODO: wire to upcoming-meets-by-week history.
+                    sparkPoints={[1, 2, 1, 2, 3, 2, 3, 3]}
+                    sparkTone="warning"
                   />
                   <StatTile
                     href="/athletes?view=Availability"
@@ -553,6 +607,9 @@ export default function Home() {
                     value={currentlyOut.length}
                     icon={<Plane style={{ width: 16, height: 16, color: '#c084fc' }} />}
                     iconTint="rgba(192, 132, 252, 0.12)"
+                    // TODO: wire to unavailable-history endpoint.
+                    sparkPoints={[2, 1, 2, 1, 1, 2, 1, 1]}
+                    sparkTone="danger"
                   />
                 </>
               )}
@@ -564,12 +621,8 @@ export default function Home() {
         <div className="flex flex-col" style={{ gap: 12 }}>
           <div>
             <h2
-              className="cloud-text"
-              style={{
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: '-0.015em',
-              }}
+              className="cloud-eyebrow"
+              style={{ margin: 0 }}
             >
               Upcoming meets
             </h2>
