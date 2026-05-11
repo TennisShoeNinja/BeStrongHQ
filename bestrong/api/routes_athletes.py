@@ -434,6 +434,16 @@ def archive_athlete(athlete_id: int, db: Session = Depends(get_db)):
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
     athlete.archived = True
+    db.query(Notification).filter(
+        Notification.athlete_id == athlete.id,
+        Notification.archived == False,  # noqa: E712
+    ).update(
+        {
+            Notification.archived: True,
+            Notification.read: True,
+        },
+        synchronize_session="fetch",
+    )
     db.commit()
     db.refresh(athlete)
     removed = _unwatch_folders_for_athlete(athlete.name, db=db)
