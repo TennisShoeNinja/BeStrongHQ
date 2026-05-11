@@ -37,6 +37,12 @@ The app opens at:
 http://127.0.0.1:3000
 ```
 
+If Docker Desktop is installed but closed, `bestrong open` tries to open Docker
+Desktop and waits for it before starting BeStrong.
+
+If Docker Desktop is missing, `bestrong open` opens the Docker Desktop download
+page and tells you to rerun the command after Docker is installed.
+
 ### Windows
 
 1. Install Docker Desktop from <https://www.docker.com/products/docker-desktop/>.
@@ -55,6 +61,12 @@ http://127.0.0.1:3000
 
 Windows uses Docker Desktop with WSL2. If Docker asks for a reboot, reboot,
 open Docker Desktop again, then double-click **Open BeStrong.cmd**.
+
+If Docker Desktop is installed but closed, **Open BeStrong.cmd** tries to open
+Docker Desktop and waits for it before starting BeStrong.
+
+If Docker Desktop is missing, **Open BeStrong.cmd** opens the Docker Desktop
+download page and tells you to rerun it after Docker is installed.
 
 ### Linux
 
@@ -81,6 +93,9 @@ bestrong logs
 bestrong doctor
 ```
 
+On macOS, `bestrong open` and `bestrong start` try to open Docker Desktop if
+Docker is installed but not running.
+
 If macOS says `No such command 'doctor'`, your shell is probably finding an
 older `bestrong` command first. Run the Community Edition CLI directly:
 
@@ -92,6 +107,12 @@ older `bestrong` command first. Run the Community Edition CLI directly:
 Then open a new Terminal window before using plain `bestrong`. The installer
 adds `~/.local/bin` to your shell profile so new terminals find the Community
 Edition CLI first.
+
+To keep using the same Terminal window, reload your shell profile first:
+
+```bash
+source ~/.zshrc && rehash
+```
 
 The Windows ZIP includes double-click launchers:
 

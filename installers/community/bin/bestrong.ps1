@@ -9,6 +9,7 @@ $AppName = "BeStrong HQ"
 $DefaultImage = "ghcr.io/tennisshoeninja/bestrong-hq:latest"
 $UiUrl = "http://127.0.0.1:3000"
 $ApiUrl = "http://127.0.0.1:8080"
+$DockerDownloadUrl = "https://www.docker.com/products/docker-desktop/"
 
 function Get-BeStrongRoot {
     if ($env:BESTRONG_HOME) {
@@ -97,6 +98,11 @@ function Invoke-Compose {
     & docker compose --env-file $EnvFile -f $ComposeFile @Args
 }
 
+function Test-ComposeServiceRunning {
+    $Services = & docker compose --env-file $EnvFile -f $ComposeFile ps --services --status running 2>$null
+    return $Services -contains "bestrong"
+}
+
 function Test-DockerCommand {
     return $null -ne (Get-Command docker -ErrorAction SilentlyContinue)
 }
@@ -117,15 +123,123 @@ function Test-DockerRunning {
     return $LASTEXITCODE -eq 0
 }
 
+function Open-DockerDownload {
+    Write-Info "Docker Desktop is not installed. Opening the Docker Desktop download page..."
+    Start-Process $DockerDownloadUrl
+}
+
+function Wait-DockerEngine {
+    param([int]$Attempts = 60)
+    for ($i = 0; $i -lt $Attempts; $i++) {
+        if (Test-DockerRunning) {
+            return $true
+        }
+        Start-Sleep -Seconds 2
+    }
+    return $false
+}
+
+function Start-DockerDesktop {
+    $ProgramFiles = [Environment]::GetFolderPath("ProgramFiles")
+    $ProgramFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
+    $Candidates = @()
+
+    if ($ProgramFiles) {
+        $Candidates += Join-Path $ProgramFiles "Docker\Docker\Docker Desktop.exe"
+    }
+    if ($ProgramFilesX86) {
+        $Candidates += Join-Path $ProgramFilesX86 "Docker\Docker\Docker Desktop.exe"
+    }
+
+    $DockerDesktop = $Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $DockerDesktop) {
+        $Command = Get-Command "Docker Desktop.exe" -ErrorAction SilentlyContinue
+        if ($Command) {
+            $DockerDesktop = $Command.Source
+        }
+    }
+
+    if (-not $DockerDesktop) {
+        return $false
+    }
+
+    Write-Info "Docker is installed but not running. Opening Docker Desktop..."
+    Start-Process -FilePath $DockerDesktop | Out-Null
+    Write-Info "Waiting for Docker Desktop to start..."
+
+    if (Wait-DockerEngine) {
+        Write-Info "Docker Desktop is running."
+        return $true
+    }
+
+    return $false
+}
+
 function Require-Docker {
     if (-not (Test-DockerCommand)) {
-        throw "Docker Desktop is not installed. Install Docker Desktop, open it once, then run 'bestrong start' again."
+        Open-DockerDownload
+        throw "Install Docker Desktop, open it once, then run 'Open BeStrong.cmd' again."
     }
     if (-not (Test-DockerCompose)) {
         throw "Docker Compose is not available. Update Docker Desktop, then run 'bestrong start' again."
     }
     if (-not (Test-DockerRunning)) {
-        throw "Docker is installed but not running. Open Docker Desktop and wait for it to say Docker is running."
+        if (Start-DockerDesktop) {
+            return
+        }
+        Write-Info "Open Docker Desktop, wait for it to finish starting, then run 'Open BeStrong.cmd' again."
+        throw "Docker is installed but not running."
+    }
+}
+
+function Get-PortListeners {
+    param([int]$Port)
+    if (-not (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue)) {
+        return @()
+    }
+
+    $Connections = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if (-not $Connections) {
+        return @()
+    }
+
+    $Rows = @()
+    foreach ($Connection in $Connections) {
+        $ProcessName = "unknown"
+        try {
+            $ProcessName = (Get-Process -Id $Connection.OwningProcess -ErrorAction Stop).ProcessName
+        } catch {
+            $ProcessName = "unknown"
+        }
+        $Rows += "  $ProcessName pid $($Connection.OwningProcess) on port $Port"
+    }
+    return $Rows
+}
+
+function Test-PortsAvailable {
+    if (-not (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue)) {
+        return
+    }
+
+    if (Test-ComposeServiceRunning) {
+        return
+    }
+
+    $Conflicts = @()
+    foreach ($Port in @(3000, 8080)) {
+        $Listeners = @(Get-PortListeners -Port $Port)
+        if ($Listeners.Count -gt 0) {
+            Write-Info "Port ${Port} is already in use:"
+            foreach ($Listener in $Listeners) {
+                Write-Info $Listener
+            }
+            $Conflicts += $Port
+        }
+    }
+
+    if ($Conflicts.Count -gt 0) {
+        Write-Info "Stop the app using those ports, then run Open BeStrong.cmd again."
+        throw "$AppName needs ports 3000 and 8080."
     }
 }
 
@@ -213,6 +327,7 @@ switch ($Command.ToLowerInvariant()) {
     "start" {
         Ensure-Runtime
         Require-Docker
+        Test-PortsAvailable
         Write-Info "Starting $AppName..."
         Invoke-Compose up -d
         if (Wait-Health) {
@@ -225,6 +340,7 @@ switch ($Command.ToLowerInvariant()) {
     "open" {
         Ensure-Runtime
         Require-Docker
+        Test-PortsAvailable
         Write-Info "Starting $AppName..."
         Invoke-Compose up -d
         if (Wait-Health) {
@@ -297,8 +413,8 @@ switch ($Command.ToLowerInvariant()) {
         Test-Port 8080
         Write-Info ""
         Write-Info "Fixes:"
-        Write-Info "- If Docker is missing, install Docker Desktop."
-        Write-Info "- If Docker is not running, open Docker Desktop and wait for it to finish starting."
+        Write-Info "- If Docker is missing, run Open BeStrong.cmd to open the Docker Desktop download page."
+        Write-Info "- If Docker is not running, run Open BeStrong.cmd to let BeStrong try to open it, or open Docker Desktop manually."
         Write-Info "- If WSL is missing, install Docker Desktop with the WSL2 backend enabled."
         Write-Info "- If a port is in use, stop the other app or restart your computer."
     }

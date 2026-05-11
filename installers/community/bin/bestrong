@@ -5,6 +5,7 @@ APP_NAME="BeStrong HQ"
 DEFAULT_IMAGE="ghcr.io/tennisshoeninja/bestrong-hq:latest"
 UI_URL="http://127.0.0.1:3000"
 API_URL="http://127.0.0.1:8080"
+DOCKER_DOWNLOAD_URL="https://www.docker.com/products/docker-desktop/"
 
 detect_home() {
   if [[ -n "${BESTRONG_HOME:-}" ]]; then
@@ -110,6 +111,10 @@ docker_compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
+compose_service_running() {
+  docker_compose ps --services --status running 2>/dev/null | grep -qx "bestrong"
+}
+
 docker_available() {
   command_exists docker && docker compose version >/dev/null 2>&1
 }
@@ -118,9 +123,62 @@ docker_running() {
   docker info >/dev/null 2>&1
 }
 
+open_docker_download() {
+  say "Docker Desktop is not installed. Opening the Docker Desktop download page..."
+  if command_exists open; then
+    open "$DOCKER_DOWNLOAD_URL" >/dev/null 2>&1 || true
+  elif command_exists xdg-open; then
+    xdg-open "$DOCKER_DOWNLOAD_URL" >/dev/null 2>&1 || true
+  fi
+}
+
+wait_for_docker_engine() {
+  local attempts="${1:-60}"
+  local i
+  for ((i = 1; i <= attempts; i++)); do
+    if docker_running; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+try_open_docker_desktop() {
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    return 1
+  fi
+
+  if ! command_exists open; then
+    return 1
+  fi
+
+  say "Docker is installed but not running. Opening Docker Desktop..."
+  if ! open -a Docker >/dev/null 2>&1; then
+    return 1
+  fi
+
+  say "Waiting for Docker Desktop to start..."
+  if wait_for_docker_engine 60; then
+    say "Docker Desktop is running."
+    return 0
+  fi
+
+  return 1
+}
+
+docker_start_hint() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    say "Run 'open -a Docker', wait for Docker Desktop to finish starting, then run 'bestrong open' again."
+  else
+    say "Open Docker Desktop, wait for it to finish starting, then run 'bestrong open' again."
+  fi
+}
+
 require_docker() {
   if ! command_exists docker; then
-    fail "Docker Desktop is not installed. Install Docker Desktop, open it once, then run 'bestrong start' again."
+    open_docker_download
+    fail "Install Docker Desktop, open it once, then run 'bestrong open' again."
   fi
 
   if ! docker compose version >/dev/null 2>&1; then
@@ -128,7 +186,46 @@ require_docker() {
   fi
 
   if ! docker_running; then
-    fail "Docker is installed but not running. Open Docker Desktop and wait for it to say Docker is running."
+    if try_open_docker_desktop; then
+      return 0
+    fi
+
+    docker_start_hint
+    fail "Docker is installed but not running."
+  fi
+}
+
+port_listener() {
+  local port="$1"
+  if command_exists lsof; then
+    { lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true; } | awk 'NR > 1 {print "  " $1 " pid " $2 " on " $9}'
+  fi
+}
+
+preflight_ports() {
+  if ! command_exists lsof; then
+    return 0
+  fi
+
+  if compose_service_running; then
+    return 0
+  fi
+
+  local conflict=0
+  local port
+  for port in 3000 8080; do
+    local listeners
+    listeners="$(port_listener "$port")"
+    if [[ -n "$listeners" ]]; then
+      conflict=1
+      say "Port $port is already in use:"
+      say "$listeners"
+    fi
+  done
+
+  if [[ "$conflict" -eq 1 ]]; then
+    say "Stop the app using those ports, then run 'bestrong open' again."
+    fail "$APP_NAME needs ports 3000 and 8080."
   fi
 }
 
@@ -177,6 +274,7 @@ cmd_setup() {
 cmd_start() {
   ensure_runtime
   require_docker
+  preflight_ports
   say "Starting $APP_NAME..."
   docker_compose up -d
   if wait_for_health; then
@@ -280,8 +378,12 @@ cmd_doctor() {
   check_port 8080
   say ""
   say "Fixes:"
-  say "- If Docker is missing, install Docker Desktop."
-  say "- If Docker is not running, open Docker Desktop and wait for it to finish starting."
+  say "- If Docker is missing, run 'bestrong open' to open the Docker Desktop download page."
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    say "- If Docker is not running, run 'open -a Docker' or run 'bestrong open' to let BeStrong try to open it."
+  else
+    say "- If Docker is not running, open Docker Desktop and wait for it to finish starting."
+  fi
   say "- If a port is in use, stop the other app or restart your computer."
 }
 

@@ -76,8 +76,10 @@ else
   else
     printf '%s\n' "This terminal does not find 'bestrong' yet."
   fi
-  printf '%s\n' "For this terminal, run:"
+  printf '%s\n' "Plain 'bestrong' will keep using that command in this terminal."
+  printf '%s\n' "Use one of these options instead:"
   printf '%s\n' "  $TARGET doctor"
   printf '%s\n' "  $TARGET open"
-  printf '%s\n' "Open a new terminal before using plain 'bestrong'."
+  printf '%s\n' "  source \"$(shell_profile 2>/dev/null || printf '%s' "$HOME/.profile")\" && rehash"
+  printf '%s\n' "Or open a new terminal before using plain 'bestrong'."
 fi
