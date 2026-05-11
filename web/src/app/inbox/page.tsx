@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
+import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
 import { AlertCircle, CheckCircle, Clock, FileText, X } from "lucide-react";
 
@@ -380,6 +381,8 @@ function NotificationCardSkeleton({ isLast }: { isLast: boolean }) {
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
 
   const {
     data: notifications = [],
@@ -469,6 +472,23 @@ export default function InboxPage() {
           style={{ gap: 16 }}
         >
           <div>
+            <p
+              className="cloud-eyebrow"
+              style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span>{teamName}</span>
+              <span
+                aria-hidden
+                style={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: "50%",
+                  background: "var(--cloud-text-dim)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ color: "var(--cloud-text-dim)" }}>Notifications</span>
+            </p>
             <h1
               className="cloud-text"
               style={{

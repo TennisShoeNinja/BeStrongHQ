@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import apiClient from '@/lib/api';
+import { useAuth } from '@/lib/auth-provider';
 import * as Types from '@/lib/types';
 import BlockReviewSummary from '@/components/BlockReviewSummary';
 
@@ -125,6 +126,8 @@ const MICRO_LABEL: React.CSSProperties = {
 
 export default function WorkQueuePage() {
   const queryClient = useQueryClient();
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || 'BeStrong';
   const [currentIndex, setCurrentIndexRaw] = useState(0);
   const setCurrentIndex = useCallback((valOrFn: number | ((prev: number) => number)) => {
     setCurrentIndexRaw((prev) => {
@@ -627,6 +630,23 @@ export default function WorkQueuePage() {
         {}
         <div className="flex items-start justify-between" style={{ gap: 'var(--cloud-s3)' }}>
           <div className="min-w-0">
+            <p
+              className="cloud-eyebrow"
+              style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <span>{teamName}</span>
+              <span
+                aria-hidden
+                style={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: '50%',
+                  background: 'var(--cloud-text-dim)',
+                  display: 'inline-block',
+                }}
+              />
+              <span style={{ color: 'var(--cloud-text-dim)' }}>Triage</span>
+            </p>
             <h1
               className="font-semibold cloud-text"
               style={{ fontSize: 32, letterSpacing: '-0.03em', lineHeight: 1.1 }}
