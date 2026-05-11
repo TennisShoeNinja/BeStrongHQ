@@ -626,7 +626,10 @@ export default function WorkQueuePage() {
 
   return (
     <div style={{ padding: 'var(--cloud-s5)' }}>
-      <div className="flex flex-col" style={{ gap: 'var(--cloud-s4)' }}>
+      <div
+        className="flex flex-col mx-auto"
+        style={{ gap: 'var(--cloud-s4)', maxWidth: 720 }}
+      >
         {}
         <div className="flex items-start justify-between" style={{ gap: 'var(--cloud-s3)' }}>
           <div className="min-w-0">
@@ -891,54 +894,80 @@ export default function WorkQueuePage() {
 
         {}
         {!isLoading && queue.length === 0 && (
-          <div className="cloud-panel" style={{ padding: 48, textAlign: 'center' }}>
-            <CheckCircle
-              className="mx-auto"
+          <div
+            className="cloud-panel"
+            style={{
+              padding: 48,
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div
               style={{
-                width: 44,
-                height: 44,
+                width: 52,
+                height: 52,
+                borderRadius: 12,
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
                 color: 'var(--cloud-success-text)',
-                marginBottom: 16,
-                strokeWidth: 1.5,
+                display: 'grid',
+                placeItems: 'center',
               }}
-            />
+            >
+              <CheckCircle style={{ width: 24, height: 24, strokeWidth: 1.8 }} />
+            </div>
             <h2
               className="cloud-text"
               style={{
                 fontSize: 22,
                 fontWeight: 600,
                 letterSpacing: '-0.02em',
-                marginBottom: 4,
+                margin: 0,
               }}
             >
-              All caught up
+              All clear.
             </h2>
-            <p className="cloud-text-muted" style={{ fontSize: 13, marginBottom: 20 }}>
-              No pending notifications in your work queue.
+            <p
+              className="cloud-text-muted"
+              style={{ fontSize: 13, margin: 0, maxWidth: 380 }}
+            >
+              Nothing left to review. You're caught up on every athlete.
             </p>
             {sessionCompleted > 0 && (
               <div
                 className="inline-flex items-center"
                 style={{
                   gap: 8,
-                  padding: '8px 14px',
+                  padding: '6px 12px',
                   borderRadius: 999,
-                  background: 'var(--cloud-surface-raised)',
-                  border: '1px solid var(--cloud-border)',
-                  color: 'var(--cloud-text-muted)',
-                  fontSize: 12,
-                  marginBottom: 20,
+                  background: 'rgba(12, 92, 171, 0.12)',
+                  border: '1px solid rgba(12, 92, 171, 0.30)',
+                  color: 'var(--cloud-primary-text)',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  letterSpacing: '0.04em',
+                  marginTop: 4,
                 }}
               >
-                Completed {sessionCompleted} in {formatDuration(sessionTotalSeconds)}
+                <span style={{ textTransform: 'uppercase' }}>This session</span>
+                <span className="cloud-text" style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                  {sessionCompleted}
+                </span>
+                <span>completed</span>
                 {sessionCompleted > 0 && (
-                  <span className="cloud-text-dim">
+                  <span
+                    className="cloud-text-dim"
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
                     · avg {formatDuration(Math.round(sessionTotalSeconds / sessionCompleted))}
                   </span>
                 )}
               </div>
             )}
-            <div>
+            <div style={{ marginTop: 8 }}>
               <Link href="/inbox" className="cloud-btn cloud-btn-primary">
                 Go to inbox
               </Link>
