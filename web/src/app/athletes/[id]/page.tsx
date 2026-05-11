@@ -7494,7 +7494,8 @@ export default function AthleteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
-  const { features } = useAuth();
+  const { features, instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
   const athleteId = parseInt(params.id as string, 10);
   const portalAvailable = features.includes("portal");
 
@@ -7893,13 +7894,67 @@ export default function AthleteDetailPage() {
 
   if (athleteError || !athlete) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-          <div className="cloud-text font-medium">Athlete not found</div>
-          <Button onClick={() => router.push("/athletes")} variant="outline">
-            Back to Athletes
-          </Button>
+      <div style={{ padding: "var(--cloud-s5)" }}>
+        <div className="max-w-2xl mx-auto">
+          <p
+            className="cloud-eyebrow"
+            style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <span>{teamName}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: "50%",
+                background: "var(--cloud-text-dim)",
+                display: "inline-block",
+              }}
+            />
+            <span style={{ color: "var(--cloud-text-dim)" }}>Athlete</span>
+          </p>
+          <h1
+            className="font-semibold cloud-text"
+            style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 24 }}
+          >
+            Not found
+          </h1>
+          <div
+            className="cloud-panel"
+            style={{
+              padding: 24,
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                background: "rgba(239, 68, 68, 0.12)",
+                border: "1px solid rgba(239, 68, 68, 0.25)",
+                color: "var(--cloud-danger-text)",
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <AlertCircle style={{ width: 20, height: 20, strokeWidth: 1.8 }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="cloud-text" style={{ fontWeight: 600, margin: 0 }}>
+                Athlete not found
+              </p>
+              <p className="cloud-text-muted" style={{ fontSize: 13, marginTop: 2 }}>
+                This athlete may have been archived or deleted. Try the roster.
+              </p>
+            </div>
+            <Button onClick={() => router.push("/athletes")} variant="outline">
+              Back to roster
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -7939,12 +7994,29 @@ export default function AthleteDetailPage() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <div className="min-w-0">
+              <p
+                className="cloud-eyebrow"
+                style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+              >
+                <span>{teamName}</span>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 3,
+                    height: 3,
+                    borderRadius: "50%",
+                    background: "var(--cloud-text-dim)",
+                    display: "inline-block",
+                  }}
+                />
+                <span style={{ color: "var(--cloud-text-dim)" }}>Athlete</span>
+              </p>
               <div className="flex items-center" style={{ gap: "var(--cloud-s2)" }}>
                 <h1
-                  className="font-semibold cloud-text truncate"
+                  className="font-semibold truncate"
                   style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1 }}
                 >
-                  {athlete.name}
+                  <span className="cloud-text-grad-blue">{athlete.name}</span>
                 </h1>
                 {athlete.archived && (
                   <span className="cloud-badge">Archived</span>
