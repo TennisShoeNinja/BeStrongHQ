@@ -81,6 +81,18 @@ bestrong logs
 bestrong doctor
 ```
 
+If macOS says `No such command 'doctor'`, your shell is probably finding an
+older `bestrong` command first. Run the Community Edition CLI directly:
+
+```bash
+~/.local/bin/bestrong doctor
+~/.local/bin/bestrong open
+```
+
+Then open a new Terminal window before using plain `bestrong`. The installer
+adds `~/.local/bin` to your shell profile so new terminals find the Community
+Edition CLI first.
+
 The Windows ZIP includes double-click launchers:
 
 - **Open BeStrong.cmd**: start BeStrong and open the browser
