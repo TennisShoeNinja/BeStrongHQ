@@ -44,12 +44,18 @@ export function BadgeDetailModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-[480px]"
-        style={{ maxWidth: 480 }}
+        style={{
+          maxWidth: 480,
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
         <DialogHeader
           style={{
             alignItems: 'center',
             textAlign: 'center',
+            flexShrink: 0,
           }}
         >
           {badge && (
@@ -97,13 +103,23 @@ export function BadgeDetailModal({
         </DialogHeader>
 
         {badge && (
-          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div
+            style={{
+              marginTop: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
             <div
               aria-hidden="true"
               style={{
                 height: 1,
                 background: 'var(--cloud-border)',
                 marginTop: 2,
+                flexShrink: 0,
               }}
             />
             <div
@@ -113,6 +129,7 @@ export function BadgeDetailModal({
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             >
               {badge.count > 1
@@ -127,6 +144,10 @@ export function BadgeDetailModal({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 8,
+                overflowY: 'auto',
+                minHeight: 0,
+                flex: 1,
+                paddingRight: 4,
               }}
             >
               {sortEvents(badge.events).map((event, idx) => (
