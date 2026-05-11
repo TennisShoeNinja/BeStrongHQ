@@ -11,7 +11,7 @@ $OutDir = Join-Path $RootDir "dist\installers"
 $StageRoot = Join-Path $RootDir "dist\windows-preview"
 $PackageName = "BeStrongHQ-Community-Windows-Preview-$Version"
 $StageDir = Join-Path $StageRoot $PackageName
-$ZipPath = Join-Path $OutDir "$PackageName.zip"
+$ZipPath = Join-Path $OutDir "BeStrongHQ-Community-Windows-Preview.zip"
 
 if (Test-Path $StageRoot) {
     Remove-Item -Recurse -Force $StageRoot

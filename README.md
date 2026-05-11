@@ -79,8 +79,10 @@ curl -fsSL https://bestronghq.com/install.sh | bash
 bestrong open
 ```
 
-**Windows preview install:** download `BeStrongHQ-Community-Windows-Preview.zip`
-from the latest release, extract it, then double-click `Open BeStrong.cmd`.
+**Windows preview install:** download
+[BeStrongHQ-Community-Windows-Preview.zip](https://github.com/TennisShoeNinja/BeStrongHQ/releases/latest/download/BeStrongHQ-Community-Windows-Preview.zip),
+extract it, then double-click `Open BeStrong.cmd`. See the
+[Windows instructions](docs/install.md#windows) if Docker is not already set up.
 
 Direct Docker commands are still available for contributors and self-hosters who
 prefer them.

@@ -26,7 +26,7 @@ Use this before publishing Community Edition preview assets to coaches.
 5. Download the generated artifacts:
    - `install.sh`
    - `bestrong-posix`
-   - `BeStrongHQ-Community-Windows-Preview-<version>.zip`
+   - `BeStrongHQ-Community-Windows-Preview.zip`
 6. Attach those assets to the GitHub Release.
 7. Generate checksums for the release assets.
 8. Update website download links:

@@ -9,7 +9,7 @@ The signed Mac and Windows installer scaffolds are still here for later, but
 the current preview release should use:
 
 - macOS: `curl -fsSL https://bestronghq.com/install.sh | bash`
-- Windows: `BeStrongHQ-Community-Windows-Preview-<version>.zip`
+- Windows: `BeStrongHQ-Community-Windows-Preview.zip`
 - Linux: `curl -fsSL https://bestronghq.com/install.sh | bash`
 
 ## Runtime Model
@@ -79,7 +79,7 @@ produce preview artifacts:
 
 - `install.sh`
 - `bestrong-posix`
-- `BeStrongHQ-Community-Windows-Preview-<version>.zip`
+- `BeStrongHQ-Community-Windows-Preview.zip`
 
 Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before publishing anything to
 coaches.

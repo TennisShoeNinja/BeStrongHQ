@@ -41,8 +41,8 @@ http://127.0.0.1:3000
 
 1. Install Docker Desktop from <https://www.docker.com/products/docker-desktop/>.
 2. Open Docker Desktop once and wait until it says Docker is running.
-3. Download `BeStrongHQ-Community-Windows-Preview.zip` from the latest GitHub
-   Release.
+3. Download
+   [BeStrongHQ-Community-Windows-Preview.zip](https://github.com/TennisShoeNinja/BeStrongHQ/releases/latest/download/BeStrongHQ-Community-Windows-Preview.zip).
 4. Right-click the ZIP and choose **Extract All**.
 5. Open the extracted folder.
 6. Double-click **Open BeStrong.cmd**.
