@@ -1,0 +1,330 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="BeStrong HQ"
+DEFAULT_IMAGE="ghcr.io/tennisshoeninja/bestrong-hq:latest"
+UI_URL="http://127.0.0.1:3000"
+API_URL="http://127.0.0.1:8080"
+
+detect_home() {
+  if [[ -n "${BESTRONG_HOME:-}" ]]; then
+    printf '%s\n' "$BESTRONG_HOME"
+    return
+  fi
+
+  case "$(uname -s)" in
+    Darwin)
+      printf '%s\n' "$HOME/Library/Application Support/BeStrongHQ"
+      ;;
+    *)
+      printf '%s\n' "${XDG_DATA_HOME:-$HOME/.local/share}/bestrong-hq"
+      ;;
+  esac
+}
+
+BESTRONG_ROOT="$(detect_home)"
+RUNTIME_DIR="$BESTRONG_ROOT/runtime"
+DATA_DIR="$BESTRONG_ROOT/data"
+CONFIG_DIR="$BESTRONG_ROOT/config"
+LOG_DIR="$BESTRONG_ROOT/logs"
+BACKUP_DIR="$BESTRONG_ROOT/backups"
+COMPOSE_FILE="$RUNTIME_DIR/compose.yml"
+ENV_FILE="$RUNTIME_DIR/.env"
+
+say() {
+  printf '%s\n' "$*"
+}
+
+fail() {
+  say "Error: $*" >&2
+  exit 1
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+write_compose_file() {
+  mkdir -p "$RUNTIME_DIR"
+  cat > "$COMPOSE_FILE" <<'YAML'
+name: bestrong-hq-community
+
+services:
+  bestrong:
+    image: ${BESTRONG_IMAGE:-ghcr.io/tennisshoeninja/bestrong-hq:latest}
+    container_name: bestrong-hq-community
+    restart: unless-stopped
+    ports:
+      - "${BESTRONG_UI_BIND:-127.0.0.1:3000}:3000"
+      - "${BESTRONG_API_BIND:-127.0.0.1:8080}:8080"
+    env_file:
+      - ./.env
+    environment:
+      DEPLOYMENT_MODE: local
+      BESTRONG_DB_PATH: /data/bestrong.db
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - type: bind
+        source: ${BESTRONG_DATA_DIR}
+        target: /data
+      - type: bind
+        source: ${BESTRONG_CONFIG_DIR}
+        target: /app/.bestrong
+YAML
+}
+
+quote_env_value() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+write_env_file() {
+  mkdir -p "$RUNTIME_DIR" "$DATA_DIR" "$CONFIG_DIR" "$LOG_DIR" "$BACKUP_DIR"
+  if [[ -f "$ENV_FILE" ]]; then
+    return
+  fi
+
+  {
+    printf 'BESTRONG_IMAGE=%s\n' "$DEFAULT_IMAGE"
+    printf 'BESTRONG_DATA_DIR=%s\n' "$(quote_env_value "$DATA_DIR")"
+    printf 'BESTRONG_CONFIG_DIR=%s\n' "$(quote_env_value "$CONFIG_DIR")"
+    printf 'GOOGLE_CLIENT_ID=\n'
+    printf 'GOOGLE_CLIENT_SECRET=\n'
+    printf 'GOOGLE_OAUTH_TESTING_MODE=true\n'
+  } > "$ENV_FILE"
+}
+
+ensure_runtime() {
+  write_compose_file
+  write_env_file
+}
+
+docker_compose() {
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+docker_available() {
+  command_exists docker && docker compose version >/dev/null 2>&1
+}
+
+docker_running() {
+  docker info >/dev/null 2>&1
+}
+
+require_docker() {
+  if ! command_exists docker; then
+    fail "Docker Desktop is not installed. Install Docker Desktop, open it once, then run 'bestrong start' again."
+  fi
+
+  if ! docker compose version >/dev/null 2>&1; then
+    fail "Docker Compose is not available. Update Docker Desktop, then run 'bestrong start' again."
+  fi
+
+  if ! docker_running; then
+    fail "Docker is installed but not running. Open Docker Desktop and wait for it to say Docker is running."
+  fi
+}
+
+open_url() {
+  if command_exists open; then
+    open "$UI_URL" >/dev/null 2>&1 || true
+  elif command_exists xdg-open; then
+    xdg-open "$UI_URL" >/dev/null 2>&1 || true
+  else
+    say "Open $UI_URL in your browser."
+  fi
+}
+
+wait_for_health() {
+  local attempts=60
+  local i
+  for ((i = 1; i <= attempts; i++)); do
+    if command_exists curl && curl -fsS "$API_URL/api/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+backup_database() {
+  local db="$DATA_DIR/bestrong.db"
+  if [[ ! -f "$db" ]]; then
+    return
+  fi
+
+  mkdir -p "$BACKUP_DIR"
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  cp "$db" "$BACKUP_DIR/bestrong-$stamp.db"
+  say "Backed up database to $BACKUP_DIR/bestrong-$stamp.db"
+}
+
+cmd_setup() {
+  ensure_runtime
+  say "$APP_NAME setup files are ready."
+  say "Data folder: $DATA_DIR"
+  say "Config file: $ENV_FILE"
+}
+
+cmd_start() {
+  ensure_runtime
+  require_docker
+  say "Starting $APP_NAME..."
+  docker_compose up -d
+  if wait_for_health; then
+    say "$APP_NAME is running at $UI_URL"
+  else
+    say "$APP_NAME is starting, but the health check did not answer yet."
+    say "Run 'bestrong logs' if the page does not load."
+  fi
+}
+
+cmd_open() {
+  cmd_start
+  open_url
+}
+
+cmd_stop() {
+  ensure_runtime
+  require_docker
+  docker_compose down
+  say "$APP_NAME stopped."
+}
+
+cmd_status() {
+  ensure_runtime
+  if ! docker_available; then
+    say "Docker: not ready"
+    return 1
+  fi
+  docker_compose ps
+}
+
+cmd_logs() {
+  ensure_runtime
+  require_docker
+  docker_compose logs -f --tail=200
+}
+
+cmd_update() {
+  ensure_runtime
+  require_docker
+  backup_database
+  say "Updating $APP_NAME..."
+  docker_compose pull
+  docker_compose up -d
+  if wait_for_health; then
+    say "$APP_NAME is updated and running at $UI_URL"
+  else
+    say "Update finished, but the health check did not answer yet."
+    say "Run 'bestrong logs' if the page does not load."
+  fi
+}
+
+check_port() {
+  local port="$1"
+  if command_exists lsof && lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    say "Port $port: in use"
+  else
+    say "Port $port: available"
+  fi
+}
+
+check_disk_space() {
+  if command_exists df; then
+    local line
+    line="$(df -h "$BESTRONG_ROOT" 2>/dev/null | awk 'NR == 2 {print $4 " free on " $1}')"
+    if [[ -n "$line" ]]; then
+      say "Disk: $line"
+    fi
+  fi
+}
+
+cmd_doctor() {
+  ensure_runtime
+  say "$APP_NAME doctor"
+  say ""
+  say "Home: $BESTRONG_ROOT"
+  say "Data: $DATA_DIR"
+  say "Runtime: $RUNTIME_DIR"
+  say ""
+
+  if command_exists docker; then
+    say "Docker CLI: installed"
+  else
+    say "Docker CLI: missing"
+  fi
+
+  if docker compose version >/dev/null 2>&1; then
+    say "Docker Compose: installed"
+  else
+    say "Docker Compose: missing"
+  fi
+
+  if docker_running; then
+    say "Docker engine: running"
+  else
+    say "Docker engine: not running"
+  fi
+
+  check_disk_space
+  check_port 3000
+  check_port 8080
+  say ""
+  say "Fixes:"
+  say "- If Docker is missing, install Docker Desktop."
+  say "- If Docker is not running, open Docker Desktop and wait for it to finish starting."
+  say "- If a port is in use, stop the other app or restart your computer."
+}
+
+cmd_help() {
+  cat <<'HELP'
+BeStrong HQ local manager
+
+Usage:
+  bestrong setup      Create local runtime files
+  bestrong open       Start BeStrong and open the browser
+  bestrong start      Start BeStrong
+  bestrong stop       Stop BeStrong
+  bestrong status     Show container status
+  bestrong logs       Follow app logs
+  bestrong update     Back up data, pull the latest image, and restart
+  bestrong doctor     Check Docker, ports, and local folders
+
+Environment:
+  BESTRONG_HOME       Override the local data folder
+  BESTRONG_IMAGE      Set in runtime/.env to pin a specific image tag
+HELP
+}
+
+main() {
+  local command="${1:-help}"
+  shift || true
+
+  case "$command" in
+    setup) cmd_setup "$@" ;;
+    open) cmd_open "$@" ;;
+    start) cmd_start "$@" ;;
+    stop) cmd_stop "$@" ;;
+    status) cmd_status "$@" ;;
+    logs) cmd_logs "$@" ;;
+    update) cmd_update "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    help|--help|-h) cmd_help ;;
+    *)
+      say "Unknown command: $command"
+      cmd_help
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

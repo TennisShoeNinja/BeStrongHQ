@@ -68,27 +68,37 @@ Everything you need on open:
 
 ## Community Edition
 
-Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** - same image works on Windows, macOS, Linux, and Raspberry Pi. No need to install Python, Node.js, or a database on your host. Git is optional; you can also download the repo as a ZIP.
+Install BeStrong HQ on your own machine. Free forever, community supported. Runs in **Docker** under the hood, with a no-cost Community Preview install path for Mac, Windows, and Linux.
 
 **Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or Docker Engine (Linux / Pi).
 
-**Then (Git install):**
+**Mac/Linux preview install:**
+
+```bash
+curl -fsSL https://bestronghq.com/install.sh | bash
+bestrong open
+```
+
+**Windows preview install:** download `BeStrongHQ-Community-Windows-Preview.zip`
+from the latest release, extract it, then double-click `Open BeStrong.cmd`.
+
+Direct Docker commands are still available for contributors and self-hosters who
+prefer them.
+
+Open **http://127.0.0.1:3000**.
+
+Google Drive is required for program imports, and the same Google connection can also power Calendar sync. Follow the [full install guide](docs/install.md) for the beginner-friendly Windows/Mac/Linux setup, Google OAuth walkthrough, preview commands, and troubleshooting.
+
+[Full install guide](docs/install.md) · [Google setup](docs/google-setup.md) · [Docker reference](docker/README.md)
+
+<!-- Direct Docker quick start for contributors:
 
 ```bash
 git clone https://github.com/TennisShoeNinja/BeStrongHQ.git
 cd BeStrongHQ/docker
 docker compose up -d
 ```
-
-No Git? Download the repo as a ZIP from the green **Code** button on
-GitHub, extract it, then run `docker compose up -d` from the `docker/`
-folder. Full step-by-step in the install guide below.
-
-Open **http://127.0.0.1:3000**.
-
-Google Drive is required for program imports, and the same Google connection can also power Calendar sync. Follow the [full install guide](docs/install.md) for the beginner-friendly Windows/Mac/Linux setup, Google OAuth walkthrough, ZIP option, and troubleshooting.
-
-[Full install guide](docs/install.md) · [Google setup](docs/google-setup.md) · [Docker reference](docker/README.md)
+-->
 
 ## How It Works
 

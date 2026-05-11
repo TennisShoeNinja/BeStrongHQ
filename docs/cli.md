@@ -1,6 +1,30 @@
 # CLI Commands
 
-BeStrong HQ ships with a `bestrong` command for day-to-day operations. Since the app runs in Docker, run these *inside* the container via `docker compose exec`. From the `BeStrongHQ/docker/` folder:
+BeStrong HQ has two command surfaces:
+
+- Host manager: installed on your computer by the Community installer. Use it
+  for starting, stopping, updating, logs, and troubleshooting.
+- App CLI: runs inside the Docker container. Use it for database and parser
+  maintenance.
+
+## Host Manager
+
+The installer adds a local `bestrong` command:
+
+```bash
+bestrong open       # Start BeStrong and open the browser
+bestrong start      # Start BeStrong
+bestrong stop       # Stop BeStrong
+bestrong update     # Back up the database, pull the latest image, and restart
+bestrong logs       # Follow container logs
+bestrong doctor     # Check Docker, ports, and local folders
+```
+
+## App CLI
+
+The app container also ships with a `bestrong` command for maintenance tasks.
+Run these *inside* the container via `docker compose exec`. From the direct
+Docker setup folder:
 
 ```bash
 docker compose exec bestrong bestrong info             # Show database stats
@@ -19,7 +43,7 @@ Prints a quick summary of what's in your local database: athlete count, session 
 
 ## `bestrong resync-all`
 
-Force-reimports every Google Drive program through whatever parser is currently configured. Use this after upgrading or swapping a parser so existing rows get re-classified with the new logic. Requires the container to be running (which it normally is — `docker compose ps` should show it `Up`).
+Force-reimports every Google Drive program through whatever parser is currently configured. Use this after upgrading or swapping a parser so existing rows get re-classified with the new logic. Requires the container to be running. `docker compose ps` should show it `Up`.
 
 ## `bestrong backfill-prs`
 
@@ -29,9 +53,10 @@ Recomputes all auto-generated PRs from scratch across every program. Clears `max
 
 **Destructive.** Wipes the SQLite database and recreates it empty. Your Google Drive data is untouched, so you can re-sync afterward. Use this if your database has gotten into a weird state and you want to start fresh.
 
-## Starting and stopping the app
+## Direct Docker Start And Stop
 
-These are not `bestrong` subcommands — they're Docker compose commands you run from `BeStrongHQ/docker/`:
+If you are using the direct Docker setup instead of the installer, run Compose
+from `BeStrongHQ/docker/`:
 
 ```bash
 docker compose up -d        # Start in background

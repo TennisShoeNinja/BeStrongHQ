@@ -1,8 +1,9 @@
 # BeStrong HQ Docker Reference
 
-This folder contains the local Docker setup for BeStrong HQ. Normal users should
-start with the [install guide](../docs/install.md). This file is the command and
-operations reference once Docker is already installed.
+This folder contains the direct Docker setup for BeStrong HQ. Normal users
+should start with the [install guide](../docs/install.md), which uses the
+installer-managed `bestrong` commands. This file is the command and operations
+reference for advanced users who want to run Compose by hand.
 
 The compose setup runs one container that hosts both services and persists
 data to two Docker volumes:
