@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import BlockReviewSummary from "@/components/BlockReviewSummary";
 import { CurrentCycleCard } from "@/components/current-cycle-card";
+import { MobileAthleteDetail } from "@/components/mobile-athlete-detail";
 import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
 import { ShareProfileDialog } from "@/components/share-profile-dialog";
@@ -7963,7 +7964,11 @@ export default function AthleteDetailPage() {
   }
 
   return (
-    <div style={{ padding: "var(--cloud-s5)" }}>
+    <>
+      <div className="md:hidden">
+        <MobileAthleteDetail athlete={athlete} programs={programs} />
+      </div>
+      <div className="hidden md:block" style={{ padding: "var(--cloud-s5)" }}>
       {}
       {successMessage && (
         <div
@@ -9265,5 +9270,6 @@ export default function AthleteDetailPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
