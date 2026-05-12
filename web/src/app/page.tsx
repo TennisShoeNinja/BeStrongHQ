@@ -192,13 +192,18 @@ export default function Home() {
   const teamName = instance?.org_name || 'BeStrong';
   const compactDate = formatCompactDate(currentDate);
 
-  
+
   const {
     data: athletes = [],
     isLoading: athletesLoading,
   } = useQuery({
     queryKey: ['athletes'],
     queryFn: () => apiClient.listAthletes(),
+  });
+
+  const { data: todayStatus, isPending: todayStatusPending } = useQuery({
+    queryKey: ['todayStatus'],
+    queryFn: () => apiClient.getTodayStatus(),
   });
 
   
@@ -372,6 +377,105 @@ export default function Home() {
             })()}
           </div>
         </div>
+
+        {/* Hero: training today */}
+        {(() => {
+          const rosterTotal = todayStatus?.roster_total ?? activeAthletes.length;
+          const scheduledToday = todayStatus?.scheduled_today ?? 0;
+          const activeProgramCount = todayStatus?.with_active_program ?? 0;
+          const syncedToday = todayStatus?.synced_today ?? 0;
+          const scheduledPct = rosterTotal > 0 ? (scheduledToday / rosterTotal) * 100 : 0;
+          const showNumerator = !todayStatusPending;
+
+          return (
+            <div
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(12, 92, 171, 0.14), rgba(12, 92, 171, 0) 75%), var(--cloud-panel)',
+                border: '1px solid rgba(12, 92, 171, 0.40)',
+                borderRadius: 'var(--cloud-r-lg)',
+                padding: 'var(--cloud-s4)',
+              }}
+            >
+              <p className="cloud-eyebrow" style={{ margin: 0 }}>
+                Training today
+              </p>
+              <p
+                className="cloud-text"
+                style={{
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 36,
+                  fontWeight: 600,
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.05,
+                  margin: '6px 0 0',
+                }}
+              >
+                {showNumerator ? scheduledToday : '—'}
+                <span
+                  className="cloud-text-muted"
+                  style={{ fontSize: 14, fontWeight: 500, letterSpacing: 0, marginLeft: 6 }}
+                >
+                  / {rosterTotal} athletes
+                </span>
+              </p>
+              {rosterTotal === 0 ? (
+                <p className="cloud-text-muted" style={{ fontSize: 13, marginTop: 8 }}>
+                  Add your first athlete to start tracking weekly training.
+                </p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      marginTop: 12,
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${scheduledPct}%`,
+                        height: '100%',
+                        background:
+                          'linear-gradient(90deg, var(--cloud-primary), var(--cloud-primary-hover))',
+                        boxShadow: '0 0 16px -2px rgba(12, 92, 171, 0.55)',
+                        borderRadius: 999,
+                      }}
+                    />
+                  </div>
+                  <p
+                    className="cloud-text-muted"
+                    style={{ fontSize: 12, marginTop: 10 }}
+                  >
+                    <strong
+                      className="cloud-text"
+                      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {showNumerator ? scheduledToday : '—'}
+                    </strong>{' '}
+                    scheduled ·{' '}
+                    <strong
+                      className="cloud-text"
+                      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {showNumerator ? activeProgramCount : '—'}
+                    </strong>{' '}
+                    on a program ·{' '}
+                    <strong
+                      className="cloud-text"
+                      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {showNumerator ? syncedToday : '—'}
+                    </strong>{' '}
+                    synced today
+                  </p>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {}
         <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: 'var(--cloud-s5)' }}>
