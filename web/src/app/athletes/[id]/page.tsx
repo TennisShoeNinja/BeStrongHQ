@@ -29,6 +29,7 @@ import {
 } from "@/lib/weight-classes";
 import { useTheme } from "@/lib/theme-provider";
 import { useAuth } from "@/lib/auth-provider";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9127,8 +9128,22 @@ export default function AthleteDetailPage() {
 
         {}
         <div className="cloud-panel" style={{ marginBottom: "var(--cloud-s5)" }}>
-          <div className="cloud-panel-head">
+          <div className="cloud-panel-head" style={{ justifyContent: "space-between" }}>
             <h2>Progression Charts</h2>
+            <Link
+              href={`/athletes/${athleteId}/progression`}
+              style={{
+                fontSize: 12,
+                color: "var(--cloud-primary-text)",
+                textDecoration: "none",
+                fontWeight: 500,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Single-lift view <ChevronRight style={{ width: 12, height: 12, strokeWidth: 1.8 }} />
+            </Link>
           </div>
           <div style={{ padding: "var(--cloud-s4)" }}>
             <ProgressionCharts
