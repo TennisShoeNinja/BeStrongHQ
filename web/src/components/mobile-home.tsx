@@ -28,11 +28,17 @@ function firstName(displayName: string | undefined | null): string | null {
   return trimmed.split(/\s+/)[0];
 }
 
+const PILL_LABEL: Record<"pr" | "miss" | "load", string> = {
+  pr: "PR",
+  miss: "MISS",
+  load: "LOAD",
+};
+
+const EMPTY_SPARK = [0, 0, 0, 0, 0, 0, 0, 0];
+
 /**
  * Mobile home page (<md). Built to match `mockups/phone-dashboard.html`
- * in the BeStrongOps mobile-redesign branch. Sections without backing
- * data yet show synthetic placeholder values — marked with TODO and
- * intended to be wired up as those endpoints land.
+ * in the BeStrongOps mobile-redesign branch.
  */
 export function MobileHome() {
   const { instance } = useAuth();
@@ -48,6 +54,18 @@ export function MobileHome() {
     queryKey: ["todayStatus"],
     queryFn: () => apiClient.getTodayStatus(),
   });
+  const { data: weeklyStats, isPending: weeklyStatsPending } = useQuery({
+    queryKey: ["weeklyStats"],
+    queryFn: () => apiClient.getWeeklyStats(),
+  });
+  const { data: needsReview = [] } = useQuery({
+    queryKey: ["needsReview"],
+    queryFn: () => apiClient.getNeedsReview(3),
+  });
+  const { data: todaySchedule = [] } = useQuery({
+    queryKey: ["todaySchedule"],
+    queryFn: () => apiClient.getTodaySchedule(),
+  });
 
   const teamName = instance?.org_name || "BeStrong";
   const today = new Date();
@@ -62,29 +80,17 @@ export function MobileHome() {
   const syncedToday = todayStatus?.synced_today ?? 0;
   const scheduledPct = rosterTotal > 0 ? (scheduledToday / rosterTotal) * 100 : 0;
 
-  // TODO: wire to weekly aggregator endpoints.
-  const synthStats = {
-    prs7d: { value: 7, delta: 3, sparkPoints: [2, 3, 2, 4, 3, 5, 4, 7] },
-    sessions7d: { value: 38, sparkPoints: [4, 5, 6, 5, 7, 5, 6, 8] },
-    flagged: { value: 3, delta: 1, sparkPoints: [1, 1, 2, 1, 2, 2, 3, 3] },
-  };
+  const prsValue = weeklyStatsPending ? "—" : String(weeklyStats?.prs_this_week ?? 0);
+  const prsDelta = weeklyStats?.prs_delta ?? 0;
+  const prsSpark = weeklyStats?.prs_spark ?? EMPTY_SPARK;
+  const sessionsValue = weeklyStatsPending ? "—" : String(weeklyStats?.sessions_this_week ?? 0);
+  const sessionsSpark = weeklyStats?.sessions_spark ?? EMPTY_SPARK;
+  const flaggedValue = weeklyStatsPending ? "—" : String(weeklyStats?.flagged_now ?? 0);
+  const flaggedDelta = weeklyStats?.flagged_delta ?? 0;
+  const flaggedSpark = weeklyStats?.flagged_spark ?? EMPTY_SPARK;
 
-  // TODO: wire to the unified activity feed endpoint.
-  const synthReview = [
-    { id: "1", initials: "SK", avClass: "cloud-av-3", name: "Sara K.", what: "Back squat 145kg × 3 · new PR", pillLabel: "PR",   pillClass: "pr" },
-    { id: "2", initials: "DR", avClass: "cloud-av-2", name: "Diego R.", what: "Missed 2 sessions this week",        pillLabel: "Miss", pillClass: "miss" },
-    { id: "3", initials: "AT", avClass: "cloud-av-4", name: "Aiden T.", what: "RPE 9.5 on bench triple · flag",      pillLabel: "Load", pillClass: "load" },
-  ];
-
-  // TODO: wire to today's schedule endpoint.
-  const synthSchedule = [
-    { time: "7:30 AM",  icon: Users, title: "Morning lifters · Group A", meta: "6 athletes · Lower body" },
-    { time: "12:00 PM", icon: User,  title: "1:1 · Sara K.",              meta: "PR review · Programming" },
-    { time: "5:30 PM",  icon: Users, title: "Evening squad",              meta: "9 athletes · Upper / accessory" },
-  ];
-
-  const reviewCount = synthReview.length;
-  const sessionCount = synthSchedule.length;
+  const reviewCount = needsReview.length;
+  const sessionCount = todaySchedule.length;
 
   return (
     <>
@@ -133,13 +139,18 @@ export function MobileHome() {
           <div className="cloud-mhome-stat">
             <p className="label">PRs · 7d</p>
             <p className="value">
-              {synthStats.prs7d.value}
-              <span className="delta up">+{synthStats.prs7d.delta}</span>
+              {prsValue}
+              {prsDelta !== 0 && (
+                <span className={`delta ${prsDelta > 0 ? "up" : "down"}`}>
+                  {prsDelta > 0 ? "+" : ""}
+                  {prsDelta}
+                </span>
+              )}
             </p>
             <p className="sub">vs last week</p>
             <Spark
               className="spark"
-              points={synthStats.prs7d.sparkPoints}
+              points={prsSpark}
               tone="success"
               width={44}
               height={14}
@@ -147,11 +158,11 @@ export function MobileHome() {
           </div>
           <div className="cloud-mhome-stat">
             <p className="label">Sessions</p>
-            <p className="value">{synthStats.sessions7d.value}</p>
+            <p className="value">{sessionsValue}</p>
             <p className="sub">past 7d</p>
             <Spark
               className="spark"
-              points={synthStats.sessions7d.sparkPoints}
+              points={sessionsSpark}
               tone="primary"
               width={44}
               height={14}
@@ -160,13 +171,18 @@ export function MobileHome() {
           <div className="cloud-mhome-stat">
             <p className="label">Flagged</p>
             <p className="value">
-              {synthStats.flagged.value}
-              <span className="delta down">+{synthStats.flagged.delta}</span>
+              {flaggedValue}
+              {flaggedDelta !== 0 && (
+                <span className={`delta ${flaggedDelta > 0 ? "down" : "up"}`}>
+                  {flaggedDelta > 0 ? "+" : ""}
+                  {flaggedDelta}
+                </span>
+              )}
             </p>
-            <p className="sub">since Fri</p>
+            <p className="sub">vs last week</p>
             <Spark
               className="spark"
-              points={synthStats.flagged.sparkPoints}
+              points={flaggedSpark}
               tone="danger"
               width={44}
               height={14}
@@ -182,46 +198,50 @@ export function MobileHome() {
           </Link>
         </div>
         <div className="cloud-mhome-review">
-          {synthReview.map((item) => (
-            <div key={item.id} className="cloud-mhome-rcard">
-              <div className={`ava ${item.avClass}`}>{item.initials}</div>
+          {needsReview.map((item) => (
+            <div key={`${item.kind}-${item.athlete_id}-${item.occurred_at}`} className="cloud-mhome-rcard">
+              <div className={`ava ${item.avatar_class}`}>{item.athlete_initials}</div>
               <div>
-                <p className="who">{item.name}</p>
-                <p className="what">{item.what}</p>
+                <p className="who">{item.athlete_name}</p>
+                <p className="what">{item.title}</p>
               </div>
-              <span className={`cloud-mhome-pill ${item.pillClass}`}>
-                {item.pillLabel}
+              <span className={`cloud-mhome-pill ${item.kind}`}>
+                {PILL_LABEL[item.kind]}
               </span>
             </div>
           ))}
         </div>
 
         {/* Today schedule */}
-        <div className="cloud-mhome-section-h">
-          <p className="eyebrow">
-            Today <span className="meta">· {sessionCount} sessions</span>
-          </p>
-          <Link href="/meets">
-            Full week <ArrowRight />
-          </Link>
-        </div>
-        <div className="cloud-mhome-sched">
-          {synthSchedule.map((row) => {
-            const Icon = row.icon;
-            return (
-              <div key={row.time} className="row">
-                <div className="time">{row.time}</div>
-                <div className="chip">
-                  <Icon />
-                </div>
-                <div>
-                  <p className="title">{row.title}</p>
-                  <p className="meta">{row.meta}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {todaySchedule.length > 0 && (
+          <>
+            <div className="cloud-mhome-section-h">
+              <p className="eyebrow">
+                Today <span className="meta">· {sessionCount} sessions</span>
+              </p>
+              <Link href="/meets">
+                Full week <ArrowRight />
+              </Link>
+            </div>
+            <div className="cloud-mhome-sched">
+              {todaySchedule.map((row, idx) => {
+                const Icon = row.kind === "individual" ? User : Users;
+                return (
+                  <div key={`${row.time_label}-${idx}`} className="row">
+                    <div className="time">{row.time_label}</div>
+                    <div className="chip">
+                      <Icon />
+                    </div>
+                    <div>
+                      <p className="title">{row.title}</p>
+                      <p className="meta">{row.athlete_count} athlete{row.athlete_count === 1 ? "" : "s"}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Review FAB */}
