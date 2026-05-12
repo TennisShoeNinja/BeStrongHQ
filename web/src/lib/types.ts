@@ -158,6 +158,34 @@ export interface TodayStatusResponse {
   computed_at: string;
 }
 
+export interface WeeklyStatsResponse {
+  prs_this_week: number;
+  prs_delta: number;
+  prs_spark: number[];
+  sessions_this_week: number;
+  sessions_spark: number[];
+  flagged_now: number;
+  flagged_delta: number;
+  flagged_spark: number[];
+}
+
+export interface NeedsReviewItem {
+  kind: "pr" | "miss" | "load";
+  athlete_id: number;
+  athlete_name: string;
+  athlete_initials: string;
+  avatar_class: string;
+  title: string;
+  occurred_at: string;
+}
+
+export interface TodayScheduleItem {
+  time_label: string;
+  title: string;
+  athlete_count: number;
+  kind: "group" | "individual";
+}
+
 
 export interface ProgramListResponse {
   id: number;
