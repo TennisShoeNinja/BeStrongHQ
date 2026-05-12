@@ -122,6 +122,7 @@ def create_app():
     from .routes_athletes import router as athletes_router
     from .routes_auth import router as auth_router
     from .routes_calendar import router as calendar_router
+    from .routes_dashboard import router as dashboard_router
     from .routes_exercise_aliases import router as exercise_aliases_router
     from .routes_gdrive import router as gdrive_router
     from .routes_meets import router as meets_router
@@ -224,6 +225,7 @@ def create_app():
     app.include_router(analytics_router)
     app.include_router(gdrive_router)
     app.include_router(calendar_router)
+    app.include_router(dashboard_router)
     app.include_router(notifications_router)
     app.include_router(settings_router)
     app.include_router(wellness_router)

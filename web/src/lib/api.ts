@@ -144,6 +144,13 @@ class APIClient {
     return response.data;
   }
 
+  async getTodayStatus(): Promise<Types.TodayStatusResponse> {
+    const response = await this.client.get<Types.TodayStatusResponse>(
+      "/dashboard/today-status"
+    );
+    return response.data;
+  }
+
   
   athletesExportCsvUrl(includeArchived: boolean = false): string {
     const suffix = includeArchived ? "?include_archived=true" : "";

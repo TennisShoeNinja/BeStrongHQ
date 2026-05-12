@@ -150,6 +150,14 @@ export interface AthleteResponse extends AthleteBase {
   portal_last_login_at?: string | null;
 }
 
+export interface TodayStatusResponse {
+  roster_total: number;
+  scheduled_today: number;
+  with_active_program: number;
+  synced_today: number;
+  computed_at: string;
+}
+
 
 export interface ProgramListResponse {
   id: number;

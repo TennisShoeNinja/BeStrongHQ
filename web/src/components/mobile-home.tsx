@@ -44,6 +44,10 @@ export function MobileHome() {
     queryKey: ["athletes"],
     queryFn: () => apiClient.listAthletes(),
   });
+  const { data: todayStatus, isLoading: todayStatusLoading } = useQuery({
+    queryKey: ["todayStatus"],
+    queryFn: () => apiClient.getTodayStatus(),
+  });
 
   const teamName = instance?.org_name || "BeStrong";
   const today = new Date();
@@ -52,13 +56,11 @@ export function MobileHome() {
   const coachName = firstName(settings?.coach_display_name) || "Coach";
   const initials = coachName.slice(0, 2).toUpperCase();
 
-  // Roster total comes from real data; the done/open/late split is synthetic
-  // until the today-status endpoint lands (see MOBILE_IMPL.md backend notes).
-  const rosterTotal = athletes.length || 22;
-
-  // TODO: wire to backend once the today-roster status endpoint exists.
-  // Shape will be { scheduled_today, done, open, late }.
-  const todaySynthetic = { scheduled: 14, done: 6, open: 6, late: 2 };
+  const rosterTotal = todayStatus?.roster_total ?? athletes.length;
+  const scheduledToday = todayStatus?.scheduled_today ?? 0;
+  const activeProgramCount = todayStatus?.with_active_program ?? 0;
+  const syncedToday = todayStatus?.synced_today ?? 0;
+  const scheduledPct = rosterTotal > 0 ? (scheduledToday / rosterTotal) * 100 : 0;
 
   // TODO: wire to weekly aggregator endpoints.
   const synthStats = {
@@ -107,36 +109,22 @@ export function MobileHome() {
         <div className="cloud-panel-primary cloud-mhome-hero">
           <p className="label">Training today</p>
           <p className="count">
-            {todaySynthetic.scheduled}
+            {scheduledToday}
             <span className="of"> / {rosterTotal} athletes</span>
           </p>
-          <div className="bar" role="presentation">
+          <div
+            className={`bar ${todayStatusLoading ? "is-loading" : ""}`}
+            role="presentation"
+          >
             <div
               className="seg done"
-              style={{ width: `${(todaySynthetic.done / rosterTotal) * 100}%` }}
-            />
-            <div
-              className="seg open"
-              style={{ width: `${(todaySynthetic.open / rosterTotal) * 100}%` }}
-            />
-            <div
-              className="seg late"
-              style={{ width: `${(todaySynthetic.late / rosterTotal) * 100}%` }}
+              style={{ width: `${scheduledPct}%` }}
             />
           </div>
           <p className="legend">
-            <span className="item">
-              <span className="swatch done" />
-              <strong>{todaySynthetic.done}</strong> done
-            </span>
-            <span className="item">
-              <span className="swatch open" />
-              <strong>{todaySynthetic.open}</strong> open
-            </span>
-            <span className="item">
-              <span className="swatch late" />
-              <strong>{todaySynthetic.late}</strong> late
-            </span>
+            <strong>{scheduledToday}</strong> scheduled ·{" "}
+            <strong>{activeProgramCount}</strong> on a program ·{" "}
+            <strong>{syncedToday}</strong> synced today
           </p>
         </div>
 
