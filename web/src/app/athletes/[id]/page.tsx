@@ -34,6 +34,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import BlockReviewSummary from "@/components/BlockReviewSummary";
+import { CurrentCycleCard } from "@/components/current-cycle-card";
 import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
 import { ShareProfileDialog } from "@/components/share-profile-dialog";
@@ -8938,6 +8939,18 @@ export default function AthleteDetailPage() {
           currentProgramEnd={programs[0]?.date_end ?? null}
           athleteName={athlete?.name ?? null}
         />
+
+        {/* Current cycle hero — meet + block in one tinted-blue panel */}
+        <div style={{ marginBottom: 16 }}>
+          <p className="cloud-eyebrow" style={{ marginBottom: 8 }}>
+            Current cycle
+          </p>
+          <CurrentCycleCard
+            athlete={athlete}
+            currentProgram={programs[0] ?? null}
+            onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
+          />
+        </div>
 
         {}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
