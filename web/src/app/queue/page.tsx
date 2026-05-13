@@ -934,7 +934,7 @@ export default function WorkQueuePage() {
               className="cloud-text-muted"
               style={{ fontSize: 13, margin: 0, maxWidth: 380 }}
             >
-              Nothing left to review. You're caught up on every athlete.
+              Nothing left to review. You&apos;re caught up on every athlete.
             </p>
             {sessionCompleted > 0 && (
               <div
