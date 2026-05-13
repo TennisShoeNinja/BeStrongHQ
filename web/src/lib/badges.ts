@@ -161,6 +161,7 @@ const BADGE_CHAINS: Record<ChainName, ChainMember[]> = {
     { id: 'first-meet', rank: 1 },
     { id: 'meets-5', rank: 5 },
     { id: 'meets-10', rank: 10 },
+    { id: 'meets-15', rank: 15 },
     { id: 'meets-25', rank: 25 },
     { id: 'meets-50', rank: 50 },
   ],
@@ -399,7 +400,7 @@ function appendMeetBadges(earned: EarnedBadge[], rows: MeetResultEntry[]): void 
     events: [eventFor(meets[0])],
   });
 
-  const meetCountTiers = [5, 10, 25, 50];
+  const meetCountTiers = [5, 10, 15, 25, 50];
   for (const tier of meetCountTiers) {
     if (meets.length >= tier) {
       earned.push({
