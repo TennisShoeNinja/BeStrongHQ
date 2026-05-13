@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 import {
   Home,
   Users,
@@ -14,6 +15,7 @@ import {
   CreditCard,
   HardDrive,
   Settings,
+  LogOut,
 } from "lucide-react";
 import {
   Sheet,
@@ -64,7 +66,7 @@ function NavTab({
 export function BottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { features } = useAuth();
+  const { features, user, logout, instance } = useAuth();
   const { data: notificationCount = 0 } = useQuery({
     queryKey: ["notification-count"],
     queryFn: () => apiClient.getNotificationCount(),
@@ -163,6 +165,49 @@ export function BottomNav() {
               </Link>
             )}
           </div>
+
+          {user && (
+            <div className="cloud-more-account">
+              <div className="cloud-more-account-identity">
+                {user.picture ? (
+                  <Image
+                    src={user.picture}
+                    alt={user.name ?? user.email}
+                    width={36}
+                    height={36}
+                    className="cloud-more-account-avatar"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="cloud-more-account-avatar cloud-more-account-avatar-fallback">
+                    {(user.name?.[0] ?? user.email[0] ?? "?").toUpperCase()}
+                  </div>
+                )}
+                <div className="cloud-more-account-text">
+                  {user.name && (
+                    <p className="cloud-more-account-name">{user.name}</p>
+                  )}
+                  <p className="cloud-more-account-email">{user.email}</p>
+                  {instance?.org_name && (
+                    <p className="cloud-more-account-team">
+                      {instance.org_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  setMoreOpen(false);
+                  await logout();
+                }}
+                className="cloud-more-account-signout"
+              >
+                <LogOut className="cloud-more-icon" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </>

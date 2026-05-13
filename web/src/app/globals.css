@@ -1374,6 +1374,96 @@ body {
   }
 
   /* ============================================================
+     More sheet — account section (user identity + sign-out)
+     ============================================================ */
+  .cloud-more-account {
+    margin-top: var(--cloud-s4);
+    padding-top: var(--cloud-s4);
+    border-top: 1px solid var(--cloud-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--cloud-s3);
+  }
+  .cloud-more-account-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--cloud-s3);
+    padding: 0 var(--cloud-s2);
+  }
+  .cloud-more-account-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--cloud-border-strong);
+  }
+  .cloud-more-account-avatar-fallback {
+    background: linear-gradient(135deg, #4a7fc4, var(--cloud-primary));
+    display: grid;
+    place-items: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--cloud-text);
+  }
+  .cloud-more-account-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cloud-more-account-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cloud-text);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.005em;
+  }
+  .cloud-more-account-email {
+    font-size: 11px;
+    color: var(--cloud-text-muted);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cloud-more-account-team {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+    margin: 2px 0 0;
+  }
+  .cloud-more-account-signout {
+    display: flex;
+    align-items: center;
+    gap: var(--cloud-s3);
+    padding: 12px var(--cloud-s3);
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    color: var(--cloud-text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .cloud-more-account-signout:hover {
+    border-color: rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.06);
+    color: var(--cloud-danger-text);
+  }
+  .cloud-more-account-signout:hover .cloud-more-icon {
+    stroke: var(--cloud-danger-text);
+  }
+
+  /* ============================================================
      Mobile home page — layout matching mockups/phone-dashboard.html
      ============================================================ */
 
