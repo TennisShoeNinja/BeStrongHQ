@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
-import { AlertCircle, ArrowUpDown, Plus, Search } from "lucide-react";
+import { AlertCircle, ArrowUpDown, Plus, Search, Trophy } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 
 type SortField = "name" | "date" | "federation" | "athlete_count" | "weeks_out";
 
@@ -378,27 +379,26 @@ export default function MeetsPage() {
 
         {}
         {!isLoading && filteredAndSortedMeets.length === 0 && (
-          <div
-            className="cloud-panel text-center"
-            style={{ padding: "48px 24px" }}
-          >
-            <p
-              className="cloud-text-muted"
-              style={{ fontSize: 13, marginBottom: 16 }}
-            >
-              {searchQuery.trim()
+          <EmptyState
+            icon={Trophy}
+            iconTone="muted"
+            title={searchQuery.trim() ? "No matches" : "No upcoming meets"}
+            body={
+              searchQuery.trim()
                 ? "No meets found matching your search."
-                : "No upcoming meets. Check \u201CPast meets\u201D or add a new one."}
-            </p>
-            {!searchQuery.trim() && (
-              <Link href="/meets/new" style={{ textDecoration: "none" }}>
-                <button className="cloud-btn cloud-btn-primary">
-                  <Plus style={{ width: 14, height: 14, marginRight: 6 }} />
-                  Add meet
-                </button>
-              </Link>
-            )}
-          </div>
+                : "Check \u201CPast meets\u201D or add a new one."
+            }
+            action={
+              !searchQuery.trim() ? (
+                <Link href="/meets/new" style={{ textDecoration: "none" }}>
+                  <button className="cloud-btn cloud-btn-primary">
+                    <Plus style={{ width: 14, height: 14, marginRight: 6 }} />
+                    Add meet
+                  </button>
+                </Link>
+              ) : undefined
+            }
+          />
         )}
 
         {}
@@ -692,7 +692,7 @@ export default function MeetsPage() {
                               ) : (
                                 <span
                                   style={{
-                                    color: "#fbbf24",
+                                    color: "var(--cloud-warning-text)",
                                     fontSize: 11,
                                     fontStyle: "italic",
                                   }}

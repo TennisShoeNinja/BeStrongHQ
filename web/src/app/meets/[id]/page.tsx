@@ -22,7 +22,9 @@ import {
   Pencil,
   Trash2,
   Plus,
+  Users,
 } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 
 const MICRO_LABEL: CSSProperties = {
   fontSize: 10,
@@ -795,7 +797,7 @@ export default function MeetDetailPage() {
                     className="cloud-btn cloud-btn-sm"
                     style={{
                       backgroundColor: "transparent",
-                      color: "#fca5a5",
+                      color: "var(--cloud-danger-text)",
                       border: "1px solid rgba(239, 68, 68, 0.3)",
                     }}
                   >
@@ -805,12 +807,12 @@ export default function MeetDetailPage() {
               ))}
             </div>
           ) : (
-            <div
-              className="cloud-text-muted text-center"
-              style={{ padding: "32px 0", fontSize: 13 }}
-            >
-              No athletes assigned to this meet
-            </div>
+            <EmptyState
+              icon={Users}
+              iconTone="muted"
+              body="No athletes assigned to this meet yet."
+              compact
+            />
           )}
         </div>
       </div>
