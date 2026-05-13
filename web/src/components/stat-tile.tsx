@@ -67,7 +67,7 @@ export function StatTile({
             position: "absolute",
             bottom: 10,
             right: 56,
-            opacity: 0.85,
+            opacity: 0.95,
             pointerEvents: "none",
           }}
         >

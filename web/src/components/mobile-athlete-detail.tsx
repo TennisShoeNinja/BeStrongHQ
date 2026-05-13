@@ -3,15 +3,10 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Activity,
-  ArrowRight,
-  ChevronLeft,
-  Flame,
-  MoreHorizontal,
-} from "lucide-react";
+import { Activity, ArrowRight, Flame } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
+import { MobileTopbar } from "@/components/mobile-topbar";
 import {
   convertWeight,
   resolveWeightUnit,
@@ -116,31 +111,7 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
 
   return (
     <div>
-      {/* Top bar — back + more */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "var(--cloud-s2) 12px",
-        }}
-      >
-        <button
-          type="button"
-          className="cloud-icon-btn"
-          aria-label="Back to athletes"
-          onClick={() => router.push("/athletes")}
-        >
-          <ChevronLeft style={{ width: 18, height: 18 }} />
-        </button>
-        <button
-          type="button"
-          className="cloud-icon-btn"
-          aria-label="More"
-        >
-          <MoreHorizontal style={{ width: 18, height: 18 }} />
-        </button>
-      </div>
+      <MobileTopbar backHref="/athletes" />
 
       <div style={{ padding: "var(--cloud-s2) var(--cloud-s4) 96px" }}>
         {/* Identity block */}
