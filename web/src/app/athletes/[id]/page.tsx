@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import BlockReviewSummary from "@/components/BlockReviewSummary";
 import { CurrentCycleCard } from "@/components/current-cycle-card";
+import { EmptyState } from "@/components/empty-state";
 import { MobileAthleteDetail } from "@/components/mobile-athlete-detail";
 import PRDetailModal from "@/components/PRDetailModal";
 import { ManageVariationsModal } from "@/components/manage-variations-modal";
@@ -82,6 +83,7 @@ import {
   ArchiveRestore,
   ListPlus,
   Trophy,
+  FileText,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -671,7 +673,7 @@ function UpdateMaxesDialog({
             style={{
               background: "rgba(220, 38, 38, 0.08)",
               border: "1px solid rgba(220, 38, 38, 0.3)",
-              color: "#fca5a5",
+              color: "var(--cloud-danger-text)",
               fontSize: 12,
             }}
           >
@@ -1536,7 +1538,7 @@ function OplLinkDialog({
             style={{
               padding: 10,
               borderColor: "rgba(248, 113, 113, 0.3)",
-              color: "#fca5a5",
+              color: "var(--cloud-danger-text)",
               fontSize: 12,
             }}
           >
@@ -3081,10 +3083,13 @@ function MeetHistoryCard({
         <div className="cloud-panel-head">
           <h2>Meet History</h2>
         </div>
-        <p className="cloud-text-muted" style={{ padding: "var(--cloud-s4)", fontSize: 13 }}>
-          No meet history yet. Use the three-dot menu above to link this athlete&apos;s
-          OpenPowerlifting profile and their meet history will populate here.
-        </p>
+        <div style={{ padding: "var(--cloud-s4)" }}>
+          <EmptyState
+            icon={Trophy}
+            iconTone="muted"
+            body="No meet history yet. Use the three-dot menu above to link this athlete's OpenPowerlifting profile and their meet history will populate here."
+          />
+        </div>
       </div>
     );
   }
@@ -6087,7 +6092,7 @@ export default function AthleteDetailPage() {
                 className="cloud-btn"
                 style={{
                   background: "rgba(220, 38, 38, 0.18)",
-                  color: "#fca5a5",
+                  color: "var(--cloud-danger-text)",
                   border: "1px solid rgba(220, 38, 38, 0.4)",
                 }}
               >
@@ -6641,15 +6646,13 @@ export default function AthleteDetailPage() {
               Loading programs...
             </div>
           ) : programs.length === 0 ? (
-            <div
-              className="cloud-text-muted"
-              style={{
-                padding: "var(--cloud-s6) var(--cloud-s4)",
-                textAlign: "center",
-                fontSize: 13,
-              }}
-            >
-              No programs assigned yet
+            <div style={{ padding: "var(--cloud-s4)" }}>
+              <EmptyState
+                icon={FileText}
+                iconTone="muted"
+                body="No programs assigned yet."
+                compact
+              />
             </div>
           ) : (
             <div className="space-y-3" style={{ padding: "var(--cloud-s4)" }}>
