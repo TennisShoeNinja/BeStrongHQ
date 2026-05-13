@@ -383,15 +383,21 @@ def test_sync_all_skips_disabled_categories(tmp_path, fake_service, monkeypatch)
 
 def test_sync_availability_skips_athletes_missing_either_date(tmp_path, fake_service):
     """Need both start AND end to make a sensible date-range event."""
+    from datetime import date, timedelta
+
     from bestrong.gcal import sync as gcal_sync
+
+    today = date.today()
+    start = (today + timedelta(days=7)).isoformat()
+    end = (today + timedelta(days=14)).isoformat()
 
     db = _open_db(tmp_path / "instance.db")
     try:
-        db.add(Athlete(name="Both Dates Bob", out_from="2026-05-01", out_through="2026-05-10"))
-        db.add(Athlete(name="Start Only Sam", out_from="2026-05-01"))
-        db.add(Athlete(name="End Only Ed", out_through="2026-05-10"))
+        db.add(Athlete(name="Both Dates Bob", out_from=start, out_through=end))
+        db.add(Athlete(name="Start Only Sam", out_from=start))
+        db.add(Athlete(name="End Only Ed", out_through=end))
         db.add(Athlete(name="No Dates Ned"))
-        db.add(Athlete(name="Archived Anne", out_from="2026-05-01", out_through="2026-05-10", archived=True))
+        db.add(Athlete(name="Archived Anne", out_from=start, out_through=end, archived=True))
         db.commit()
 
         result = gcal_sync.sync_all_availability(db)
