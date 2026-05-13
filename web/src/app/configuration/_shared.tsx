@@ -1,4 +1,7 @@
+'use client';
+
 import type { CSSProperties, ReactNode } from 'react';
+import { useAuth } from '@/lib/auth-provider';
 
 export const MICRO_LABEL: CSSProperties = {
   fontSize: 10,
@@ -66,12 +69,16 @@ export function PageShell({
   subtitle,
   right,
   children,
+  eyebrowContext = 'Settings',
 }: {
   title: string;
   subtitle?: string;
   right?: ReactNode;
   children: ReactNode;
+  eyebrowContext?: string;
 }) {
+  const { instance } = useAuth();
+  const eyebrowTeam = instance?.org_name || 'BeStrong';
   return (
     <div className="min-h-screen">
       <div
@@ -89,6 +96,30 @@ export function PageShell({
           style={{ gap: 16 }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              className="cloud-eyebrow"
+              style={{
+                marginBottom: 6,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+                <span>{eyebrowTeam}</span>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 3,
+                    height: 3,
+                    borderRadius: '50%',
+                    background: 'var(--cloud-text-dim)',
+                    display: 'inline-block',
+                  }}
+                />
+                <span style={{ color: 'var(--cloud-text-dim)' }}>
+                  {eyebrowContext}
+                </span>
+              </p>
             <h1
               className="cloud-text"
               style={{

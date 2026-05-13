@@ -83,9 +83,24 @@ function LoginContent() {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ padding: 24 }}
+      style={{ padding: 24, position: 'relative', overflow: 'hidden' }}
     >
-      <div className="login-stack">
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 600,
+          height: 400,
+          background:
+            'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(12, 92, 171, 0.22) 0%, transparent 70%)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+      <div className="login-stack" style={{ position: 'relative', zIndex: 1 }}>
         <div className="login-lockup-wrap">
           <Image
             src="/logo-lockup.svg"
@@ -98,14 +113,35 @@ function LoginContent() {
         </div>
         <div
         className="w-full max-w-sm cloud-panel-raised"
-        style={{ padding: 32 }}
+        style={{
+          padding: 32,
+          background:
+            'linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%), var(--cloud-surface-raised)',
+        }}
       >
         <div className="text-center" style={{ marginBottom: 28 }}>
+          <p
+            className="cloud-eyebrow"
+            style={{ marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
+          >
+            <span>{teamName}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: '50%',
+                background: 'var(--cloud-text-dim)',
+                display: 'inline-block',
+              }}
+            />
+            <span style={{ color: 'var(--cloud-text-dim)' }}>Sign in</span>
+          </p>
           <h1
             className="cloud-text font-semibold"
             style={{ fontSize: 26, letterSpacing: '-0.03em', lineHeight: 1.1 }}
           >
-            {teamName}
+            Welcome back
           </h1>
         </div>
 
@@ -154,6 +190,8 @@ function LoginContent() {
             backgroundColor: '#ffffff',
             color: '#1f2937',
             border: '1px solid #e5e7eb',
+            boxShadow:
+              '0 0 0 1px rgba(12, 92, 171, 0.35), 0 8px 24px -10px rgba(12, 92, 171, 0.55)',
           }}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

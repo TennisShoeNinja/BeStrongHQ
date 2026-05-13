@@ -458,8 +458,15 @@ body {
     align-items: center;
     gap: var(--cloud-s3);
     padding: var(--cloud-s3) var(--cloud-s5);
-    border-bottom: 1px solid var(--cloud-border);
-    background: rgba(9, 9, 11, 0.7);
+    border-bottom: 1px solid transparent;
+    background:
+      linear-gradient(rgba(9, 9, 11, 0.7), rgba(9, 9, 11, 0.7)) padding-box,
+      linear-gradient(
+        90deg,
+        rgba(12, 92, 171, 0.30) 0%,
+        rgba(255, 255, 255, 0.08) 40%,
+        rgba(255, 255, 255, 0.08) 100%
+      ) border-box;
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     position: sticky;
@@ -474,11 +481,19 @@ body {
     flex-shrink: 0;
   }
   .cloud-breadcrumb-home {
-    color: var(--cloud-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
     transition: color 0.15s;
   }
   .cloud-breadcrumb-home:hover {
-    color: var(--cloud-text);
+    color: #a8cbf3;
+  }
+  .cloud-breadcrumb-sep {
+    color: var(--cloud-text-dim);
+    user-select: none;
   }
   .cloud-topbar-search {
     margin-left: auto;
@@ -486,17 +501,25 @@ body {
     align-items: center;
     gap: var(--cloud-s2);
     padding: 6px var(--cloud-s3);
-    background: var(--cloud-panel);
+    background:
+      linear-gradient(rgba(12, 92, 171, 0.04), rgba(12, 92, 171, 0.04)),
+      var(--cloud-panel);
     border: 1px solid var(--cloud-border);
     border-radius: var(--cloud-r-sm);
     width: 340px;
     max-width: 40vw;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, background 0.15s;
     position: relative;
   }
   .cloud-topbar-search:focus-within {
     border-color: rgba(12, 92, 171, 0.5);
     box-shadow: 0 0 0 3px rgba(12, 92, 171, 0.15);
+    background:
+      linear-gradient(rgba(12, 92, 171, 0.08), rgba(12, 92, 171, 0.08)),
+      var(--cloud-panel);
+  }
+  .cloud-topbar-search:focus-within .cloud-topbar-search-icon-btn svg {
+    color: var(--cloud-primary-text);
   }
   .cloud-topbar-search input {
     flex: 1;
@@ -948,7 +971,7 @@ body {
   }
   .cloud-brand-sub {
     font-size: 10px;
-    color: var(--cloud-text-dim);
+    color: var(--cloud-primary-text);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-top: 6px;
@@ -1031,9 +1054,11 @@ body {
     color: var(--cloud-text);
   }
   .cloud-nav-item[data-active="true"] {
-    background: rgba(12, 92, 171, 0.15);
+    background: rgba(12, 92, 171, 0.18);
     color: var(--cloud-text);
-    box-shadow: inset 0 0 0 1px rgba(12, 92, 171, 0.3);
+    box-shadow:
+      inset 0 0 0 1px rgba(12, 92, 171, 0.45),
+      0 0 16px -4px rgba(12, 92, 171, 0.35);
   }
   .cloud-nav-item[data-active="true"] .cloud-nav-icon {
     color: var(--cloud-primary-text);
@@ -1349,6 +1374,96 @@ body {
   }
 
   /* ============================================================
+     More sheet — account section (user identity + sign-out)
+     ============================================================ */
+  .cloud-more-account {
+    margin-top: var(--cloud-s4);
+    padding-top: var(--cloud-s4);
+    border-top: 1px solid var(--cloud-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--cloud-s3);
+  }
+  .cloud-more-account-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--cloud-s3);
+    padding: 0 var(--cloud-s2);
+  }
+  .cloud-more-account-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--cloud-border-strong);
+  }
+  .cloud-more-account-avatar-fallback {
+    background: linear-gradient(135deg, #4a7fc4, var(--cloud-primary));
+    display: grid;
+    place-items: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--cloud-text);
+  }
+  .cloud-more-account-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cloud-more-account-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cloud-text);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.005em;
+  }
+  .cloud-more-account-email {
+    font-size: 11px;
+    color: var(--cloud-text-muted);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cloud-more-account-team {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cloud-primary-text);
+    margin: 2px 0 0;
+  }
+  .cloud-more-account-signout {
+    display: flex;
+    align-items: center;
+    gap: var(--cloud-s3);
+    padding: 12px var(--cloud-s3);
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    color: var(--cloud-text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .cloud-more-account-signout:hover {
+    border-color: rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.06);
+    color: var(--cloud-danger-text);
+  }
+  .cloud-more-account-signout:hover .cloud-more-icon {
+    stroke: var(--cloud-danger-text);
+  }
+
+  /* ============================================================
      Mobile home page — layout matching mockups/phone-dashboard.html
      ============================================================ */
 
@@ -1442,27 +1557,17 @@ body {
     background: rgba(255, 255, 255, 0.06);
     border-radius: 999px;
     overflow: hidden;
-    gap: 2px;
     margin-top: var(--cloud-s3);
+  }
+  .cloud-mhome-hero .bar.is-loading {
+    opacity: 0.5;
   }
   .cloud-mhome-hero .bar .seg { height: 100%; }
   .cloud-mhome-hero .bar .seg.done {
     background: linear-gradient(90deg, var(--cloud-primary) 0%, var(--cloud-primary-hover) 100%);
     box-shadow: 0 0 12px -2px rgba(12, 92, 171, 0.65);
+    border-radius: 999px;
   }
-  .cloud-mhome-hero .bar .seg.open {
-    background: repeating-linear-gradient(
-      135deg,
-      rgba(12, 92, 171, 0.55) 0 4px,
-      rgba(12, 92, 171, 0.30) 4px 8px
-    );
-  }
-  .cloud-mhome-hero .bar .seg.late {
-    background: var(--cloud-danger-text);
-    box-shadow: 0 0 12px -2px rgba(248, 113, 113, 0.45);
-  }
-  .cloud-mhome-hero .bar .seg:first-child { border-radius: 999px 0 0 999px; }
-  .cloud-mhome-hero .bar .seg:last-of-type { border-radius: 0 999px 999px 0; }
   .cloud-mhome-hero .legend {
     font-size: 12px;
     color: var(--cloud-text-muted);
@@ -1473,28 +1578,11 @@ body {
     align-items: baseline;
     position: relative;
   }
-  .cloud-mhome-hero .legend .item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
   .cloud-mhome-hero .legend strong {
     color: var(--cloud-text);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .cloud-mhome-hero .legend .swatch {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    display: inline-block;
-  }
-  .cloud-mhome-hero .legend .swatch.done { background: var(--cloud-primary-hover); }
-  .cloud-mhome-hero .legend .swatch.open {
-    background: rgba(12, 92, 171, 0.45);
-    border: 1px solid rgba(12, 92, 171, 0.55);
-  }
-  .cloud-mhome-hero .legend .swatch.late { background: var(--cloud-danger-text); }
 
   /* Stat strip */
   .cloud-mhome-strip {
@@ -1554,7 +1642,7 @@ body {
     position: absolute;
     bottom: 8px;
     right: 8px;
-    opacity: 0.85;
+    opacity: 0.95;
   }
 
   /* Section header (eyebrow + see-all) */

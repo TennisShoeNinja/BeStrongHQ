@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
+import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
 import {
   Dialog,
@@ -21,7 +22,9 @@ import {
   Pencil,
   Trash2,
   Plus,
+  Users,
 } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 
 const MICRO_LABEL: CSSProperties = {
   fontSize: 10,
@@ -134,6 +137,8 @@ export default function MeetDetailPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
   const meetId = parseInt(params.id as string, 10);
 
   const [isEditingMeet, setIsEditingMeet] = useState(false);
@@ -339,27 +344,34 @@ export default function MeetDetailPage() {
               <ChevronLeft style={{ width: 18, height: 18 }} />
             </button>
             <div style={{ minWidth: 0 }}>
-              <div
-                className="cloud-text-muted"
-                style={{
-                  ...MICRO_LABEL,
-                  marginBottom: 4,
-                }}
+              <p
+                className="cloud-eyebrow"
+                style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
               >
-                Meet
-              </div>
+                <span>{teamName}</span>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 3,
+                    height: 3,
+                    borderRadius: "50%",
+                    background: "var(--cloud-text-dim)",
+                    display: "inline-block",
+                  }}
+                />
+                <span style={{ color: "var(--cloud-text-dim)" }}>Meet</span>
+              </p>
               <h1
-                className="cloud-text"
+                className="font-semibold"
                 style={{
-                  fontSize: 28,
-                  fontWeight: 600,
+                  fontSize: 32,
                   letterSpacing: "-0.03em",
                   lineHeight: 1.1,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                 }}
               >
-                {meet.name}
+                <span className="cloud-text-grad-blue">{meet.name}</span>
               </h1>
             </div>
           </div>
@@ -785,7 +797,7 @@ export default function MeetDetailPage() {
                     className="cloud-btn cloud-btn-sm"
                     style={{
                       backgroundColor: "transparent",
-                      color: "#fca5a5",
+                      color: "var(--cloud-danger-text)",
                       border: "1px solid rgba(239, 68, 68, 0.3)",
                     }}
                   >
@@ -795,12 +807,12 @@ export default function MeetDetailPage() {
               ))}
             </div>
           ) : (
-            <div
-              className="cloud-text-muted text-center"
-              style={{ padding: "32px 0", fontSize: 13 }}
-            >
-              No athletes assigned to this meet
-            </div>
+            <EmptyState
+              icon={Users}
+              iconTone="muted"
+              body="No athletes assigned to this meet yet."
+              compact
+            />
           )}
         </div>
       </div>

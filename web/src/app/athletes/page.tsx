@@ -24,7 +24,9 @@ import {
   Download,
   Plus,
   Settings,
+  Users,
 } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 
 type ViewType = "Athletes" | "Availability";
 type WeightUnit = "lbs" | "kg";
@@ -90,6 +92,41 @@ function getAvatarColor(id: number): string {
   return `cloud-av-${idx + 1}`;
 }
 
+
+function StatusPill({ value }: { value: string }) {
+  const lower = value.trim().toLowerCase();
+  let bg = "var(--cloud-panel-hover, rgba(255,255,255,0.04))";
+  let color = "var(--cloud-text-dim)";
+  let border = "1px solid var(--cloud-border)";
+  if (lower === "active" || lower === "available" || lower === "on program") {
+    bg = "rgba(16,185,129,0.12)";
+    color = "var(--cloud-success-text)";
+    border = "1px solid rgba(16,185,129,0.25)";
+  } else if (lower === "out" || lower === "unavailable") {
+    bg = "rgba(245,158,11,0.12)";
+    color = "var(--cloud-warning-text)";
+    border = "1px solid rgba(245,158,11,0.25)";
+  }
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        background: bg,
+        color,
+        border,
+        borderRadius: 999,
+        padding: "3px 8px",
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {value}
+    </span>
+  );
+}
 
 function getBlockBadgeClass(block: string | null | undefined): string {
   if (!block) return "cloud-badge";
@@ -185,6 +222,8 @@ function AthletesPageInner() {
   const viewParam = searchParams.get("view") as ViewType | null;
   const searchQuery = searchParams.get("q") ?? "";
   const now = useNow();
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
   const [currentView, setCurrentView] = useState<ViewType>(
     viewParam && ["Athletes", "Availability"].includes(viewParam)
       ? viewParam
@@ -200,6 +239,7 @@ function AthletesPageInner() {
   const columnDropdownRef = useRef<HTMLDivElement>(null);
   const [draggingColumn, setDraggingColumn] = useState<ColumnKey | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<ColumnKey | null>(null);
+  const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
   
   
   const suppressNextSortClick = useRef(false);
@@ -365,17 +405,17 @@ function AthletesPageInner() {
     if (!dateStr) return "—";
     try {
       const c = dateStr.trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(c)) {
-        const d = new Date(c + "T00:00:00");
-        if (!isNaN(d.getTime())) {
-          return d.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
-        }
-      }
-      const d = new Date(c);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
-      }
-      return "—";
+      const parsed = /^\d{4}-\d{2}-\d{2}$/.test(c)
+        ? new Date(c + "T00:00:00")
+        : new Date(c);
+      if (isNaN(parsed.getTime())) return "—";
+      const sameYear = parsed.getFullYear() === new Date().getFullYear();
+      return parsed.toLocaleDateString(
+        "en-US",
+        sameYear
+          ? { month: "short", day: "numeric" }
+          : { month: "short", day: "numeric", year: "numeric" },
+      );
     } catch {
       return "—";
     }
@@ -392,14 +432,6 @@ function AthletesPageInner() {
     return `${lbs} lbs`;
   };
 
-  const getAvailabilityBadgeClass = (status: string | undefined | null) => {
-    if (!status) return "cloud-badge";
-    const lower = status.toLowerCase();
-    if (lower === "available" || lower === "out") return "cloud-badge cloud-badge-warning";
-    return "cloud-badge";
-  };
-
-  
   
   
   
@@ -499,7 +531,27 @@ function AthletesPageInner() {
     return (
       <div style={{ padding: "var(--cloud-s5)" }}>
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-semibold cloud-text" style={{ letterSpacing: "-0.02em" }}>
+          <p
+            className="cloud-eyebrow"
+            style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <span>{teamName}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: "50%",
+                background: "var(--cloud-text-dim)",
+                display: "inline-block",
+              }}
+            />
+            <span style={{ color: "var(--cloud-text-dim)" }}>Roster</span>
+          </p>
+          <h1
+            className="font-semibold cloud-text"
+            style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1 }}
+          >
             Athletes
           </h1>
           <div
@@ -534,6 +586,23 @@ function AthletesPageInner() {
         {}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ gap: "var(--cloud-s3)" }}>
           <div className="min-w-0">
+            <p
+              className="cloud-eyebrow"
+              style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span>{teamName}</span>
+              <span
+                aria-hidden
+                style={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: "50%",
+                  background: "var(--cloud-text-dim)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ color: "var(--cloud-text-dim)" }}>Roster</span>
+            </p>
             <h1
               className="font-semibold cloud-text"
               style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1 }}
@@ -795,21 +864,12 @@ function AthletesPageInner() {
                 </div>
               </div>
             ) : filteredAndSortedAthletes.length === 0 ? (
-              <div
-                className="flex flex-col items-center justify-center text-center"
-                style={{ padding: "var(--cloud-s6) var(--cloud-s4)", gap: "var(--cloud-s3)" }}
-              >
-                <p className="cloud-text-muted" style={{ fontSize: 14 }}>
-                  {searchQuery.trim()
-                    ? "No athletes match your search."
-                    : "No athletes yet — add your first athlete to get started."}
-                </p>
-                {!searchQuery.trim() && (
-                  <Link href="/athletes/new" className="cloud-btn cloud-btn-primary">
-                    <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    Add athlete
-                  </Link>
-                )}
+              <div style={{ padding: "var(--cloud-s4)" }}>
+                <EmptyState
+                  icon={Users}
+                  body="No athletes match your filters."
+                  compact
+                />
               </div>
             ) : (
               <div className="cloud-table-scroll">
@@ -869,6 +929,9 @@ function AthletesPageInner() {
                               boxShadow: isDragTarget
                                 ? "inset 2px 0 0 0 var(--cloud-primary)"
                                 : undefined,
+                              fontSize: 10,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.06em",
                             }}
                           >
                             {getColumnLabel(columnKey)}
@@ -883,17 +946,28 @@ function AthletesPageInner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAndSortedAthletes.map((athlete) => (
-                      <tr key={athlete.id}>
+                    {filteredAndSortedAthletes.map((athlete) => {
+                      const rowHovered = hoveredRowId === athlete.id;
+                      const avatarBorder = rowHovered
+                        ? "var(--cloud-border-strong)"
+                        : "var(--cloud-border)";
+                      return (
+                      <tr
+                        key={athlete.id}
+                        onMouseEnter={() => setHoveredRowId(athlete.id)}
+                        onMouseLeave={() =>
+                          setHoveredRowId((prev) => (prev === athlete.id ? null : prev))
+                        }
+                      >
                         {visibleColumns.map((columnKey) => {
                           const isNumeric = NUMERIC_COLUMNS.includes(columnKey);
                           const tdStyle: React.CSSProperties = {
                             textAlign: isNumeric ? "right" : "left",
-                            fontVariantNumeric: isNumeric ? "tabular-nums" : undefined,
                             whiteSpace: "nowrap",
                           };
 
                           if (columnKey === "name") {
+                            const archived = !!athlete.archived;
                             return (
                               <td key={columnKey} style={tdStyle}>
                                 <Link
@@ -901,18 +975,33 @@ function AthletesPageInner() {
                                   className="cloud-athlete-cell group"
                                   style={{ textDecoration: "none" }}
                                 >
-                                  <span className={`cloud-athlete-avatar ${getAvatarColor(athlete.id)}`}>
+                                  <span
+                                    className={getAvatarColor(athlete.id)}
+                                    style={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: "50%",
+                                      display: "grid",
+                                      placeItems: "center",
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "white",
+                                      flexShrink: 0,
+                                      border: `1px solid ${avatarBorder}`,
+                                      transition: "border-color 0.1s",
+                                    }}
+                                  >
                                     {getInitials(athlete.name)}
                                   </span>
                                   <span>
-                                    <span className="cloud-athlete-name group-hover:underline block">
+                                    <span className="cloud-text font-medium group-hover:underline block">
                                       {athlete.name}
                                     </span>
                                     <span className="cloud-athlete-meta">
                                       {[
                                         athlete.weight_class,
                                         athlete.sex,
-                                        athlete.archived ? "Archived" : null,
+                                        archived ? "Archived" : null,
                                       ].filter(Boolean).join(" · ") || "—"}
                                     </span>
                                   </span>
@@ -952,13 +1041,13 @@ function AthletesPageInner() {
                             );
                           }
                           if (columnKey === "availability_status") {
+                            const status = athlete.archived
+                              ? "Archived"
+                              : (athlete.availability_status ?? "");
                             return (
                               <td key={columnKey} style={tdStyle}>
-                                {athlete.availability_status ? (
-                                  <span className={getAvailabilityBadgeClass(athlete.availability_status)}>
-                                    <span className="cloud-badge-dot" />
-                                    {athlete.availability_status}
-                                  </span>
+                                {status ? (
+                                  <StatusPill value={status} />
                                 ) : (
                                   <span className="cloud-text-dim">—</span>
                                 )}
@@ -968,18 +1057,21 @@ function AthletesPageInner() {
 
                           const val = getCellValue(athlete, columnKey);
                           const isDash = val === "—";
+                          const classes = [
+                            isDash ? "cloud-text-dim" : "cloud-text",
+                            isNumeric ? "cloud-mono" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
                           return (
-                            <td
-                              key={columnKey}
-                              style={tdStyle}
-                              className={isDash ? "cloud-text-dim" : "cloud-text"}
-                            >
+                            <td key={columnKey} style={tdStyle} className={classes}>
                               {val}
                             </td>
                           );
                         })}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

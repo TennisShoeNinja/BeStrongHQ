@@ -81,6 +81,7 @@ export default function ConfigurationPage() {
     <PageShell
       title="Configuration"
       subtitle="Manage your workspace, behavior, access, and connection"
+      eyebrowContext="Workspace"
     >
       <div
         style={{

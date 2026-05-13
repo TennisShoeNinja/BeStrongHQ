@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
+import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
 import { AlertCircle, CheckCircle, Clock, FileText, X } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 
 const MICRO_LABEL: CSSProperties = {
   fontSize: 10,
@@ -134,11 +136,11 @@ function NotificationCard({
   const dateStatus = getDateStatus(notification.due_date);
   const dateColor =
     dateStatus === "overdue"
-      ? "#fca5a5"
+      ? "var(--cloud-danger-text)"
       : dateStatus === "due_soon"
-      ? "#fb923c"
+      ? "var(--cloud-warning-text)"
       : dateStatus === "upcoming"
-      ? "#67e8f9"
+      ? "var(--cloud-primary-text)"
       : "var(--cloud-text-muted)";
 
   return (
@@ -167,12 +169,12 @@ function NotificationCard({
           marginTop: 2,
           width: 32,
           height: 32,
-          borderRadius: 999,
+          borderRadius: 8,
           backgroundColor: isUnread
-            ? "rgba(12, 92, 171, 0.2)"
-            : "var(--cloud-surface-raised)",
+            ? "rgba(12, 92, 171, 0.18)"
+            : "var(--cloud-panel)",
           border: isUnread
-            ? "1px solid rgba(12, 92, 171, 0.4)"
+            ? "1px solid rgba(12, 92, 171, 0.35)"
             : "1px solid var(--cloud-border)",
         }}
       >
@@ -180,7 +182,8 @@ function NotificationCard({
           style={{
             width: 14,
             height: 14,
-            color: isUnread ? "#67e8f9" : "var(--cloud-text-muted)",
+            color: isUnread ? "var(--cloud-primary-text)" : "var(--cloud-text-muted)",
+            strokeWidth: 1.8,
           }}
         />
       </div>
@@ -195,7 +198,7 @@ function NotificationCard({
           }}
         >
           Reminder in{" "}
-          <span style={{ color: "#67e8f9" }}>
+          <span style={{ color: "var(--cloud-primary-text)", fontWeight: 600 }}>
             {notification.athlete_name || "Unknown"}
           </span>
         </p>
@@ -287,8 +290,11 @@ function NotificationCard({
               width: 8,
               height: 8,
               borderRadius: 999,
-              backgroundColor: isUnread ? "#67e8f9" : "transparent",
+              backgroundColor: isUnread ? "var(--cloud-primary-text)" : "transparent",
               border: isUnread ? "none" : "1px solid var(--cloud-border)",
+              boxShadow: isUnread
+                ? "0 0 8px -1px rgba(12, 92, 171, 0.55)"
+                : "none",
               transition: "background-color 120ms ease, border-color 120ms ease",
             }}
           />
@@ -380,6 +386,8 @@ function NotificationCardSkeleton({ isLast }: { isLast: boolean }) {
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
+  const { instance } = useAuth();
+  const teamName = instance?.org_name || "BeStrong";
 
   const {
     data: notifications = [],
@@ -469,6 +477,23 @@ export default function InboxPage() {
           style={{ gap: 16 }}
         >
           <div>
+            <p
+              className="cloud-eyebrow"
+              style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span>{teamName}</span>
+              <span
+                aria-hidden
+                style={{
+                  width: 3,
+                  height: 3,
+                  borderRadius: "50%",
+                  background: "var(--cloud-text-dim)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ color: "var(--cloud-text-dim)" }}>Notifications</span>
+            </p>
             <h1
               className="cloud-text"
               style={{
@@ -515,7 +540,7 @@ export default function InboxPage() {
               borderRadius: 8,
               backgroundColor: "rgba(239, 68, 68, 0.08)",
               border: "1px solid rgba(239, 68, 68, 0.28)",
-              color: "#fca5a5",
+              color: "var(--cloud-danger-text)",
               fontSize: 13,
             }}
           >
@@ -540,33 +565,16 @@ export default function InboxPage() {
 
         {}
         {!isLoading && !error && notifications.length === 0 && (
-          <div
-            className="cloud-panel text-center"
-            style={{ padding: "56px 24px" }}
-          >
-            <CheckCircle
-              style={{
-                width: 44,
-                height: 44,
-                color: "rgba(34, 197, 94, 0.7)",
-                margin: "0 auto 16px",
-              }}
-            />
-            <p
-              className="cloud-text"
-              style={{ fontSize: 15, fontWeight: 500 }}
-            >
-              {showArchived ? "No archived notifications" : "All caught up"}
-            </p>
-            <p
-              className="cloud-text-muted"
-              style={{ fontSize: 13, marginTop: 4 }}
-            >
-              {showArchived
-                ? "Archived notifications will appear here"
-                : "No pending reminders right now"}
-            </p>
-          </div>
+          <EmptyState
+            icon={CheckCircle}
+            iconTone="success"
+            title={showArchived ? "No archived notifications" : "All clear."}
+            body={
+              showArchived
+                ? "Archived notifications will appear here."
+                : "No pending reminders right now."
+            }
+          />
         )}
 
         {}

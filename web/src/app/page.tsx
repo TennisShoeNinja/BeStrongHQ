@@ -21,7 +21,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { useAuth } from '@/lib/auth-provider';
 import { MobileHome } from '@/components/mobile-home';
+import { StatTile, StatTileSkeleton } from '@/components/stat-tile';
+import { EmptyState } from '@/components/empty-state';
 
 
 const weatherCodeMap: Record<number, { Icon: LucideIcon; description: string }> = {
@@ -64,6 +67,14 @@ interface WeatherData {
     temperature_2m_max: number[];
     temperature_2m_min: number[];
   };
+}
+
+function formatCompactDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function formatDate(date: Date): string {
@@ -155,74 +166,6 @@ function MeetsSkeleton() {
   );
 }
 
-function StatTileSkeleton() {
-  return (
-    <div
-      style={{
-        height: 72,
-        background: 'var(--cloud-panel)',
-        border: '1px solid var(--cloud-border)',
-        borderRadius: 10,
-      }}
-    />
-  );
-}
-
-
-function StatTile({
-  href,
-  label,
-  value,
-  icon,
-  iconTint,
-}: {
-  href: string;
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  iconTint: string;
-}) {
-  return (
-    <Link href={href} className="block">
-      <div
-        className="cloud-panel"
-        style={{
-          padding: '14px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          transition: 'border-color 0.15s, background 0.15s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = 'var(--cloud-border-strong)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = 'var(--cloud-border)';
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          <div style={MICRO_LABEL}>{label}</div>
-          <div style={{ ...BIG_STAT, marginTop: 4 }}>{value}</div>
-        </div>
-        <div
-          style={{
-            flexShrink: 0,
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            display: 'grid',
-            placeItems: 'center',
-            background: iconTint,
-          }}
-        >
-          {icon}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 export default function Home() {
   const [currentHour, setCurrentHour] = useState(0);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -236,21 +179,31 @@ export default function Home() {
 
   const timeOfDay = getTimeOfDay(currentHour);
 
-  
+  const { instance } = useAuth();
+
+
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => apiClient.getSettings(),
   });
 
   const coachName = settings?.coach_display_name || 'Coach';
+  const coachFirstName = coachName.split(/\s+/)[0];
+  const teamName = instance?.org_name || 'BeStrong';
+  const compactDate = formatCompactDate(currentDate);
 
-  
+
   const {
     data: athletes = [],
     isLoading: athletesLoading,
   } = useQuery({
     queryKey: ['athletes'],
     queryFn: () => apiClient.listAthletes(),
+  });
+
+  const { data: todayStatus, isPending: todayStatusPending } = useQuery({
+    queryKey: ['todayStatus'],
+    queryFn: () => apiClient.getTodayStatus(),
   });
 
   
@@ -350,24 +303,55 @@ export default function Home() {
       <div className="hidden md:block" style={{ padding: 'var(--cloud-s5)' }}>
         <div className="flex flex-col" style={{ gap: 'var(--cloud-s5)' }}>
           {}
-        <div>
+        <div style={{ position: 'relative' }}>
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: -120,
+              left: -80,
+              width: 520,
+              height: 360,
+              background:
+                'radial-gradient(ellipse 50% 50% at 30% 60%, rgba(12, 92, 171, 0.20) 0%, transparent 65%)',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+          <p
+            className="cloud-eyebrow"
+            style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}
+          >
+            <span>{teamName}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: '50%',
+                background: 'var(--cloud-text-dim)',
+                display: 'inline-block',
+              }}
+            />
+            <span style={{ color: 'var(--cloud-text-dim)' }}>{compactDate}</span>
+          </p>
           <h1
             className="font-semibold cloud-text"
             style={{ fontSize: 32, letterSpacing: '-0.03em', lineHeight: 1.1 }}
           >
-            Good {timeOfDay}, {coachName}
+            {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)},{' '}
+            <span className="cloud-text-grad-blue">{coachFirstName}</span>.
           </h1>
           <div
             className="flex flex-wrap items-center cloud-text-muted"
             style={{ gap: 8, fontSize: 13, marginTop: 6 }}
           >
-            <span>{formatDate(currentDate)}</span>
+            {/* Date moved to the eyebrow above; weather row now leads with location. */}
             {currentWeather && !weatherLoading && (() => {
               const info = weatherCodeMap[currentWeather.weather_code] || FALLBACK_WEATHER;
               const Icon = info.Icon;
               return (
                 <>
-                  <span className="cloud-text-dim" aria-hidden>·</span>
                   <span>{settings?.weather_city || 'Houston, TX'}</span>
                   <span className="cloud-text-dim" aria-hidden>·</span>
                   <span className="flex items-center" style={{ gap: 6 }}>
@@ -394,18 +378,113 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Hero: training today */}
+        {(() => {
+          const rosterTotal = todayStatus?.roster_total ?? activeAthletes.length;
+          const scheduledToday = todayStatus?.scheduled_today ?? 0;
+          const activeProgramCount = todayStatus?.with_active_program ?? 0;
+          const syncedToday = todayStatus?.synced_today ?? 0;
+          const scheduledPct = rosterTotal > 0 ? (scheduledToday / rosterTotal) * 100 : 0;
+          const showNumerator = !todayStatusPending;
+
+          return (
+            <div
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(12, 92, 171, 0.14), rgba(12, 92, 171, 0) 75%), var(--cloud-panel)',
+                border: '1px solid rgba(12, 92, 171, 0.40)',
+                borderRadius: 'var(--cloud-r-lg)',
+                padding: 'var(--cloud-s4)',
+              }}
+            >
+              <p className="cloud-eyebrow" style={{ margin: 0 }}>
+                Training today
+              </p>
+              <p
+                className="cloud-text"
+                style={{
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 36,
+                  fontWeight: 600,
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.05,
+                  margin: '6px 0 0',
+                }}
+              >
+                {showNumerator ? scheduledToday : '—'}
+                <span
+                  className="cloud-text-muted"
+                  style={{ fontSize: 14, fontWeight: 500, letterSpacing: 0, marginLeft: 6 }}
+                >
+                  / {rosterTotal} athletes
+                </span>
+              </p>
+              {rosterTotal === 0 ? (
+                <p className="cloud-text-muted" style={{ fontSize: 13, marginTop: 8 }}>
+                  Add your first athlete to start tracking weekly training.
+                </p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      marginTop: 12,
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${scheduledPct}%`,
+                        height: '100%',
+                        background:
+                          'linear-gradient(90deg, var(--cloud-primary), var(--cloud-primary-hover))',
+                        boxShadow: '0 0 16px -2px rgba(12, 92, 171, 0.55)',
+                        borderRadius: 999,
+                      }}
+                    />
+                  </div>
+                  <p
+                    className="cloud-text-muted"
+                    style={{ fontSize: 12, marginTop: 10 }}
+                  >
+                    <strong
+                      className="cloud-text"
+                      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {showNumerator ? scheduledToday : '—'}
+                    </strong>{' '}
+                    scheduled ·{' '}
+                    <strong
+                      className="cloud-text"
+                      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {showNumerator ? activeProgramCount : '—'}
+                    </strong>{' '}
+                    on a program ·{' '}
+                    <strong
+                      className="cloud-text"
+                      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {showNumerator ? syncedToday : '—'}
+                    </strong>{' '}
+                    synced today
+                  </p>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         {}
         <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: 'var(--cloud-s5)' }}>
           {}
           <div className="lg:col-span-2 flex flex-col" style={{ gap: 12 }}>
             <div>
               <h2
-                className="cloud-text"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  letterSpacing: '-0.015em',
-                }}
+                className="cloud-eyebrow"
+                style={{ margin: 0 }}
               >
                 Programs due soon
               </h2>
@@ -417,21 +496,11 @@ export default function Home() {
             {notificationsLoading ? (
               <ProgramsDueSkeleton />
             ) : programsDue.length === 0 ? (
-              <div
-                className="cloud-panel"
-                style={{
-                  padding: 32,
-                  textAlign: 'center',
-                }}
-              >
-                <CheckCircle
-                  className="mx-auto"
-                  style={{ width: 32, height: 32, color: 'var(--cloud-success-text)', marginBottom: 10 }}
-                />
-                <p className="cloud-text-muted" style={{ fontSize: 13 }}>
-                  No programs due soon. You&apos;re all caught up.
-                </p>
-              </div>
+              <EmptyState
+                icon={CheckCircle}
+                iconTone="success"
+                body="No programs due soon. You're all caught up."
+              />
             ) : (
               <div className="flex flex-col" style={{ gap: 8 }}>
                 {programsDue.map((athlete) => {
@@ -510,12 +579,8 @@ export default function Home() {
           <div className="flex flex-col" style={{ gap: 12 }}>
             <div>
               <h2
-                className="cloud-text"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  letterSpacing: '-0.015em',
-                }}
+                className="cloud-eyebrow"
+                style={{ margin: 0 }}
               >
                 Quick stats
               </h2>
@@ -539,6 +604,9 @@ export default function Home() {
                     value={activeAthletes.length}
                     icon={<Users style={{ width: 16, height: 16, color: '#60a5fa' }} />}
                     iconTint="rgba(96, 165, 250, 0.12)"
+                    // TODO: wire to a weekly active-athletes history endpoint.
+                    sparkPoints={[5, 6, 5, 7, 6, 8, 7, 9]}
+                    sparkTone="primary"
                   />
                   <StatTile
                     href="/meets"
@@ -546,6 +614,9 @@ export default function Home() {
                     value={upcomingMeets.length}
                     icon={<Trophy style={{ width: 16, height: 16, color: '#facc15' }} />}
                     iconTint="rgba(250, 204, 21, 0.12)"
+                    // TODO: wire to upcoming-meets-by-week history.
+                    sparkPoints={[1, 2, 1, 2, 3, 2, 3, 3]}
+                    sparkTone="warning"
                   />
                   <StatTile
                     href="/athletes?view=Availability"
@@ -553,6 +624,9 @@ export default function Home() {
                     value={currentlyOut.length}
                     icon={<Plane style={{ width: 16, height: 16, color: '#c084fc' }} />}
                     iconTint="rgba(192, 132, 252, 0.12)"
+                    // TODO: wire to unavailable-history endpoint.
+                    sparkPoints={[2, 1, 2, 1, 1, 2, 1, 1]}
+                    sparkTone="danger"
                   />
                 </>
               )}
@@ -564,12 +638,8 @@ export default function Home() {
         <div className="flex flex-col" style={{ gap: 12 }}>
           <div>
             <h2
-              className="cloud-text"
-              style={{
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: '-0.015em',
-              }}
+              className="cloud-eyebrow"
+              style={{ margin: 0 }}
             >
               Upcoming meets
             </h2>
@@ -594,18 +664,11 @@ export default function Home() {
               Failed to load meets
             </div>
           ) : upcomingMeets.length === 0 ? (
-            <div
-              className="cloud-panel"
-              style={{ padding: 32, textAlign: 'center' }}
-            >
-              <Trophy
-                className="mx-auto"
-                style={{ width: 32, height: 32, color: 'var(--cloud-text-dim)', marginBottom: 10 }}
-              />
-              <p className="cloud-text-muted" style={{ fontSize: 13 }}>
-                No upcoming meets scheduled
-              </p>
-            </div>
+            <EmptyState
+              icon={Trophy}
+              iconTone="muted"
+              body="No upcoming meets scheduled."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {upcomingMeets.map((meet) => {

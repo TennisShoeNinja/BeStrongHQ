@@ -144,6 +144,35 @@ class APIClient {
     return response.data;
   }
 
+  async getTodayStatus(): Promise<Types.TodayStatusResponse> {
+    const response = await this.client.get<Types.TodayStatusResponse>(
+      "/dashboard/today-status"
+    );
+    return response.data;
+  }
+
+  async getWeeklyStats(): Promise<Types.WeeklyStatsResponse> {
+    const response = await this.client.get<Types.WeeklyStatsResponse>(
+      "/dashboard/weekly-stats"
+    );
+    return response.data;
+  }
+
+  async getNeedsReview(limit: number = 3): Promise<Types.NeedsReviewItem[]> {
+    const response = await this.client.get<Types.NeedsReviewItem[]>(
+      "/dashboard/needs-review",
+      { params: { limit } }
+    );
+    return response.data;
+  }
+
+  async getTodaySchedule(): Promise<Types.TodayScheduleItem[]> {
+    const response = await this.client.get<Types.TodayScheduleItem[]>(
+      "/dashboard/today-schedule"
+    );
+    return response.data;
+  }
+
   
   athletesExportCsvUrl(includeArchived: boolean = false): string {
     const suffix = includeArchived ? "?include_archived=true" : "";

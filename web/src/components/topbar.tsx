@@ -211,7 +211,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps = {}) {
         <Link href="/" className="cloud-breadcrumb-home">{teamName}</Link>
         {crumbs.map((c, i) => (
           <Fragment key={`${c}-${i}`}>
-            <span className="cloud-text-dim">/</span>
+            <span className="cloud-breadcrumb-sep" aria-hidden>·</span>
             <span className={i === crumbs.length - 1 ? "cloud-text font-medium" : "cloud-text-muted"}>
               {c}
             </span>
