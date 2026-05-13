@@ -1,17 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { EarnedBadge } from '@/lib/badges';
+import { getBadgePrestige, type EarnedBadge } from '@/lib/badges';
 import { BadgeDetailModal } from '@/components/badge-detail-modal';
 
 interface BadgeRowProps {
   badges: EarnedBadge[];
   emptyHint?: string;
   size?: number;
+  maxVisible?: number;
 }
 
-export function BadgeRow({ badges, emptyHint, size = 56 }: BadgeRowProps) {
+export function BadgeRow({
+  badges,
+  emptyHint,
+  size = 40,
+  maxVisible = 3,
+}: BadgeRowProps) {
   const [selected, setSelected] = useState<EarnedBadge | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (badges.length === 0) {
     if (!emptyHint) return null;
@@ -22,29 +29,62 @@ export function BadgeRow({ badges, emptyHint, size = 56 }: BadgeRowProps) {
     );
   }
 
+  const safeMaxVisible = Math.max(1, maxVisible);
+  const visibleBadges =
+    badges.length > safeMaxVisible
+      ? badges
+          .map((badge, index) => ({ badge, index }))
+          .sort((a, b) => {
+            const byPrestige = getBadgePrestige(b.badge) - getBadgePrestige(a.badge);
+            if (byPrestige !== 0) return byPrestige;
+            const byCount = b.badge.count - a.badge.count;
+            if (byCount !== 0) return byCount;
+            return a.index - b.index;
+          })
+          .slice(0, safeMaxVisible)
+          .map(({ badge }) => badge)
+      : badges;
+  const overflowCount = Math.max(0, badges.length - visibleBadges.length);
+
   return (
     <>
       <div
         className="flex flex-wrap"
-        style={{ gap: 12 }}
+        style={{ gap: 8 }}
         role="list"
         aria-label="Achievements"
       >
-        {badges.map((badge) => (
+        {visibleBadges.map((badge) => (
           <BadgeTile
             key={badge.id}
             badge={badge}
             size={size}
-            onClick={() => setSelected(badge)}
+            onClick={() => {
+              setSelected(badge);
+              setModalOpen(true);
+            }}
           />
         ))}
+        {overflowCount > 0 && (
+          <OverflowChip
+            count={overflowCount}
+            size={size}
+            onClick={() => {
+              setSelected(null);
+              setModalOpen(true);
+            }}
+          />
+        )}
       </div>
       <BadgeDetailModal
         badge={selected}
-        open={selected !== null}
+        badges={badges}
+        open={modalOpen}
         onOpenChange={(open) => {
+          setModalOpen(open);
           if (!open) setSelected(null);
         }}
+        onBadgeSelect={setSelected}
       />
     </>
   );
@@ -59,9 +99,6 @@ function BadgeTile({
   size: number;
   onClick: () => void;
 }) {
-  const pillHeight = Math.max(20, Math.round(size * 0.38));
-  const pillFontSize = Math.max(10, Math.round(size * 0.19));
-
   return (
     <button
       type="button"
@@ -100,32 +137,64 @@ function BadgeTile({
           objectFit: 'contain',
         }}
       />
-      {badge.count > 1 && (
-        <span
-          style={{
-            position: 'absolute',
-            bottom: -2,
-            right: -2,
-            minWidth: pillHeight,
-            height: pillHeight,
-            padding: `0 ${Math.max(6, Math.round(size * 0.11))}px`,
-            borderRadius: 999,
-            background: 'var(--cloud-surface, #09090b)',
-            border: '1px solid rgba(124, 180, 237, 0.5)',
-            color: 'var(--cloud-primary-text, #7cb4ed)',
-            fontSize: pillFontSize,
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            letterSpacing: 0,
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.45)',
-          }}
-        >
-          {badge.count}
-          <span style={{ opacity: 0.6, marginLeft: 1 }}>x</span>
-        </span>
-      )}
+    </button>
+  );
+}
+
+function OverflowChip({
+  count,
+  size,
+  onClick,
+}: {
+  count: number;
+  size: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="listitem"
+      onClick={onClick}
+      title={`View ${count} more achievements`}
+      aria-label={`View ${count} more achievements`}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        border: '1px solid rgba(124, 180, 237, 0.55)',
+        background: 'rgba(12, 92, 171, 0.14)',
+        color: 'var(--cloud-primary-text, #7cb4ed)',
+        cursor: 'pointer',
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: Math.max(12, Math.round(size * 0.32)),
+        fontWeight: 700,
+        fontVariantNumeric: 'tabular-nums',
+        boxShadow: '0 0 0 1px rgba(12, 92, 171, 0.12)',
+        transition: 'border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLButtonElement;
+        el.style.borderColor = 'rgba(124, 180, 237, 0.85)';
+        el.style.background = 'rgba(12, 92, 171, 0.22)';
+        el.style.boxShadow = '0 0 0 3px rgba(12, 92, 171, 0.16)';
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLButtonElement;
+        el.style.borderColor = 'rgba(124, 180, 237, 0.55)';
+        el.style.background = 'rgba(12, 92, 171, 0.14)';
+        el.style.boxShadow = '0 0 0 1px rgba(12, 92, 171, 0.12)';
+      }}
+      onFocus={(e) => {
+        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(12, 92, 171, 0.18)';
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(12, 92, 171, 0.12)';
+      }}
+    >
+      +{count}
     </button>
   );
 }

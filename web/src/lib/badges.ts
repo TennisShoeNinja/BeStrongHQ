@@ -198,6 +198,53 @@ const BADGE_CHAINS: Record<ChainName, ChainMember[]> = {
   ],
 };
 
+const CHAIN_VISUAL_TIER: Record<string, number> = {
+  'first-meet': 1,
+  'meets-5': 1,
+  'meets-10': 1,
+  'meets-15': 1,
+  'meets-25': 2,
+  'meets-50': 3,
+  'career-1y': 1,
+  'career-3y': 1,
+  'career-5y': 2,
+  'career-10y': 3,
+  'total-500kg': 1,
+  'total-600kg': 1,
+  'total-700kg': 2,
+  'total-800kg': 2,
+  'total-900kg': 3,
+  'dots-400': 1,
+  'dots-450': 1,
+  'dots-500': 2,
+  'dots-550': 2,
+  'pr-count-5': 1,
+  'pr-count-10': 1,
+  'pr-count-25': 2,
+  'pr-count-50': 2,
+  'pr-count-100': 3,
+  'pr-streak-3': 1,
+  'pr-streak-6': 2,
+  'pr-streak-12': 3,
+};
+
+const EVENT_PRESTIGE: Record<string, number> = {
+  'first-place': 3,
+  comeback: 3,
+  'triple-threat': 3,
+  'multi-fed-champ': 3,
+  'three-peat': 2,
+  'win-streak-3': 2,
+  'nine-for-nine': 1,
+  'big-jump': 1,
+};
+
+export function getBadgePrestige(badge: EarnedBadge): number {
+  const chainTier = CHAIN_VISUAL_TIER[badge.id];
+  if (chainTier != null) return chainTier;
+  return EVENT_PRESTIGE[badge.id] ?? 1;
+}
+
 function chainEventLabel(chainName: ChainName, member: ChainMember): string {
   if (chainName === 'meets') {
     return member.id === 'first-meet' ? 'First meet' : `${member.rank} meets`;
@@ -303,7 +350,7 @@ export function computeLifetimeStats(
 
 // Chains whose tier events share a single anchor date (e.g. career years
 // all stamped to the latest meet, pr-streak months all stamped to streak
-// end) get excluded from the chronological strip — their dates aren't
+// end) get excluded from the chronological strip because their dates aren't
 // meaningful per-tier and would otherwise dominate the "Recently" slots.
 const RECENT_STRIP_EXCLUDED_PREFIXES = ['career-', 'pr-streak-'];
 

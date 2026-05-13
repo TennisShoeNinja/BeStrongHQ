@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,8 +12,10 @@ import type { BadgeEvent, EarnedBadge } from '@/lib/badges';
 
 interface BadgeDetailModalProps {
   badge: EarnedBadge | null;
+  badges?: EarnedBadge[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onBadgeSelect?: (badge: EarnedBadge | null) => void;
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -37,8 +40,10 @@ function sortEvents(events: BadgeEvent[]): BadgeEvent[] {
 
 export function BadgeDetailModal({
   badge,
+  badges = [],
   open,
   onOpenChange,
+  onBadgeSelect,
 }: BadgeDetailModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,6 +63,30 @@ export function BadgeDetailModal({
             flexShrink: 0,
           }}
         >
+          {badge !== null && badges.length > 1 && (
+            <button
+              type="button"
+              onClick={() => onBadgeSelect?.(null)}
+              className="cloud-text-muted"
+              style={{
+                alignSelf: 'flex-start',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                border: '1px solid var(--cloud-border)',
+                borderRadius: 999,
+                background: 'var(--cloud-panel)',
+                padding: '5px 9px',
+                cursor: 'pointer',
+                fontSize: 12,
+                lineHeight: 1,
+                marginBottom: 4,
+              }}
+            >
+              <ArrowLeft size={13} strokeWidth={1.8} aria-hidden="true" />
+              All Achievements
+            </button>
+          )}
           {badge && (
             <div
               style={{
@@ -92,17 +121,21 @@ export function BadgeDetailModal({
               textAlign: 'center',
             }}
           >
-            {badge?.label ?? 'Achievement'}
+            {badge === null ? 'All Achievements' : badge.label}
           </DialogTitle>
           <DialogDescription
             className="cloud-text-muted"
             style={{ fontSize: 13, lineHeight: 1.45, textAlign: 'center' }}
           >
-            {badge?.description ?? ''}
+            {badge === null
+              ? 'Every earned badge for this athlete.'
+              : badge.description}
           </DialogDescription>
         </DialogHeader>
 
-        {badge && (
+        {badge === null ? (
+          <AchievementList badges={badges} onBadgeSelect={onBadgeSelect} />
+        ) : (
           <div
             style={{
               marginTop: 4,
@@ -132,9 +165,7 @@ export function BadgeDetailModal({
                 flexShrink: 0,
               }}
             >
-              {badge.count > 1
-                ? `Earned ${badge.count}×`
-                : 'Earned'}
+              {badge.count > 1 ? `Earned ${badge.count}×` : 'Earned'}
             </div>
             <ol
               style={{
@@ -198,5 +229,95 @@ export function BadgeDetailModal({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AchievementList({
+  badges,
+  onBadgeSelect,
+}: {
+  badges: EarnedBadge[];
+  onBadgeSelect?: (badge: EarnedBadge | null) => void;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        overflowY: 'auto',
+        minHeight: 0,
+        paddingRight: 2,
+      }}
+    >
+      <div
+        role="list"
+        aria-label="All achievements"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: 10,
+        }}
+      >
+        {badges.map((badge) => (
+          <button
+            type="button"
+            role="listitem"
+            key={badge.id}
+            onClick={() => onBadgeSelect?.(badge)}
+            className="cloud-panel"
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              cursor: 'pointer',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 7,
+              textAlign: 'center',
+              transition: 'border-color 0.15s ease, background 0.15s ease',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/badges/${badge.id}.png`}
+              alt=""
+              width={64}
+              height={64}
+              draggable={false}
+              style={{
+                display: 'block',
+                width: 64,
+                height: 64,
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35))',
+              }}
+            />
+            <span
+              className="cloud-text"
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                lineHeight: 1.25,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {badge.label}
+            </span>
+            {badge.count > 1 && (
+              <span
+                className="cloud-text-muted"
+                style={{
+                  fontSize: 11,
+                  lineHeight: 1.2,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                Earned {badge.count}×
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

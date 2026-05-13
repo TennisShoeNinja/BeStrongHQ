@@ -5,8 +5,7 @@ import { useQueries } from '@tanstack/react-query';
 import apiClient from '@/lib/api';
 import { computeLifetimeStats, evaluateBadges } from '@/lib/badges';
 import { BadgeRow } from '@/components/badge-row';
-import { NextMilestoneChip } from '@/components/next-milestone-chip';
-import { RecentAchievementsStrip } from '@/components/recent-achievements-strip';
+import { HighlightsLine } from '@/components/highlights-line';
 
 interface AthleteBadgesProps {
   athleteId: number;
@@ -55,8 +54,7 @@ export function AthleteBadges({ athleteId }: AthleteBadgesProps) {
       }}
     >
       <BadgeRow badges={badges} />
-      <RecentAchievementsStrip badges={badges} />
-      <NextMilestoneChip badges={badges} athleteStats={athleteStats} />
+      <HighlightsLine badges={badges} athleteStats={athleteStats} />
     </div>
   );
 }
