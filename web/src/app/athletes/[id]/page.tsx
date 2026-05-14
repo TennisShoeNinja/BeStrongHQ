@@ -5525,12 +5525,14 @@ export default function AthleteDetailPage() {
                   <CalendarOff className="w-3.5 h-3.5" />
                   Set availability
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => router.push(`/athletes/${athleteId}/portal`)}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  View as athlete
-                </DropdownMenuItem>
+                {portalAvailable && (
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/athletes/${athleteId}/portal`)}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    View as athlete
+                  </DropdownMenuItem>
+                )}
                 {portalAvailable && (athlete.portal_disabled ? (
                   <DropdownMenuItem
                     onClick={() => handleInlineUpdate("portal_disabled", false)}
