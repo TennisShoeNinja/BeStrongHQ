@@ -1,7 +1,7 @@
 ---
 name: agents
 description: Always-loaded project anchor. Read this first. Contains project identity, non-negotiables, commands, and pointer to .mex/ROUTER.md for full context.
-last_updated: 2026-04-22
+last_updated: 2026-05-14
 ---
 
 # BeStrong HQ
@@ -17,9 +17,10 @@ Powerlifting coaching CRM and analytics platform. Parses training program spread
 - Check `web/AGENTS.md` and `web/node_modules/next/dist/docs/` before writing Next.js code; this is Next.js 16 with breaking changes from prior versions
 
 ## Commands
-- Dev: `bestrong run` (API + UI)
+- Dev (API + UI): `bestrong run`. If that errors with "Unknown command: run", a global Community Edition `bestrong` shim is shadowing the project CLI; activate the project venv at `.venv` first, or invoke `.venv/bin/bestrong` directly.
 - Test: run pytest on `tests/`
 - Lint: run ruff check on `bestrong/`
+- Frontend type-check: `cd web && npx tsc --noEmit`
 - Resync from Drive: `bestrong resync-all`
 - Docker: `docker compose up --build`
 - Frontend dev: `cd web && npm run dev`
