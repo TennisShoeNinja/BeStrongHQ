@@ -78,7 +78,6 @@ import {
   XCircle,
   RefreshCw,
   ExternalLink,
-  Eye,
   MoreVertical,
   Archive,
   ArchiveRestore,
@@ -90,8 +89,6 @@ import {
   Minus,
   X,
   CalendarOff,
-  UserCheck,
-  UserX,
   Share2,
 } from "lucide-react";
 import {
@@ -4882,12 +4879,11 @@ export default function AthleteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
-  const { features, instance } = useAuth();
+  const { instance } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
   const athleteId = parseInt(params.id as string, 10);
-  const portalAvailable = features.includes("portal");
 
-  
+
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSettingAvailability, setIsSettingAvailability] = useState(false);
   const [availabilityForm, setAvailabilityForm] = useState<{ out_from: string; out_through: string }>({ out_from: "", out_through: "" });
@@ -5450,13 +5446,6 @@ export default function AthleteDetailPage() {
                 Open Sheet
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setIsEditingProfile(true)}
-              className="cloud-btn cloud-btn-ghost"
-            >
-              Edit Profile
-            </button>
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="cloud-btn cloud-btn-ghost"
@@ -5525,29 +5514,6 @@ export default function AthleteDetailPage() {
                   <CalendarOff className="w-3.5 h-3.5" />
                   Set availability
                 </DropdownMenuItem>
-                {portalAvailable && (
-                  <DropdownMenuItem
-                    onClick={() => router.push(`/athletes/${athleteId}/portal`)}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    View as athlete
-                  </DropdownMenuItem>
-                )}
-                {portalAvailable && (athlete.portal_disabled ? (
-                  <DropdownMenuItem
-                    onClick={() => handleInlineUpdate("portal_disabled", false)}
-                  >
-                    <UserCheck className="w-3.5 h-3.5" />
-                    Enable portal access
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => handleInlineUpdate("portal_disabled", true)}
-                  >
-                    <UserX className="w-3.5 h-3.5" />
-                    Disable portal access
-                  </DropdownMenuItem>
-                ))}
                 {athlete.body_metrics_hidden ? (
                   <DropdownMenuItem
                     onClick={() => handleInlineUpdate("body_metrics_hidden", false)}

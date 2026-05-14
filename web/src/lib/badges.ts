@@ -143,7 +143,7 @@ export interface BadgeEvaluatorInput {
   maxHistory?: MaxHistoryEntry[];
 }
 
-type ChainName =
+export type ChainName =
   | 'meets'
   | 'career'
   | 'totals'
@@ -151,12 +151,12 @@ type ChainName =
   | 'pr-count'
   | 'pr-streak';
 
-interface ChainMember {
+export interface ChainMember {
   id: string;
   rank: number;
 }
 
-const BADGE_CHAINS: Record<ChainName, ChainMember[]> = {
+export const BADGE_CHAINS: Record<ChainName, ChainMember[]> = {
   meets: [
     { id: 'first-meet', rank: 1 },
     { id: 'meets-5', rank: 5 },
