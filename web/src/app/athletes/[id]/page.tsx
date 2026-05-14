@@ -5446,6 +5446,7 @@ export default function AthleteDetailPage() {
                 Open Sheet
               </button>
             )}
+            <div id="coach-athlete-toolbar-slot" />
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="cloud-btn cloud-btn-ghost"
