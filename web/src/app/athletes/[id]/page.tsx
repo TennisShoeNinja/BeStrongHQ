@@ -78,6 +78,7 @@ import {
   XCircle,
   RefreshCw,
   ExternalLink,
+  Eye,
   MoreVertical,
   Archive,
   ArchiveRestore,
@@ -5523,6 +5524,12 @@ export default function AthleteDetailPage() {
                 <DropdownMenuItem onClick={() => setIsSettingAvailability(true)}>
                   <CalendarOff className="w-3.5 h-3.5" />
                   Set availability
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/athletes/${athleteId}/portal`)}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  View as athlete
                 </DropdownMenuItem>
                 {portalAvailable && (athlete.portal_disabled ? (
                   <DropdownMenuItem
