@@ -11,6 +11,8 @@ export interface ChartPoint {
 export interface BlockBoundary {
   date: Date;
   label?: string;
+  blockType?: string;
+  tooltipText?: string;
 }
 
 interface Props {
@@ -101,7 +103,7 @@ export function E1RMChart({
       ticks.push({ y: yOf(v), label: v });
     }
 
-    // X-axis ticks — pick 3-4 months across the range
+    // X-axis ticks, pick 3-4 months across the range
     const xTicks: { x: number; label: string }[] = [];
     const monthCursor = new Date(start.getFullYear(), start.getMonth(), 1);
     while (monthCursor <= end) {
@@ -117,7 +119,11 @@ export function E1RMChart({
 
     const blockLines = blockBoundaries
       .filter((b) => b.date >= start && b.date <= end)
-      .map((b) => ({ x: xOf(b.date), label: b.label }));
+      .map((b) => ({
+        x: xOf(b.date),
+        label: b.label,
+        tip: b.tooltipText ?? b.blockType,
+      }));
 
     // Build area path (polyline closed at the bottom)
     const polylinePts = coords.map((c) => `${c.x},${c.y}`).join(" ");
@@ -239,18 +245,46 @@ export function E1RMChart({
           ))}
 
           {/* Block boundary verticals */}
-          {computed.blockLines.map((bl, i) => (
-            <line
-              key={`bl-${i}`}
-              x1={bl.x}
-              x2={bl.x}
-              y1={PAD_T}
-              y2={PAD_T + PLOT_H}
-              stroke="rgba(124,180,237,0.20)"
-              strokeWidth={1}
-              strokeDasharray="2 3"
-            />
-          ))}
+          {computed.blockLines.map((bl, i) => {
+            if (bl.tip) {
+              return (
+                <g key={`bl-${i}`}>
+                  <line
+                    x1={bl.x}
+                    x2={bl.x}
+                    y1={PAD_T}
+                    y2={PAD_T + PLOT_H}
+                    stroke="transparent"
+                    strokeWidth={10}
+                    style={{ pointerEvents: "stroke" }}
+                  />
+                  <line
+                    x1={bl.x}
+                    x2={bl.x}
+                    y1={PAD_T}
+                    y2={PAD_T + PLOT_H}
+                    stroke="rgba(124,180,237,0.20)"
+                    strokeWidth={1}
+                    strokeDasharray="2 3"
+                  />
+                  <title>{bl.tip}</title>
+                </g>
+              );
+            }
+
+            return (
+              <line
+                key={`bl-${i}`}
+                x1={bl.x}
+                x2={bl.x}
+                y1={PAD_T}
+                y2={PAD_T + PLOT_H}
+                stroke="rgba(124,180,237,0.20)"
+                strokeWidth={1}
+                strokeDasharray="2 3"
+              />
+            );
+          })}
 
           {/* Y-axis labels */}
           {computed.yTicks.map((t, i) => (
