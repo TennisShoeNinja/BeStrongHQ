@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
+import parseLocalDate from "@/lib/parseLocalDate";
 import * as Types from "@/lib/types";
 import { E1RMChart, type ChartPoint, type BlockBoundary } from "@/components/e1rm-chart";
 
@@ -24,12 +25,6 @@ const RANGES: { key: RangeKey; label: string; months: number | null }[] = [
   { key: "1y", label: "1Y", months: 12 },
   { key: "all", label: "All", months: null },
 ];
-
-function parseDate(s: string | null | undefined): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
 
 function formatBlockDate(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -89,7 +84,7 @@ export default function AthleteProgressionPage() {
     const liftMax = maxHistory
       .filter((m) => liftMatches(m.lift, lift))
       .map<ChartPoint>((m) => ({
-        date: new Date(m.recorded_at),
+        date: parseLocalDate(m.recorded_at) ?? new Date(NaN),
         value: m.new_value,
       }))
       .filter((p) => !isNaN(p.date.getTime()));
@@ -97,7 +92,7 @@ export default function AthleteProgressionPage() {
     const meetMax = meetResults
       .filter((m) => m.made && liftMatches(m.lift, lift) && m.meet_date)
       .map<ChartPoint>((m) => ({
-        date: new Date(m.meet_date!),
+        date: parseLocalDate(m.meet_date) ?? new Date(NaN),
         value: m.weight_lbs,
         isMeet: true,
       }))
@@ -111,7 +106,7 @@ export default function AthleteProgressionPage() {
   const blockBoundaries: BlockBoundary[] = useMemo(() => {
     return programs
       .map<BlockBoundary | null>((p) => {
-        const d = parseDate(p.date_start);
+        const d = parseLocalDate(p.date_start);
         if (!d) return null;
         return { date: d, label: p.program_name ?? undefined };
       })
@@ -134,13 +129,13 @@ export default function AthleteProgressionPage() {
   // Peaks per block
   const peaksByBlock = useMemo(() => {
     const sortedPrograms = [...programs].sort((a, b) => {
-      const da = parseDate(a.date_start)?.getTime() ?? 0;
-      const db = parseDate(b.date_start)?.getTime() ?? 0;
+      const da = parseLocalDate(a.date_start)?.getTime() ?? 0;
+      const db = parseLocalDate(b.date_start)?.getTime() ?? 0;
       return db - da; // most recent first
     });
     return sortedPrograms.map((p, i, arr) => {
-      const start = parseDate(p.date_start);
-      const end = parseDate(p.date_end);
+      const start = parseLocalDate(p.date_start);
+      const end = parseLocalDate(p.date_end);
       const inWindow = chartPoints.filter((pt) => {
         if (start && pt.date < start) return false;
         if (end && pt.date > end) return false;
@@ -154,8 +149,8 @@ export default function AthleteProgressionPage() {
       const prevBlock = arr[i + 1];
       let delta: number | null = null;
       if (prevBlock && peak !== null) {
-        const prevStart = parseDate(prevBlock.date_start);
-        const prevEnd = parseDate(prevBlock.date_end);
+        const prevStart = parseLocalDate(prevBlock.date_start);
+        const prevEnd = parseLocalDate(prevBlock.date_end);
         const prevWindow = chartPoints.filter((pt) => {
           if (prevStart && pt.date < prevStart) return false;
           if (prevEnd && pt.date > prevEnd) return false;

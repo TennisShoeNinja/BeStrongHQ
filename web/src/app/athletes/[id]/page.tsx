@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useMemo, useRef, useCallback, useSyncExt
 import { useRouter, useParams } from "next/navigation";
 import { useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
+import parseLocalDate from "@/lib/parseLocalDate";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/lib/use-now";
 import * as Types from "@/lib/types";
@@ -2901,12 +2902,8 @@ function groupMeetResults(rows: Types.MeetResultEntry[]): MeetGroup[] {
 // Avoids `new Date("2026-03-26")` which Safari/Chrome interpret as UTC
 // midnight and then locale-format back into the prior calendar day.
 function formatMeetDate(d: string | null | undefined): string | null {
-  if (!d) return null;
-  const parts = d.split("-");
-  if (parts.length !== 3) return d;
-  const [y, m, day] = parts.map(Number);
-  if (!y || !m || !day) return d;
-  const dt = new Date(y, m - 1, day);
+  const dt = parseLocalDate(d);
+  if (!dt) return null;
   return dt.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
