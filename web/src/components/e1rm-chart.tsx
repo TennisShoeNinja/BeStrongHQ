@@ -249,6 +249,7 @@ export function E1RMChart({
             if (bl.tip) {
               return (
                 <g key={`bl-${i}`}>
+                  <title>{bl.tip}</title>
                   <line
                     x1={bl.x}
                     x2={bl.x}
@@ -267,7 +268,6 @@ export function E1RMChart({
                     strokeWidth={1}
                     strokeDasharray="2 3"
                   />
-                  <title>{bl.tip}</title>
                 </g>
               );
             }
