@@ -54,9 +54,12 @@ export default function AthleteProgressionPage() {
     queryKey: ["athlete", athleteId],
     queryFn: () => apiClient.getAthlete(athleteId),
   });
-  const { data: maxHistory = [] as Types.MaxHistoryEntry[] } = useQuery({
-    queryKey: ["maxHistory", athleteId],
-    queryFn: () => apiClient.getMaxHistory(athleteId),
+  // Server-computed estimated 1RM, capped at triples. Replaces raw
+  // max_history.new_value, which mixed raw loads across rep ranges and
+  // exercise variations on one line. Same source as the Peak Weight chart.
+  const { data: e1rmTrends = [] as Types.E1RMDataPoint[] } = useQuery({
+    queryKey: ["e1rmTrends", athleteId],
+    queryFn: () => apiClient.getE1RMTrends(athleteId, { maxReps: 3 }),
   });
   const { data: meetResults = [] as Types.MeetResultEntry[] } = useQuery({
     queryKey: ["meetResults", athleteId],
@@ -79,15 +82,35 @@ export default function AthleteProgressionPage() {
     return { rangeStart: start, rangeEnd: end };
   }, [range]);
 
-  // Build chart points from MaxHistory + MeetResults for the selected lift
+  // Build chart points from E1RM trends + MeetResults for the selected lift
   const chartPoints: ChartPoint[] = useMemo(() => {
-    const liftMax = maxHistory
-      .filter((m) => liftMatches(m.lift, lift))
-      .map<ChartPoint>((m) => ({
-        date: parseLocalDate(m.recorded_at) ?? new Date(NaN),
-        value: m.new_value,
-      }))
-      .filter((p) => !isNaN(p.date.getTime()));
+    // E1RM trend points are indexed by program/week/day, not calendar date.
+    // Convert via each program's date_start (already fetched for the block
+    // boundaries below). Week-level precision is sufficient.
+    const startByProgram = new Map<number, Date>();
+    for (const p of programs) {
+      const start = parseLocalDate(p.date_start);
+      if (p.id != null && start) startByProgram.set(p.id, start);
+    }
+
+    const liftMax = e1rmTrends
+      .filter(
+        (d) =>
+          d.e1rm != null &&
+          liftMatches(d.lift_category, lift) &&
+          d.program_id != null &&
+          startByProgram.has(d.program_id),
+      )
+      .map<ChartPoint>((d) => {
+        const start = startByProgram.get(d.program_id as number) as Date;
+        const date = new Date(start);
+        const offsetDays = Math.max(
+          0,
+          (d.week_number - 1) * 7 + (d.day_number - 1),
+        );
+        date.setDate(date.getDate() + offsetDays);
+        return { date, value: d.e1rm as number };
+      });
 
     const meetMax = meetResults
       .filter((m) => m.made && liftMatches(m.lift, lift) && m.meet_date)
@@ -101,7 +124,7 @@ export default function AthleteProgressionPage() {
     return [...liftMax, ...meetMax].sort(
       (a, b) => a.date.getTime() - b.date.getTime(),
     );
-  }, [maxHistory, meetResults, lift]);
+  }, [e1rmTrends, meetResults, programs, lift]);
 
   const blockBoundaries: BlockBoundary[] = useMemo(() => {
     return programs
