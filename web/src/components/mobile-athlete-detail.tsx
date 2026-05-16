@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ArrowRight, Flame } from "lucide-react";
+import { Activity, Flame } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
 import { MobileTopbar } from "@/components/mobile-topbar";
@@ -290,9 +289,6 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
         {/* Estimated 1RM strip */}
         <div className="cloud-mhome-section-h">
           <p className="eyebrow">Estimated 1RM</p>
-          <Link href={`/athletes/${athlete.id}/progression`}>
-            View progression <ArrowRight />
-          </Link>
         </div>
         <div
           style={{
