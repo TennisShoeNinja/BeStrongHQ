@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 export interface ChartPoint {
   date: Date;
@@ -70,6 +70,10 @@ export function E1RMChart({
   caption,
   hideCurrentGlow,
 }: Props) {
+  const [hoverTip, setHoverTip] = useState<{ x: number; text: string } | null>(
+    null,
+  );
+
   const computed = useMemo(() => {
     if (points.length === 0) return null;
     const sorted = [...points].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -246,51 +250,37 @@ export function E1RMChart({
 
           {/* Block boundary verticals */}
           {computed.blockLines.map((bl, i) => {
-            if (bl.tip) {
-              return (
-                <g key={`bl-${i}`}>
-                  {/* Transparent 10px-wide hover target. The <title> lives
-                      directly inside this line, not on the parent <g>, so the
-                      browser shows it on hover (browsers do not reliably walk
-                      up from a hovered child to an ancestor's <title>). */}
-                  <line
-                    x1={bl.x}
-                    x2={bl.x}
-                    y1={PAD_T}
-                    y2={PAD_T + PLOT_H}
-                    stroke="transparent"
-                    strokeWidth={10}
-                    style={{ pointerEvents: "stroke" }}
-                  >
-                    <title>{bl.tip}</title>
-                  </line>
-                  {/* Visible dashed line — purely decorative, pointer-events
-                      disabled so a hover on it falls through to the target. */}
-                  <line
-                    x1={bl.x}
-                    x2={bl.x}
-                    y1={PAD_T}
-                    y2={PAD_T + PLOT_H}
-                    stroke="rgba(124,180,237,0.20)"
-                    strokeWidth={1}
-                    strokeDasharray="2 3"
-                    style={{ pointerEvents: "none" }}
-                  />
-                </g>
-              );
-            }
-
+            const tip = bl.tip;
             return (
-              <line
-                key={`bl-${i}`}
-                x1={bl.x}
-                x2={bl.x}
-                y1={PAD_T}
-                y2={PAD_T + PLOT_H}
-                stroke="rgba(124,180,237,0.20)"
-                strokeWidth={1}
-                strokeDasharray="2 3"
-              />
+              <g key={`bl-${i}`}>
+                {/* Visible dashed line — decorative, never catches pointers. */}
+                <line
+                  x1={bl.x}
+                  x2={bl.x}
+                  y1={PAD_T}
+                  y2={PAD_T + PLOT_H}
+                  stroke="rgba(124,180,237,0.20)"
+                  strokeWidth={1}
+                  strokeDasharray="2 3"
+                  style={{ pointerEvents: "none" }}
+                />
+                {/* Hit target: a real filled rect. A zero-width <line> does
+                    not reliably catch hovers even with pointer-events:stroke,
+                    so use a rect with a transparent fill. React state drives
+                    the tooltip rather than a finicky native SVG <title>. */}
+                {tip && (
+                  <rect
+                    x={bl.x - 4}
+                    y={PAD_T}
+                    width={8}
+                    height={PLOT_H}
+                    fill="transparent"
+                    style={{ pointerEvents: "all" }}
+                    onMouseEnter={() => setHoverTip({ x: bl.x, text: tip })}
+                    onMouseLeave={() => setHoverTip(null)}
+                  />
+                )}
+              </g>
             );
           })}
 
@@ -387,6 +377,43 @@ export function E1RMChart({
               {t.label}
             </text>
           ))}
+
+          {/* Block-boundary hover tooltip (React-state driven, rendered last
+              so it sits above every other chart element). */}
+          {hoverTip
+            ? (() => {
+                const tw = hoverTip.text.length * 5.4 + 14;
+                const th = 16;
+                const bx = Math.max(
+                  PAD_L,
+                  Math.min(hoverTip.x - tw / 2, VB_W - PAD_R - tw),
+                );
+                const by = PAD_T + 3;
+                return (
+                  <g style={{ pointerEvents: "none" }}>
+                    <rect
+                      x={bx}
+                      y={by}
+                      width={tw}
+                      height={th}
+                      rx={3}
+                      fill="#16161b"
+                      stroke="rgba(124,180,237,0.45)"
+                      strokeWidth={0.6}
+                    />
+                    <text
+                      x={bx + tw / 2}
+                      y={by + 11}
+                      fontSize={9}
+                      textAnchor="middle"
+                      fill="#fafafa"
+                    >
+                      {hoverTip.text}
+                    </text>
+                  </g>
+                );
+              })()
+            : null}
         </svg>
       )}
       {/* Legend strip */}
