@@ -11,16 +11,17 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "@/lib/theme-provider";
-import { LIFTS, type LiftKey, type LiftSeriesRow } from "@/lib/progression";
+import { LIFTS, type ChartRow, type LiftKey } from "@/lib/progression";
 
 interface Props {
-  rows: LiftSeriesRow[];
+  rows: ChartRow[];
   visibleLifts: Set<LiftKey>;
   /** block-boundary timestamps for dashed reference verticals */
   boundaries: number[];
   unit: string;
   height?: number;
   mode?: "e1rm" | "volume";
+  series?: { key: string; label: string; color: string }[];
 }
 
 /**
@@ -34,6 +35,7 @@ export function ProgressionChart({
   unit,
   height = 280,
   mode = "e1rm",
+  series,
 }: Props) {
   const { resolvedMode } = useTheme();
   const dark = resolvedMode === "dark";
@@ -120,15 +122,15 @@ export function ProgressionChart({
               strokeDasharray="2 3"
             />
           ))}
-          {LIFTS.filter((l) => visibleLifts.has(l.key)).map((l) => (
+          {(series ?? LIFTS.filter((l) => visibleLifts.has(l.key))).map((s) => (
             <Line
-              key={l.key}
+              key={s.key}
               type="monotone"
-              dataKey={l.key}
-              name={l.label}
-              stroke={l.color}
+              dataKey={s.key}
+              name={s.label}
+              stroke={s.color}
               strokeWidth={2}
-              dot={{ r: 2, fill: l.color }}
+              dot={{ r: 2, fill: s.color }}
               activeDot={{ r: 5 }}
               connectNulls
               isAnimationActive={false}

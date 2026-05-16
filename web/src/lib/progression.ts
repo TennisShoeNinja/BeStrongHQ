@@ -26,6 +26,15 @@ export const LIFTS: { key: LiftKey; label: string; color: string }[] = [
   { key: "deadlift", label: "Deadlift", color: "#34D399" },
 ];
 
+export const COMPARE_COLORS = [
+  "#7CB4ED",
+  "#F59E0B",
+  "#34D399",
+  "#E879F9",
+  "#F87171",
+  "#A78BFA",
+];
+
 export type RepFilterKey =
   | "all"
   | "singles"
@@ -54,6 +63,20 @@ export function repFilterRange(key: RepFilterKey): {
 } {
   const f = REP_FILTERS.find((r) => r.key === key);
   return { minReps: f?.minReps, maxReps: f?.maxReps };
+}
+
+export interface CompareSeries {
+  id: string;
+  lift: LiftKey;
+  repFilter: RepFilterKey;
+}
+
+export function compareSeriesLabel(series: CompareSeries): string {
+  const lift = LIFTS.find((l) => l.key === series.lift)?.label ?? series.lift;
+  const reps =
+    REP_FILTERS.find((filter) => filter.key === series.repFilter)?.label ??
+    series.repFilter;
+  return `${lift} ${reps}`;
 }
 
 /** Match an exercise's `lift_category` tag to one of the three lifts. */
@@ -108,7 +131,9 @@ export function competitionVariation(
   return (comp ?? ranked[0])[0];
 }
 
-export interface LiftSeriesRow {
+export type ChartRow = { ts: number } & Record<string, number | undefined>;
+
+export interface LiftSeriesRow extends ChartRow {
   ts: number;
   squat?: number;
   bench?: number;
@@ -161,6 +186,15 @@ function pointTimestamp(
   return start + offsetDays * 86400000;
 }
 
+function programStartTimestamps(programs: ProgramListResponse[]): Map<number, number> {
+  const startByProgram = new Map<number, number>();
+  for (const prog of programs) {
+    const d = parseLocalDate(prog.date_start);
+    if (prog.id != null && d) startByProgram.set(prog.id, d.getTime());
+  }
+  return startByProgram;
+}
+
 /**
  * Build a unified time-series dataset for the multi-lift chart. Per lift,
  * take the competition variation's e1RM points and merge them into rows
@@ -171,11 +205,7 @@ export function buildLiftSeries(
   programs: ProgramListResponse[],
   selectedProgramIds?: Set<number>,
 ): LiftSeries {
-  const startByProgram = new Map<number, number>();
-  for (const prog of programs) {
-    const d = parseLocalDate(prog.date_start);
-    if (prog.id != null && d) startByProgram.set(prog.id, d.getTime());
-  }
+  const startByProgram = programStartTimestamps(programs);
   const filteredPoints = selectedProgramIds
     ? points.filter((p) => p.program_id != null && selectedProgramIds.has(p.program_id))
     : points;
@@ -215,6 +245,41 @@ export function buildLiftSeries(
 
   const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
   return { rows, available, variation };
+}
+
+export function buildCompareSeries(
+  inputs: { id: string; lift: LiftKey; points: E1RMDataPoint[] }[],
+  programs: ProgramListResponse[],
+): { rows: ChartRow[]; available: Record<string, boolean> } {
+  const startByProgram = programStartTimestamps(programs);
+
+  const rowByTs = new Map<number, ChartRow>();
+  const available: Record<string, boolean> = {};
+
+  for (const input of inputs) {
+    available[input.id] = false;
+    const canon = competitionVariation(input.points, input.lift);
+    if (!canon) continue;
+
+    for (const p of input.points) {
+      if (p.e1rm == null) continue;
+      if (!liftMatches(p.lift_category, input.lift)) continue;
+      if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
+      const ts = pointTimestamp(p, startByProgram);
+      if (ts == null) continue;
+      let row = rowByTs.get(ts);
+      if (!row) {
+        row = { ts };
+        rowByTs.set(ts, row);
+      }
+      const prev = row[input.id];
+      if (prev == null || p.e1rm > prev) row[input.id] = p.e1rm;
+      available[input.id] = true;
+    }
+  }
+
+  const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
+  return { rows, available };
 }
 
 /**

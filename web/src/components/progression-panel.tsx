@@ -1,22 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import * as Types from "@/lib/types";
 import { convertWeight, type WeightUnit } from "@/lib/units";
 import {
+  COMPARE_COLORS,
   LIFTS,
   REP_FILTERS,
   blockBoundaryTimestamps,
+  buildCompareSeries,
   buildLiftSeries,
   buildVolumeSeries,
+  compareSeriesLabel,
   peaksByBlock,
   repFilterRange,
   topEfforts,
   type BlockPeaks,
+  type ChartRow,
+  type CompareSeries,
   type LiftKey,
-  type LiftSeriesRow,
   type PeakEffort,
   type RepFilterKey,
 } from "@/lib/progression";
@@ -27,12 +31,23 @@ interface Props {
   unit: WeightUnit;
 }
 
+let compareSeriesCounter = 0;
+
+function newCompareSeriesId() {
+  compareSeriesCounter += 1;
+  return `compare-${compareSeriesCounter}`;
+}
+
 /**
  * Rich coach progression panel: multiple lifts overlaid on one e1RM
  * trajectory, sliced by rep range. Mounted inline on the athlete profile.
  */
 export function ProgressionPanel({ athleteId, unit }: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSeries, setCompareSeries] = useState<CompareSeries[]>(() => [
+    { id: newCompareSeriesId(), lift: "squat", repFilter: "1-3" },
+  ]);
   const [repFilter, setRepFilter] = useState<RepFilterKey>("1-3");
   const [primaryOnly, setPrimaryOnly] = useState(false);
   const [showPeakTable, setShowPeakTable] = useState(false);
@@ -56,7 +71,27 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
   const { data: volumeTrends = [] as Types.VolumeDataPoint[] } = useQuery({
     queryKey: ["progression-volume", athleteId],
     queryFn: () => apiClient.getVolumeTrends(athleteId),
-    enabled: chartMode === "volume",
+    enabled: !compareMode && chartMode === "volume",
+  });
+  const compareSeriesQueries = useQueries({
+    queries: compareSeries.map((series) => {
+      const range = repFilterRange(series.repFilter);
+      return {
+        queryKey: [
+          "progression-compare",
+          athleteId,
+          series.lift,
+          series.repFilter,
+        ],
+        queryFn: () =>
+          apiClient.getE1RMTrends(athleteId, {
+            liftCategory: series.lift,
+            minReps: range.minReps,
+            maxReps: range.maxReps,
+          }),
+        enabled: compareMode,
+      };
+    }),
   });
   const { data: programs = [] as Types.ProgramListResponse[] } = useQuery({
     queryKey: ["programs", athleteId],
@@ -89,6 +124,33 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     () => blockBoundaryTimestamps(programs, effectiveSelectedProgramIds),
     [effectiveSelectedProgramIds, programs],
   );
+  const compareBoundaries = useMemo(
+    () => blockBoundaryTimestamps(programs),
+    [programs],
+  );
+  const compareChart = useMemo(
+    () =>
+      buildCompareSeries(
+        compareSeries.map((seriesItem, index) => ({
+          id: seriesItem.id,
+          lift: seriesItem.lift,
+          points:
+            (compareSeriesQueries[index]?.data as Types.E1RMDataPoint[] | undefined) ??
+            [],
+        })),
+        programs,
+      ),
+    [compareSeries, compareSeriesQueries, programs],
+  );
+  const compareChartSeries = useMemo(
+    () =>
+      compareSeries.map((seriesItem, index) => ({
+        key: seriesItem.id,
+        label: compareSeriesLabel(seriesItem),
+        color: COMPARE_COLORS[index % COMPARE_COLORS.length],
+      })),
+    [compareSeries],
+  );
   const blockPeaks = useMemo(
     () => peaksByBlock(e1rmTrends, programs),
     [e1rmTrends, programs],
@@ -98,16 +160,21 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     [e1rmTrends, programs],
   );
 
+  const chartRows = compareMode ? compareChart.rows : series.rows;
+  const chartBoundaries = compareMode ? compareBoundaries : boundaries;
+
   // Progression data from the API is in pounds; convert for kg-preference coaches.
-  const displayRows: LiftSeriesRow[] = useMemo(() => {
-    if (unit === "lbs") return series.rows;
-    return series.rows.map((r) => ({
-      ts: r.ts,
-      squat: r.squat != null ? convertWeight(r.squat, unit) : undefined,
-      bench: r.bench != null ? convertWeight(r.bench, unit) : undefined,
-      deadlift: r.deadlift != null ? convertWeight(r.deadlift, unit) : undefined,
-    }));
-  }, [series.rows, unit]);
+  const displayRows: ChartRow[] = useMemo(() => {
+    if (unit === "lbs") return chartRows;
+    return chartRows.map((row) => {
+      const next: ChartRow = { ts: row.ts };
+      for (const [key, value] of Object.entries(row)) {
+        if (key === "ts") continue;
+        next[key] = value != null ? convertWeight(value, unit) : undefined;
+      }
+      return next;
+    });
+  }, [chartRows, unit]);
 
   const toggleLift = (lift: LiftKey) => {
     setVisibleLifts((prev) => {
@@ -136,6 +203,30 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       }
       return next;
     });
+  };
+
+  const updateCompareSeries = (
+    id: string,
+    patch: Partial<Pick<CompareSeries, "lift" | "repFilter">>,
+  ) => {
+    setCompareSeries((prev) =>
+      prev.map((seriesItem) =>
+        seriesItem.id === id ? { ...seriesItem, ...patch } : seriesItem,
+      ),
+    );
+  };
+
+  const addCompareSeries = () => {
+    setCompareSeries((prev) => [
+      ...prev,
+      { id: newCompareSeriesId(), lift: "squat", repFilter: "1-3" },
+    ]);
+  };
+
+  const removeCompareSeries = (id: string) => {
+    setCompareSeries((prev) =>
+      prev.length === 1 ? prev : prev.filter((seriesItem) => seriesItem.id !== id),
+    );
   };
 
   const programLabel = (
@@ -196,44 +287,71 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       >
         {/* Chart mode */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {[
-            { key: "e1rm", label: "e1RM" },
-            { key: "volume", label: "Volume" },
-          ].map((mode) => {
-            const active = chartMode === mode.key;
-            return (
-              <button
-                key={mode.key}
-                type="button"
-                onClick={() => setChartMode(mode.key as "e1rm" | "volume")}
-                aria-pressed={active}
-                style={{
-                  background: active
-                    ? "rgba(12, 92, 171, 0.20)"
-                    : "var(--cloud-panel)",
-                  border: `1px solid ${
-                    active ? "rgba(12, 92, 171, 0.40)" : "var(--cloud-border)"
-                  }`,
-                  color: active
-                    ? "var(--cloud-primary-text)"
-                    : "var(--cloud-text-muted)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  letterSpacing: "0.02em",
-                }}
-              >
-                {mode.label}
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => setCompareMode((value) => !value)}
+            aria-pressed={compareMode}
+            style={{
+              background: compareMode
+                ? "rgba(12, 92, 171, 0.20)"
+                : "var(--cloud-panel)",
+              border: `1px solid ${
+                compareMode ? "rgba(12, 92, 171, 0.40)" : "var(--cloud-border)"
+              }`,
+              color: compareMode
+                ? "var(--cloud-primary-text)"
+                : "var(--cloud-text-muted)",
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "6px 12px",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              letterSpacing: "0.02em",
+            }}
+          >
+            Compare
+          </button>
+          {!compareMode &&
+            [
+              { key: "e1rm", label: "e1RM" },
+              { key: "volume", label: "Volume" },
+            ].map((mode) => {
+              const active = chartMode === mode.key;
+              return (
+                <button
+                  key={mode.key}
+                  type="button"
+                  onClick={() => setChartMode(mode.key as "e1rm" | "volume")}
+                  aria-pressed={active}
+                  style={{
+                    background: active
+                      ? "rgba(12, 92, 171, 0.20)"
+                      : "var(--cloud-panel)",
+                    border: `1px solid ${
+                      active ? "rgba(12, 92, 171, 0.40)" : "var(--cloud-border)"
+                    }`,
+                    color: active
+                      ? "var(--cloud-primary-text)"
+                      : "var(--cloud-text-muted)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {mode.label}
+                </button>
+              );
+            })}
         </div>
 
         {/* Lift toggles */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {!compareMode && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {LIFTS.map((l) => {
             const has = series.available[l.key];
             const active = has && visibleLifts.has(l.key);
@@ -281,9 +399,10 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
               </button>
             );
           })}
-        </div>
+          </div>
+        )}
 
-        {chartMode === "e1rm" && (
+        {!compareMode && chartMode === "e1rm" && (
           /* Rep-range filter */
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {REP_FILTERS.map((r) => {
@@ -344,7 +463,7 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
           </div>
         )}
 
-        {programOptions.length > 0 && (
+        {!compareMode && programOptions.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {programOptions.map((program) => {
               const active = effectiveSelectedProgramIds.has(program.id);
@@ -380,15 +499,160 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
           </div>
         )}
 
+        {compareMode && (
+          <section
+            style={{
+              background: "var(--cloud-surface-raised)",
+              border: "1px solid var(--cloud-border)",
+              borderRadius: 8,
+              padding: "var(--cloud-s3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--cloud-s2)",
+            }}
+          >
+            <div
+              style={{
+                color: "var(--cloud-primary-text)",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              COMPARE SERIES
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {compareSeries.map((seriesItem, index) => (
+                <div
+                  key={seriesItem.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "10px minmax(108px, 1fr) minmax(124px, 1fr) auto",
+                    gap: 8,
+                    alignItems: "center",
+                    padding: "8px 10px",
+                    border: "1px solid var(--cloud-border)",
+                    borderRadius: 8,
+                    background: "var(--cloud-panel)",
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: COMPARE_COLORS[index % COMPARE_COLORS.length],
+                    }}
+                  />
+                  <select
+                    value={seriesItem.lift}
+                    onChange={(event) =>
+                      updateCompareSeries(seriesItem.id, {
+                        lift: event.target.value as LiftKey,
+                      })
+                    }
+                    style={{
+                      background: "var(--cloud-panel)",
+                      border: "1px solid var(--cloud-border)",
+                      color: "var(--cloud-text)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      fontFamily: "inherit",
+                      colorScheme: "dark",
+                    }}
+                  >
+                    {LIFTS.map((lift) => (
+                      <option key={lift.key} value={lift.key}>
+                        {lift.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={seriesItem.repFilter}
+                    onChange={(event) =>
+                      updateCompareSeries(seriesItem.id, {
+                        repFilter: event.target.value as RepFilterKey,
+                      })
+                    }
+                    style={{
+                      background: "var(--cloud-panel)",
+                      border: "1px solid var(--cloud-border)",
+                      color: "var(--cloud-text)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      fontFamily: "inherit",
+                      colorScheme: "dark",
+                    }}
+                  >
+                    {REP_FILTERS.map((filter) => (
+                      <option key={filter.key} value={filter.key}>
+                        {filter.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeCompareSeries(seriesItem.id)}
+                    disabled={compareSeries.length === 1}
+                    style={{
+                      background: "var(--cloud-panel)",
+                      border: "1px solid var(--cloud-border)",
+                      color:
+                        compareSeries.length === 1
+                          ? "var(--cloud-text-dim)"
+                          : "var(--cloud-text-muted)",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      cursor: compareSeries.length === 1 ? "not-allowed" : "pointer",
+                      fontFamily: "inherit",
+                      opacity: compareSeries.length === 1 ? 0.55 : 1,
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addCompareSeries}
+              style={{
+                alignSelf: "flex-start",
+                background: "var(--cloud-panel)",
+                border: "1px solid var(--cloud-border)",
+                color: "var(--cloud-primary-text)",
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "6px 12px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Add series
+            </button>
+          </section>
+        )}
+
         <ProgressionChart
           rows={displayRows}
           visibleLifts={visibleLifts}
-          boundaries={boundaries}
+          boundaries={chartBoundaries}
           unit={unit}
-          mode={chartMode}
+          mode={compareMode ? "e1rm" : chartMode}
+          series={compareMode ? compareChartSeries : undefined}
         />
 
-        {blockPeaks.length > 0 && (
+        {!compareMode && blockPeaks.length > 0 && (
           <section
             style={{
               background: "var(--cloud-surface-raised)",
@@ -492,7 +756,7 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
           </section>
         )}
 
-        {peakEfforts.length > 0 && (
+        {!compareMode && peakEfforts.length > 0 && (
           <section
             style={{
               background: "var(--cloud-surface-raised)",
