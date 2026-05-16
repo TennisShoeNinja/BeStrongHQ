@@ -123,6 +123,21 @@ export interface LiftSeries {
   variation: Record<LiftKey, string | null>;
 }
 
+export interface BlockPeaks {
+  programId: number;
+  programNumber: number | null;
+  programName: string | null;
+  peaks: Record<LiftKey, { e1rm: number; delta: number | null } | null>;
+}
+
+function emptyLiftPeaks(): Record<LiftKey, { e1rm: number; delta: number | null } | null> {
+  return {
+    squat: null,
+    bench: null,
+    deadlift: null,
+  };
+}
+
 /** Offset a program/week/day-indexed point to a calendar timestamp. */
 function pointTimestamp(
   p: E1RMDataPoint,
@@ -189,6 +204,83 @@ export function buildLiftSeries(
 
   const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
   return { rows, available, variation };
+}
+
+/**
+ * Build compact per-program peak e1RM rows using the same competition
+ * variation choice as the main e1RM series.
+ */
+export function peaksByBlock(
+  points: E1RMDataPoint[],
+  programs: ProgramListResponse[],
+): BlockPeaks[] {
+  const variation: Record<LiftKey, string | null> = {
+    squat: competitionVariation(points, "squat"),
+    bench: competitionVariation(points, "bench"),
+    deadlift: competitionVariation(points, "deadlift"),
+  };
+  const sortedPrograms = [...programs].sort((a, b) => {
+    const aDate = parseLocalDate(a.date_start)?.getTime();
+    const bDate = parseLocalDate(b.date_start)?.getTime();
+    if (aDate != null && bDate != null && aDate !== bDate) return aDate - bDate;
+    const aNumber = a.program_number ?? a.id;
+    const bNumber = b.program_number ?? b.id;
+    return aNumber - bNumber;
+  });
+  const pointsByProgram = new Map<number, E1RMDataPoint[]>();
+  for (const p of points) {
+    if (p.program_id == null || p.e1rm == null) continue;
+    const list = pointsByProgram.get(p.program_id) ?? [];
+    list.push(p);
+    pointsByProgram.set(p.program_id, list);
+  }
+
+  const rows: BlockPeaks[] = [];
+  let previousPeaks = emptyLiftPeaks();
+
+  for (const program of sortedPrograms) {
+    const blockPoints = pointsByProgram.get(program.id) ?? [];
+    const currentRaw: Record<LiftKey, number | null> = {
+      squat: null,
+      bench: null,
+      deadlift: null,
+    };
+
+    for (const lift of ["squat", "bench", "deadlift"] as LiftKey[]) {
+      const canon = variation[lift];
+      if (!canon) continue;
+      for (const p of blockPoints) {
+        if (p.e1rm == null) continue;
+        if (!liftMatches(p.lift_category, lift)) continue;
+        if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
+        const prev = currentRaw[lift];
+        if (prev == null || p.e1rm > prev) currentRaw[lift] = p.e1rm;
+      }
+    }
+
+    const peaks = emptyLiftPeaks();
+    for (const lift of ["squat", "bench", "deadlift"] as LiftKey[]) {
+      const e1rm = currentRaw[lift];
+      if (e1rm == null) continue;
+      const previous = previousPeaks[lift]?.e1rm ?? null;
+      peaks[lift] = {
+        e1rm,
+        delta: previous == null ? null : e1rm - previous,
+      };
+    }
+
+    if (Object.values(peaks).some((peak) => peak != null)) {
+      rows.push({
+        programId: program.id,
+        programNumber: program.program_number ?? null,
+        programName: program.program_name ?? null,
+        peaks,
+      });
+      previousPeaks = peaks;
+    }
+  }
+
+  return rows;
 }
 
 /** Offset a program/week-indexed volume point to a calendar timestamp. */

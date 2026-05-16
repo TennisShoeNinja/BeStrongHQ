@@ -11,7 +11,9 @@ import {
   blockBoundaryTimestamps,
   buildLiftSeries,
   buildVolumeSeries,
+  peaksByBlock,
   repFilterRange,
+  type BlockPeaks,
   type LiftKey,
   type LiftSeriesRow,
   type RepFilterKey,
@@ -84,6 +86,10 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     () => blockBoundaryTimestamps(programs, effectiveSelectedProgramIds),
     [effectiveSelectedProgramIds, programs],
   );
+  const blockPeaks = useMemo(
+    () => peaksByBlock(e1rmTrends, programs),
+    [e1rmTrends, programs],
+  );
 
   // Progression data from the API is in pounds; convert for kg-preference coaches.
   const displayRows: LiftSeriesRow[] = useMemo(() => {
@@ -125,12 +131,39 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     });
   };
 
-  const programLabel = (program: Types.ProgramListResponse) => {
+  const programLabel = (
+    program: Pick<Types.ProgramListResponse, "program_number" | "program_name">,
+  ) => {
     const block =
       program.program_number != null ? `B${program.program_number}` : "Block";
     const name = (program.program_name ?? "").trim();
     return name ? `${block} ${name}` : block;
   };
+
+  const formatPeak = (value: number) =>
+    `${Math.round(convertWeight(value, unit)).toLocaleString("en-US")} ${unit}`;
+
+  const roundedDelta = (value: number) => Math.round(convertWeight(value, unit));
+
+  const formatDelta = (value: number) => {
+    const displayValue = roundedDelta(value);
+    if (displayValue > 0) return `+${displayValue.toLocaleString("en-US")}`;
+    return displayValue.toLocaleString("en-US");
+  };
+
+  const deltaColor = (value: number | null) => {
+    if (value == null) return "var(--cloud-text-dim)";
+    const displayValue = roundedDelta(value);
+    if (displayValue > 0) return "var(--cloud-success-text)";
+    if (displayValue < 0) return "var(--cloud-danger-text)";
+    return "var(--cloud-text-dim)";
+  };
+
+  const blockPeakLabel = (block: BlockPeaks) =>
+    programLabel({
+      program_number: block.programNumber,
+      program_name: block.programName,
+    });
 
   return (
     <div className="cloud-panel" style={{ marginBottom: "var(--cloud-s5)" }}>
@@ -338,6 +371,110 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
           unit={unit}
           mode={chartMode}
         />
+
+        {blockPeaks.length > 0 && (
+          <section
+            style={{
+              background: "var(--cloud-surface-raised)",
+              border: "1px solid var(--cloud-border)",
+              borderRadius: 8,
+              padding: "var(--cloud-s3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--cloud-s2)",
+            }}
+          >
+            <div
+              style={{
+                color: "var(--cloud-primary-text)",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              PEAK WEIGHT PER BLOCK
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {blockPeaks.map((block) => (
+                <div
+                  key={block.programId}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(140px, 1fr) repeat(auto-fit, minmax(112px, 128px))",
+                    gap: 8,
+                    alignItems: "center",
+                    padding: "8px 10px",
+                    border: "1px solid var(--cloud-border)",
+                    borderRadius: 8,
+                    background: "var(--cloud-panel)",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "var(--cloud-primary-text)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={blockPeakLabel(block)}
+                  >
+                    {blockPeakLabel(block)}
+                  </div>
+                  {LIFTS.filter((lift) => visibleLifts.has(lift.key)).map((lift) => {
+                    const peak = block.peaks[lift.key];
+                    return (
+                      <div
+                        key={lift.key}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                          minWidth: 0,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "var(--cloud-text-muted)",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {lift.label}
+                        </span>
+                        <span
+                          style={{
+                            color: peak ? "var(--cloud-text)" : "var(--cloud-text-dim)",
+                            fontSize: 13,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {peak ? formatPeak(peak.e1rm) : "No peak"}
+                        </span>
+                        {peak && (
+                          <span
+                            style={{
+                              color: deltaColor(peak.delta),
+                              fontSize: 11,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {peak.delta == null ? "New" : formatDelta(peak.delta)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
