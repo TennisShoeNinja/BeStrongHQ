@@ -223,6 +223,7 @@ export function E1RMChart({
           No data in this range yet.
         </div>
       ) : (
+        <div style={{ position: "relative" }}>
         <svg
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           preserveAspectRatio="none"
@@ -378,43 +379,32 @@ export function E1RMChart({
             </text>
           ))}
 
-          {/* Block-boundary hover tooltip (React-state driven, rendered last
-              so it sits above every other chart element). */}
-          {hoverTip
-            ? (() => {
-                const tw = hoverTip.text.length * 5.4 + 14;
-                const th = 16;
-                const bx = Math.max(
-                  PAD_L,
-                  Math.min(hoverTip.x - tw / 2, VB_W - PAD_R - tw),
-                );
-                const by = PAD_T + 3;
-                return (
-                  <g style={{ pointerEvents: "none" }}>
-                    <rect
-                      x={bx}
-                      y={by}
-                      width={tw}
-                      height={th}
-                      rx={3}
-                      fill="#16161b"
-                      stroke="rgba(124,180,237,0.45)"
-                      strokeWidth={0.6}
-                    />
-                    <text
-                      x={bx + tw / 2}
-                      y={by + 11}
-                      fontSize={9}
-                      textAnchor="middle"
-                      fill="#fafafa"
-                    >
-                      {hoverTip.text}
-                    </text>
-                  </g>
-                );
-              })()
-            : null}
         </svg>
+        {/* Block-boundary hover tooltip — an HTML overlay, NOT an SVG element,
+            so it renders in real CSS pixels and does not scale up with the
+            small viewBox. Positioned by percentage at the boundary's x. */}
+        {hoverTip && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${(hoverTip.x / VB_W) * 100}%`,
+              top: 10,
+              transform: "translateX(-50%)",
+              pointerEvents: "none",
+              background: "#16161b",
+              border: "1px solid rgba(124,180,237,0.45)",
+              borderRadius: 5,
+              padding: "2px 7px",
+              fontSize: 11,
+              lineHeight: 1.45,
+              color: "#fafafa",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {hoverTip.text}
+          </div>
+        )}
+        </div>
       )}
       {/* Legend strip */}
       <div
