@@ -301,10 +301,15 @@ export function E1RMChart({
             </text>
           ))}
 
-          {/* Area fill */}
-          <path d={computed.areaPath} fill="url(#e1rm-area-fill)" />
+          {/* Area fill — pointer-events disabled so it does not intercept
+              hovers meant for the block boundary <title> tooltips beneath. */}
+          <path
+            d={computed.areaPath}
+            fill="url(#e1rm-area-fill)"
+            style={{ pointerEvents: "none" }}
+          />
 
-          {/* Data line */}
+          {/* Data line — pointer-events disabled for the same reason. */}
           <polyline
             points={computed.polylinePts}
             fill="none"
@@ -312,6 +317,7 @@ export function E1RMChart({
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
+            style={{ pointerEvents: "none" }}
           />
 
           {/* Data dots */}
