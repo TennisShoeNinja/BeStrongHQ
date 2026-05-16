@@ -13,9 +13,11 @@ import {
   buildVolumeSeries,
   peaksByBlock,
   repFilterRange,
+  topEfforts,
   type BlockPeaks,
   type LiftKey,
   type LiftSeriesRow,
+  type PeakEffort,
   type RepFilterKey,
 } from "@/lib/progression";
 import { ProgressionChart } from "@/components/progression-chart";
@@ -33,6 +35,7 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [repFilter, setRepFilter] = useState<RepFilterKey>("1-3");
   const [primaryOnly, setPrimaryOnly] = useState(false);
+  const [showPeakTable, setShowPeakTable] = useState(false);
   const [selectedProgramIds, setSelectedProgramIds] = useState<Set<number>>(
     new Set<number>(),
   );
@@ -90,6 +93,10 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     () => peaksByBlock(e1rmTrends, programs),
     [e1rmTrends, programs],
   );
+  const peakEfforts = useMemo(
+    () => topEfforts(e1rmTrends, programs),
+    [e1rmTrends, programs],
+  );
 
   // Progression data from the API is in pounds; convert for kg-preference coaches.
   const displayRows: LiftSeriesRow[] = useMemo(() => {
@@ -143,6 +150,9 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
   const formatPeak = (value: number) =>
     `${Math.round(convertWeight(value, unit)).toLocaleString("en-US")} ${unit}`;
 
+  const formatWeightOnly = (value: number) =>
+    Math.round(convertWeight(value, unit)).toLocaleString("en-US");
+
   const roundedDelta = (value: number) => Math.round(convertWeight(value, unit));
 
   const formatDelta = (value: number) => {
@@ -163,6 +173,12 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     programLabel({
       program_number: block.programNumber,
       program_name: block.programName,
+    });
+
+  const effortBlockLabel = (effort: PeakEffort) =>
+    programLabel({
+      program_number: effort.programNumber,
+      program_name: effort.programName,
     });
 
   return (
@@ -473,6 +489,158 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {peakEfforts.length > 0 && (
+          <section
+            style={{
+              background: "var(--cloud-surface-raised)",
+              border: "1px solid var(--cloud-border)",
+              borderRadius: 8,
+              padding: "var(--cloud-s3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--cloud-s2)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--cloud-primary-text)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
+                TOP E1RM EFFORTS
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPeakTable((value) => !value)}
+                aria-pressed={showPeakTable}
+                style={{
+                  background: showPeakTable
+                    ? "rgba(12, 92, 171, 0.20)"
+                    : "var(--cloud-panel)",
+                  border: `1px solid ${
+                    showPeakTable
+                      ? "rgba(12, 92, 171, 0.40)"
+                      : "var(--cloud-border)"
+                  }`,
+                  color: showPeakTable
+                    ? "var(--cloud-primary-text)"
+                    : "var(--cloud-text-muted)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Peak table
+              </button>
+            </div>
+
+            {showPeakTable && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  border: "1px solid var(--cloud-border)",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "var(--cloud-panel)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(56px, 0.45fr) minmax(76px, 0.6fr) minmax(130px, 1fr)",
+                    gap: 8,
+                    padding: "7px 10px",
+                    borderBottom: "1px solid var(--cloud-border)",
+                    color: "var(--cloud-text-dim)",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <span>Exercise</span>
+                  <span>Weight x Reps</span>
+                  <span>RPE</span>
+                  <span>e1RM</span>
+                  <span>Block</span>
+                </div>
+                {peakEfforts.map((effort) => (
+                  <div
+                    key={effort.canonicalName}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(56px, 0.45fr) minmax(76px, 0.6fr) minmax(130px, 1fr)",
+                      gap: 8,
+                      alignItems: "center",
+                      padding: "8px 10px",
+                      borderTop: "1px solid var(--cloud-border)",
+                      color: "var(--cloud-text)",
+                      fontSize: 12,
+                    }}
+                  >
+                    <span
+                      title={effort.exerciseName}
+                      style={{
+                        fontWeight: 700,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {effort.exerciseName}
+                    </span>
+                    <span>
+                      {formatWeightOnly(effort.weightLbs)} x {effort.reps}
+                    </span>
+                    <span
+                      style={{
+                        color:
+                          effort.rpe == null
+                            ? "var(--cloud-text-dim)"
+                            : "var(--cloud-text)",
+                      }}
+                    >
+                      {effort.rpe == null ? "-" : effort.rpe}
+                    </span>
+                    <span style={{ fontWeight: 700 }}>
+                      {formatPeak(effort.e1rm)}
+                    </span>
+                    <span
+                      title={effortBlockLabel(effort)}
+                      style={{
+                        color: "var(--cloud-text-muted)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {effortBlockLabel(effort)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
       </div>

@@ -130,6 +130,17 @@ export interface BlockPeaks {
   peaks: Record<LiftKey, { e1rm: number; delta: number | null } | null>;
 }
 
+export interface PeakEffort {
+  exerciseName: string;
+  canonicalName: string;
+  weightLbs: number;
+  reps: number;
+  rpe: number | null;
+  e1rm: number;
+  programNumber: number | null;
+  programName: string | null;
+}
+
 function emptyLiftPeaks(): Record<LiftKey, { e1rm: number; delta: number | null } | null> {
   return {
     squat: null,
@@ -281,6 +292,48 @@ export function peaksByBlock(
   }
 
   return rows;
+}
+
+/**
+ * Rank the athlete's best e1RM effort for each distinct exercise variation.
+ */
+export function topEfforts(
+  points: E1RMDataPoint[],
+  programs: ProgramListResponse[],
+  limit = 10,
+): PeakEffort[] {
+  const programById = new Map<number, ProgramListResponse>();
+  for (const program of programs) {
+    programById.set(program.id, program);
+  }
+
+  const peakByCanonical = new Map<string, E1RMDataPoint>();
+  for (const point of points) {
+    if (point.e1rm == null) continue;
+    const canonical = point.canonical_exercise_name;
+    const previous = peakByCanonical.get(canonical);
+    if (!previous || previous.e1rm == null || point.e1rm > previous.e1rm) {
+      peakByCanonical.set(canonical, point);
+    }
+  }
+
+  return Array.from(peakByCanonical.values())
+    .sort((a, b) => (b.e1rm ?? 0) - (a.e1rm ?? 0))
+    .slice(0, limit)
+    .map((point) => {
+      const program =
+        point.program_id == null ? undefined : programById.get(point.program_id);
+      return {
+        exerciseName: point.exercise_name,
+        canonicalName: point.canonical_exercise_name,
+        weightLbs: point.weight_lbs,
+        reps: point.reps,
+        rpe: point.actual_rpe,
+        e1rm: point.e1rm ?? 0,
+        programNumber: program?.program_number ?? null,
+        programName: program?.program_name ?? null,
+      };
+    });
 }
 
 /** Offset a program/week-indexed volume point to a calendar timestamp. */
