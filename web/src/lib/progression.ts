@@ -143,17 +143,21 @@ function pointTimestamp(
 export function buildLiftSeries(
   points: E1RMDataPoint[],
   programs: ProgramListResponse[],
+  selectedProgramIds?: Set<number>,
 ): LiftSeries {
   const startByProgram = new Map<number, number>();
   for (const prog of programs) {
     const d = parseLocalDate(prog.date_start);
     if (prog.id != null && d) startByProgram.set(prog.id, d.getTime());
   }
+  const filteredPoints = selectedProgramIds
+    ? points.filter((p) => p.program_id != null && selectedProgramIds.has(p.program_id))
+    : points;
 
   const variation: Record<LiftKey, string | null> = {
-    squat: competitionVariation(points, "squat"),
-    bench: competitionVariation(points, "bench"),
-    deadlift: competitionVariation(points, "deadlift"),
+    squat: competitionVariation(filteredPoints, "squat"),
+    bench: competitionVariation(filteredPoints, "bench"),
+    deadlift: competitionVariation(filteredPoints, "deadlift"),
   };
 
   const rowByTs = new Map<number, LiftSeriesRow>();
@@ -166,7 +170,7 @@ export function buildLiftSeries(
   for (const lift of ["squat", "bench", "deadlift"] as LiftKey[]) {
     const canon = variation[lift];
     if (!canon) continue;
-    for (const p of points) {
+    for (const p of filteredPoints) {
       if (p.e1rm == null) continue;
       if (!liftMatches(p.lift_category, lift)) continue;
       if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
@@ -206,12 +210,21 @@ function volumePointTimestamp(
 export function buildVolumeSeries(
   volumePoints: VolumeDataPoint[],
   programs: ProgramListResponse[],
+  selectedProgramIds?: Set<number>,
 ): LiftSeries {
   const startByProgramNumber = new Map<number, number>();
+  const selectedProgramNumbers = new Set<number>();
   for (const prog of programs) {
     const d = parseLocalDate(prog.date_start);
     if (prog.program_number != null && d) {
       startByProgramNumber.set(prog.program_number, d.getTime());
+    }
+    if (
+      selectedProgramIds &&
+      selectedProgramIds.has(prog.id) &&
+      prog.program_number != null
+    ) {
+      selectedProgramNumbers.add(prog.program_number);
     }
   }
 
@@ -237,6 +250,11 @@ export function buildVolumeSeries(
   const lifts = LIFTS.map((l) => l.key);
 
   for (const p of volumePoints) {
+    if (selectedProgramIds) {
+      if (p.program_number == null || !selectedProgramNumbers.has(p.program_number)) {
+        continue;
+      }
+    }
     const ts = volumePointTimestamp(p, startByProgramNumber);
     for (const lift of lifts) {
       const value = p[volumeFieldByLift[lift]];
@@ -259,8 +277,10 @@ export function buildVolumeSeries(
 /** Block-boundary timestamps for chart reference lines. */
 export function blockBoundaryTimestamps(
   programs: ProgramListResponse[],
+  selectedProgramIds?: Set<number>,
 ): number[] {
   return programs
+    .filter((p) => !selectedProgramIds || selectedProgramIds.has(p.id))
     .map((p) => parseLocalDate(p.date_start)?.getTime())
     .filter((t): t is number => t != null)
     .sort((a, b) => a - b);

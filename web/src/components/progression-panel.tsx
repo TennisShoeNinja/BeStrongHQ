@@ -31,6 +31,9 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [repFilter, setRepFilter] = useState<RepFilterKey>("1-3");
   const [primaryOnly, setPrimaryOnly] = useState(false);
+  const [selectedProgramIds, setSelectedProgramIds] = useState<Set<number>>(
+    new Set<number>(),
+  );
   const [visibleLifts, setVisibleLifts] = useState<Set<LiftKey>>(
     new Set<LiftKey>(["squat", "bench", "deadlift"]),
   );
@@ -55,16 +58,31 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     queryFn: () => apiClient.listPrograms(athleteId),
   });
 
+  const programOptions = useMemo(
+    () => programs.filter((program) => program.id != null),
+    [programs],
+  );
+  const effectiveSelectedProgramIds = useMemo(() => {
+    const availableIds = new Set(programOptions.map((program) => program.id));
+    if (availableIds.size === 0) return availableIds;
+    if (selectedProgramIds.size === 0) return availableIds;
+    const effective = new Set<number>();
+    for (const id of selectedProgramIds) {
+      if (availableIds.has(id)) effective.add(id);
+    }
+    return effective.size > 0 ? effective : availableIds;
+  }, [programOptions, selectedProgramIds]);
+
   const series = useMemo(
     () =>
       chartMode === "volume"
-        ? buildVolumeSeries(volumeTrends, programs)
-        : buildLiftSeries(e1rmTrends, programs),
-    [chartMode, e1rmTrends, programs, volumeTrends],
+        ? buildVolumeSeries(volumeTrends, programs, effectiveSelectedProgramIds)
+        : buildLiftSeries(e1rmTrends, programs, effectiveSelectedProgramIds),
+    [chartMode, e1rmTrends, effectiveSelectedProgramIds, programs, volumeTrends],
   );
   const boundaries = useMemo(
-    () => blockBoundaryTimestamps(programs),
-    [programs],
+    () => blockBoundaryTimestamps(programs, effectiveSelectedProgramIds),
+    [effectiveSelectedProgramIds, programs],
   );
 
   // Progression data from the API is in pounds; convert for kg-preference coaches.
@@ -88,6 +106,30 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       }
       return next;
     });
+  };
+
+  const toggleProgram = (programId: number) => {
+    setSelectedProgramIds((prev) => {
+      const availableIds = programOptions.map((program) => program.id);
+      const availableIdSet = new Set(availableIds);
+      const next =
+        prev.size === 0
+          ? new Set(availableIds)
+          : new Set(Array.from(prev).filter((id) => availableIdSet.has(id)));
+      if (next.has(programId)) {
+        if (next.size > 1) next.delete(programId);
+      } else {
+        next.add(programId);
+      }
+      return next;
+    });
+  };
+
+  const programLabel = (program: Types.ProgramListResponse) => {
+    const block =
+      program.program_number != null ? `B${program.program_number}` : "Block";
+    const name = (program.program_name ?? "").trim();
+    return name ? `${block} ${name}` : block;
   };
 
   return (
@@ -250,6 +292,42 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
             >
               Primary day only
             </button>
+          </div>
+        )}
+
+        {programOptions.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {programOptions.map((program) => {
+              const active = effectiveSelectedProgramIds.has(program.id);
+              return (
+                <button
+                  key={program.id}
+                  type="button"
+                  onClick={() => toggleProgram(program.id)}
+                  aria-pressed={active}
+                  style={{
+                    background: active
+                      ? "rgba(12, 92, 171, 0.20)"
+                      : "var(--cloud-panel)",
+                    border: `1px solid ${
+                      active ? "rgba(12, 92, 171, 0.40)" : "var(--cloud-border)"
+                    }`,
+                    color: active
+                      ? "var(--cloud-primary-text)"
+                      : "var(--cloud-text-muted)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {programLabel(program)}
+                </button>
+              );
+            })}
           </div>
         )}
 
