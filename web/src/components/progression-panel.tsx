@@ -30,14 +30,20 @@ interface Props {
 export function ProgressionPanel({ athleteId, unit }: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [repFilter, setRepFilter] = useState<RepFilterKey>("1-3");
+  const [primaryOnly, setPrimaryOnly] = useState(false);
   const [visibleLifts, setVisibleLifts] = useState<Set<LiftKey>>(
     new Set<LiftKey>(["squat", "bench", "deadlift"]),
   );
 
   const { minReps, maxReps } = repFilterRange(repFilter);
   const { data: e1rmTrends = [] as Types.E1RMDataPoint[] } = useQuery({
-    queryKey: ["progression-e1rm", athleteId, repFilter],
-    queryFn: () => apiClient.getE1RMTrends(athleteId, { minReps, maxReps }),
+    queryKey: ["progression-e1rm", athleteId, repFilter, primaryOnly],
+    queryFn: () =>
+      apiClient.getE1RMTrends(athleteId, {
+        minReps,
+        maxReps,
+        primaryOnly: primaryOnly ? true : undefined,
+      }),
   });
   const { data: volumeTrends = [] as Types.VolumeDataPoint[] } = useQuery({
     queryKey: ["progression-volume", athleteId],
@@ -219,6 +225,31 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setPrimaryOnly((value) => !value)}
+              aria-pressed={primaryOnly}
+              style={{
+                background: primaryOnly
+                  ? "rgba(12, 92, 171, 0.20)"
+                  : "var(--cloud-panel)",
+                border: `1px solid ${
+                  primaryOnly ? "rgba(12, 92, 171, 0.40)" : "var(--cloud-border)"
+                }`,
+                color: primaryOnly
+                  ? "var(--cloud-primary-text)"
+                  : "var(--cloud-text-muted)",
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "6px 12px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Primary day only
+            </button>
           </div>
         )}
 
