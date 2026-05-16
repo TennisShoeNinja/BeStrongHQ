@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 export interface ChartPoint {
   date: Date;
@@ -70,10 +70,6 @@ export function E1RMChart({
   caption,
   hideCurrentGlow,
 }: Props) {
-  const [hoverTip, setHoverTip] = useState<{ x: number; text: string } | null>(
-    null,
-  );
-
   const computed = useMemo(() => {
     if (points.length === 0) return null;
     const sorted = [...points].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -223,7 +219,6 @@ export function E1RMChart({
           No data in this range yet.
         </div>
       ) : (
-        <div style={{ position: "relative" }}>
         <svg
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           preserveAspectRatio="none"
@@ -249,41 +244,22 @@ export function E1RMChart({
             />
           ))}
 
-          {/* Block boundary verticals */}
-          {computed.blockLines.map((bl, i) => {
-            const tip = bl.tip;
-            return (
-              <g key={`bl-${i}`}>
-                {/* Visible dashed line — decorative, never catches pointers. */}
-                <line
-                  x1={bl.x}
-                  x2={bl.x}
-                  y1={PAD_T}
-                  y2={PAD_T + PLOT_H}
-                  stroke="rgba(124,180,237,0.20)"
-                  strokeWidth={1}
-                  strokeDasharray="2 3"
-                  style={{ pointerEvents: "none" }}
-                />
-                {/* Hit target: a real filled rect. A zero-width <line> does
-                    not reliably catch hovers even with pointer-events:stroke,
-                    so use a rect with a transparent fill. React state drives
-                    the tooltip rather than a finicky native SVG <title>. */}
-                {tip && (
-                  <rect
-                    x={bl.x - 4}
-                    y={PAD_T}
-                    width={8}
-                    height={PLOT_H}
-                    fill="transparent"
-                    style={{ pointerEvents: "all" }}
-                    onMouseEnter={() => setHoverTip({ x: bl.x, text: tip })}
-                    onMouseLeave={() => setHoverTip(null)}
-                  />
-                )}
-              </g>
-            );
-          })}
+          {/* Block boundary verticals — dashed markers where a program
+              changes. No hover tooltip: block_type is currently just the
+              strength-sheet name and carries no real signal (see TODO on
+              parser-extracted block labels). */}
+          {computed.blockLines.map((bl, i) => (
+            <line
+              key={`bl-${i}`}
+              x1={bl.x}
+              x2={bl.x}
+              y1={PAD_T}
+              y2={PAD_T + PLOT_H}
+              stroke="rgba(124,180,237,0.20)"
+              strokeWidth={1}
+              strokeDasharray="2 3"
+            />
+          ))}
 
           {/* Y-axis labels */}
           {computed.yTicks.map((t, i) => (
@@ -380,31 +356,6 @@ export function E1RMChart({
           ))}
 
         </svg>
-        {/* Block-boundary hover tooltip — an HTML overlay, NOT an SVG element,
-            so it renders in real CSS pixels and does not scale up with the
-            small viewBox. Positioned by percentage at the boundary's x. */}
-        {hoverTip && (
-          <div
-            style={{
-              position: "absolute",
-              left: `${(hoverTip.x / VB_W) * 100}%`,
-              top: 10,
-              transform: "translateX(-50%)",
-              pointerEvents: "none",
-              background: "#16161b",
-              border: "1px solid rgba(124,180,237,0.45)",
-              borderRadius: 5,
-              padding: "2px 7px",
-              fontSize: 11,
-              lineHeight: 1.45,
-              color: "#fafafa",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {hoverTip.text}
-          </div>
-        )}
-        </div>
       )}
       {/* Legend strip */}
       <div
