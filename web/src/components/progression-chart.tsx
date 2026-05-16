@@ -20,6 +20,7 @@ interface Props {
   boundaries: number[];
   unit: string;
   height?: number;
+  mode?: "e1rm" | "volume";
 }
 
 /**
@@ -32,6 +33,7 @@ export function ProgressionChart({
   boundaries,
   unit,
   height = 280,
+  mode = "e1rm",
 }: Props) {
   const { resolvedMode } = useTheme();
   const dark = resolvedMode === "dark";
@@ -42,6 +44,10 @@ export function ProgressionChart({
   const boundaryColor = dark
     ? "rgba(124,180,237,0.20)"
     : "rgba(12,92,171,0.16)";
+  const valueFormatter = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  });
+  const isVolume = mode === "volume";
 
   if (rows.length < 2) {
     return (
@@ -75,9 +81,11 @@ export function ProgressionChart({
           <YAxis
             tick={{ fontSize: 11, fill: textColor }}
             tickLine={false}
-            width={40}
-            domain={["dataMin - 10", "dataMax + 10"]}
-            tickFormatter={(v: number) => `${Math.round(v)}`}
+            width={isVolume ? 54 : 40}
+            domain={isVolume ? [0, "dataMax + 1000"] : ["dataMin - 10", "dataMax + 10"]}
+            tickFormatter={(v: number) =>
+              isVolume ? valueFormatter.format(Math.round(v)) : `${Math.round(v)}`
+            }
           />
           <Tooltip
             contentStyle={{
@@ -96,10 +104,13 @@ export function ProgressionChart({
                   })
                 : "";
             }}
-            formatter={(value, name) => [
-              `${Math.round(Number(value))} ${unit}`,
-              name,
-            ]}
+            formatter={(value, name) => {
+              const formatted = valueFormatter.format(Math.round(Number(value)));
+              return [
+                isVolume ? formatted : `${Math.round(Number(value))} ${unit}`,
+                isVolume ? `${name} volume` : name,
+              ];
+            }}
           />
           {boundaries.map((b, i) => (
             <ReferenceLine

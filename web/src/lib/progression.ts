@@ -11,7 +11,11 @@
  *  2. e1RM trend points are indexed by program/week/day, not calendar
  *     date, so timestamps are derived by offsetting from program start.
  */
-import type { E1RMDataPoint, ProgramListResponse } from "@/lib/types";
+import type {
+  E1RMDataPoint,
+  ProgramListResponse,
+  VolumeDataPoint,
+} from "@/lib/types";
 import parseLocalDate from "@/lib/parseLocalDate";
 
 export type LiftKey = "squat" | "bench" | "deadlift";
@@ -175,6 +179,75 @@ export function buildLiftSeries(
       }
       const prev = row[lift];
       if (prev == null || p.e1rm > prev) row[lift] = p.e1rm;
+      available[lift] = true;
+    }
+  }
+
+  const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
+  return { rows, available, variation };
+}
+
+/** Offset a program/week-indexed volume point to a calendar timestamp. */
+function volumePointTimestamp(
+  p: VolumeDataPoint,
+  startByProgramNumber: Map<number, number>,
+): number | null {
+  if (p.program_number == null) return null;
+  const start = startByProgramNumber.get(p.program_number);
+  if (start == null) return null;
+  const offsetDays = Math.max(0, (p.week_number - 1) * 7);
+  return start + offsetDays * 86400000;
+}
+
+/**
+ * Build weekly training-volume rows in the same shape as e1RM rows so the
+ * progression chart can render either mode unchanged.
+ */
+export function buildVolumeSeries(
+  volumePoints: VolumeDataPoint[],
+  programs: ProgramListResponse[],
+): LiftSeries {
+  const startByProgramNumber = new Map<number, number>();
+  for (const prog of programs) {
+    const d = parseLocalDate(prog.date_start);
+    if (prog.program_number != null && d) {
+      startByProgramNumber.set(prog.program_number, d.getTime());
+    }
+  }
+
+  const variation: Record<LiftKey, string | null> = {
+    squat: null,
+    bench: null,
+    deadlift: null,
+  };
+  const available: Record<LiftKey, boolean> = {
+    squat: false,
+    bench: false,
+    deadlift: false,
+  };
+  const volumeFieldByLift: Record<
+    LiftKey,
+    "squat_volume" | "bench_volume" | "deadlift_volume"
+  > = {
+    squat: "squat_volume",
+    bench: "bench_volume",
+    deadlift: "deadlift_volume",
+  };
+  const rowByTs = new Map<number, LiftSeriesRow>();
+  const lifts = LIFTS.map((l) => l.key);
+
+  for (const p of volumePoints) {
+    const ts = volumePointTimestamp(p, startByProgramNumber);
+    for (const lift of lifts) {
+      const value = p[volumeFieldByLift[lift]];
+      if (value == null) continue;
+      if (ts == null) continue;
+      let row = rowByTs.get(ts);
+      if (!row) {
+        row = { ts };
+        rowByTs.set(ts, row);
+      }
+      row[lift] = value;
       available[lift] = true;
     }
   }
