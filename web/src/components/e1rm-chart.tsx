@@ -249,7 +249,10 @@ export function E1RMChart({
             if (bl.tip) {
               return (
                 <g key={`bl-${i}`}>
-                  <title>{bl.tip}</title>
+                  {/* Transparent 10px-wide hover target. The <title> lives
+                      directly inside this line, not on the parent <g>, so the
+                      browser shows it on hover (browsers do not reliably walk
+                      up from a hovered child to an ancestor's <title>). */}
                   <line
                     x1={bl.x}
                     x2={bl.x}
@@ -258,7 +261,11 @@ export function E1RMChart({
                     stroke="transparent"
                     strokeWidth={10}
                     style={{ pointerEvents: "stroke" }}
-                  />
+                  >
+                    <title>{bl.tip}</title>
+                  </line>
+                  {/* Visible dashed line — purely decorative, pointer-events
+                      disabled so a hover on it falls through to the target. */}
                   <line
                     x1={bl.x}
                     x2={bl.x}
@@ -267,6 +274,7 @@ export function E1RMChart({
                     stroke="rgba(124,180,237,0.20)"
                     strokeWidth={1}
                     strokeDasharray="2 3"
+                    style={{ pointerEvents: "none" }}
                   />
                 </g>
               );
