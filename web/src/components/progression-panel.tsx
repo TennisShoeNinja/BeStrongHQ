@@ -44,6 +44,7 @@ import parseLocalDate from "@/lib/parseLocalDate";
 interface Props {
   athleteId: number;
   unit: WeightUnit;
+  competitionMaxes?: Partial<Record<LiftKey, number | null>>;
 }
 
 let compareSeriesCounter = 0;
@@ -135,7 +136,7 @@ const CONTROL_DIVIDER: CSSProperties = {
  * Rich coach progression panel: multiple lifts overlaid on one e1RM
  * trajectory, sliced by rep range. Mounted inline on the athlete profile.
  */
-export function ProgressionPanel({ athleteId, unit }: Props) {
+export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [compareMode, setCompareMode] = useState(false);
   const [compareSeries, setCompareSeries] = useState<CompareSeries[]>(() => [
@@ -369,6 +370,19 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       return next;
     });
   }, [chartRows, unit]);
+
+  const displayCompetitionMaxes = useMemo<
+    Partial<Record<LiftKey, number | null>> | undefined
+  >(() => {
+    if (!competitionMaxes) return undefined;
+    const next: Partial<Record<LiftKey, number | null>> = {};
+    for (const lift of LIFTS) {
+      const value = competitionMaxes[lift.key];
+      next[lift.key] =
+        value == null ? null : unit === "lbs" ? value : convertWeight(value, unit);
+    }
+    return next;
+  }, [competitionMaxes, unit]);
 
   const toggleLift = (lift: LiftKey) => {
     setVisibleLifts((prev) => {
@@ -910,6 +924,9 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
                     (item) => !item.lift || visibleLifts.has(item.lift),
                   )
                 : undefined
+          }
+          competitionMaxes={
+            !compareMode && chartMode === "e1rm" ? displayCompetitionMaxes : undefined
           }
         />
 

@@ -5020,9 +5020,17 @@ export default function AthleteDetailPage() {
   });
   const compMaxByLift = useMemo(() => {
     const m: Record<string, Types.CompetitionMaxForLift> = {};
-    for (const c of compMaxes) m[c.lift] = c;
+    for (const c of compMaxes) m[c.lift.toLowerCase()] = c;
     return m;
   }, [compMaxes]);
+  const competitionMaxesForProgression = useMemo(
+    () => ({
+      squat: compMaxByLift.squat?.weight_lbs ?? null,
+      bench: compMaxByLift.bench?.weight_lbs ?? null,
+      deadlift: compMaxByLift.deadlift?.weight_lbs ?? null,
+    }),
+    [compMaxByLift],
+  );
 
   
   
@@ -6488,7 +6496,11 @@ export default function AthleteDetailPage() {
         />
 
         {}
-        <ProgressionPanel athleteId={athleteId} unit={unit} />
+        <ProgressionPanel
+          athleteId={athleteId}
+          unit={unit}
+          competitionMaxes={competitionMaxesForProgression}
+        />
 
         {}
         <BlockReviewSummary athleteId={athleteId} context="profile" athleteName={athlete?.name ?? null} unit={unit} />

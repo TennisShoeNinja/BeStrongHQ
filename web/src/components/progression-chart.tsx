@@ -7,6 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "@/lib/theme-provider";
@@ -24,6 +25,7 @@ interface Props {
   height?: number;
   mode?: "e1rm" | "volume";
   series?: ProgressionChartSeries[];
+  competitionMaxes?: Partial<Record<LiftKey, number | null>>;
 }
 
 /**
@@ -37,6 +39,7 @@ export function ProgressionChart({
   height = 280,
   mode = "e1rm",
   series,
+  competitionMaxes,
 }: Props) {
   const { resolvedMode } = useTheme();
   const dark = resolvedMode === "dark";
@@ -48,6 +51,7 @@ export function ProgressionChart({
     maximumFractionDigits: 0,
   });
   const isVolume = mode === "volume";
+  const showCompetitionMaxes = mode === "e1rm" && competitionMaxes != null;
 
   if (rows.length < 2) {
     return (
@@ -98,6 +102,28 @@ export function ProgressionChart({
               ];
             }}
           />
+          {showCompetitionMaxes &&
+            LIFTS.filter((lift) => visibleLifts.has(lift.key)).map((lift) => {
+              const max = competitionMaxes?.[lift.key];
+              if (max == null) return null;
+              const rounded = Math.round(max);
+              return (
+                <ReferenceLine
+                  key={`comp-max-${lift.key}`}
+                  y={max}
+                  stroke={lift.color}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.55}
+                  label={{
+                    value: `${lift.label} ${valueFormatter.format(rounded)}`,
+                    position: "insideTopRight",
+                    fill: lift.color,
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                />
+              );
+            })}
           {(series ?? LIFTS.filter((l) => visibleLifts.has(l.key))).map((s) => (
             <Line
               key={s.key}
