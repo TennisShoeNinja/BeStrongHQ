@@ -12,21 +12,16 @@ from sqlalchemy.orm import Session
 
 from ..models.database import get_session_factory, init_db
 from ..models.orm import AllowedUser, AuthSession
+from ..plugins import get_hook
 
 
 def _lazy_plugin_resolver():
     """Look up an optional per-request DB resolver at request time.
 
-    Imported lazily (instead of at module load) because an optional
-    sibling package may import from this module during its own
-    initialization; a top-level import here would fail silently in that
-    startup window and leave the resolver permanently unset.
+    Resolved lazily so optional integration startup order cannot permanently
+    disable the resolver for the process.
     """
-    try:
-        from bestrong_cloud import resolve_tenant_db
-        return resolve_tenant_db
-    except ImportError:
-        return None
+    return get_hook("db_resolver")
 
 
 def _lazy_plugin_is_admin():
@@ -34,11 +29,7 @@ def _lazy_plugin_is_admin():
 
     Same lazy pattern as ``_lazy_plugin_resolver`` and for the same reason.
     """
-    try:
-        from bestrong_cloud import is_platform_admin
-        return is_platform_admin
-    except ImportError:
-        return None
+    return get_hook("is_admin")
 
 
 def get_db(request: Request) -> Generator[Session, None, None]:

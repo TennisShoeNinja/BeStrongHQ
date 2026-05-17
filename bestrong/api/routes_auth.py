@@ -15,24 +15,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models.orm import AllowedUser, AuthSession, OAuthState
+from ..plugins import get_hook
 from .deps import get_db, require_admin
 from .security_logging import security_log
-
-
-try:
-    from bestrong_cloud import get_enabled_features as _plugin_features
-    from bestrong_cloud import is_platform_admin as _plugin_is_admin
-    from bestrong_cloud.registry import lookup_tenant as _plugin_lookup_tenant
-except ImportError:
-    _plugin_features = None
-    _plugin_is_admin = None
-    _plugin_lookup_tenant = None
-
-
-try:
-    from bestrong_cloud import post_deny_hook as _plugin_post_deny
-except ImportError:
-    _plugin_post_deny = None
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -236,10 +221,11 @@ def _resolve_instance_info(request: Request) -> InstanceInfo | None:
     if not subdomain:
         return None
 
-    if _plugin_lookup_tenant is None:
+    lookup = get_hook("instance_lookup")
+    if lookup is None:
         return None
 
-    record = _plugin_lookup_tenant(subdomain)
+    record = lookup(subdomain)
     if record is None:
         return None
 
@@ -255,12 +241,13 @@ def _resolve_features(
 ) -> list[str]:
     """Return optional feature flags for the current instance.
 
-    Defers entirely to the optional plugin's resolver when present.
-    Returns an empty list when no plugin is installed.
+    Defers entirely to the optional integration resolver when present.
+    Returns an empty list when no integration is installed.
     """
-    if _plugin_features is None:
+    features = get_hook("enabled_features")
+    if features is None:
         return []
-    result = _plugin_features(request, user_email=user_email)
+    result = features(request, user_email=user_email)
     return result if result is not None else []
 
 
@@ -477,7 +464,8 @@ def callback(
     )
 
 
-    _is_platform_admin = bool(_plugin_is_admin and _plugin_is_admin(email))
+    is_admin = get_hook("is_admin")
+    _is_platform_admin = bool(is_admin and is_admin(email))
 
     if not allowed:
         if _is_platform_admin:
@@ -510,8 +498,9 @@ def callback(
                     )
         else:
 
-            if _plugin_post_deny is not None:
-                fallback = _plugin_post_deny(
+            post_deny = get_hook("post_deny")
+            if post_deny is not None:
+                fallback = post_deny(
                     db, email=email, request=request, frontend_url=frontend_url
                 )
                 if fallback is not None:
@@ -678,8 +667,9 @@ def remove_allowed_user(
         admin_count = db.query(AllowedUser).filter(AllowedUser.is_admin == True).count()  # noqa: E712
         if admin_count <= 1:
             requester_email = getattr(request.state, "user_email", None)
+            is_admin = get_hook("is_admin")
             requester_is_platform_admin = bool(
-                _plugin_is_admin and requester_email and _plugin_is_admin(requester_email)
+                is_admin and requester_email and is_admin(requester_email)
             )
             if not requester_is_platform_admin:
                 raise HTTPException(

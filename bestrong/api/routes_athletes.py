@@ -12,6 +12,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ..models.orm import Athlete, AthleteSession, DailyWellness, GDriveImport, MaxHistory, MeetResult, Notification, OplLink, OplMeet, Program, Session as SessionModel, WorkLog
+from ..plugins import get_hook
 from .deps import get_db
 from .schemas import AthleteCreate, AthleteListResponse, AthleteResponse, AthleteUpdate, MaxHistoryEntry, MergePreview, MergeRequest, MergeResult, PendingMeetResults, ProgramListResponse, FixDuplicateDaysResult
 from .error_helpers import safe_error
@@ -590,19 +591,11 @@ def merge_athletes(
                 {model.athlete_id: athlete_id}, synchronize_session="fetch"
             )
 
-        # Optional sibling-package rows that reference athlete_id:
-        # reassign opportunistically. Swallow ImportError when the
-        # sibling package isn't installed.
-        try:
-            from bestrong_cloud.billing.models import FailedPayment
-        except ImportError:
-            pass
-        else:
-            db.query(FailedPayment).filter(
-                FailedPayment.athlete_id == secondary_id
-            ).update(
-                {FailedPayment.athlete_id: athlete_id}, synchronize_session="fetch"
-            )
+        # Optional integration rows that reference athlete_id:
+        # reassign opportunistically when the integration is installed.
+        cleanup = get_hook("athlete_delete_cleanup")
+        if cleanup is not None:
+            cleanup(db, athlete_id, secondary_id)
 
         db.delete(secondary)
         db.commit()

@@ -6,6 +6,8 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+from ..plugins import get_hook, iter_routers
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,15 +41,19 @@ async def _lifespan(app):
         from ..models.database import get_session_factory
         from ..models.orm import AllowedUser
 
-        try:
-            from bestrong_cloud.registry import list_active_subdomains, lookup_tenant
-            instance_dbs = []
-            for subdomain in list_active_subdomains():
-                record = lookup_tenant(subdomain)
-                if record is not None:
-                    instance_dbs.append(record.db_path)
-        except Exception:
+        list_active_subdomains = get_hook("active_instances")
+        lookup_tenant = get_hook("instance_lookup")
+        if list_active_subdomains is None or lookup_tenant is None:
             instance_dbs = [None]
+        else:
+            try:
+                instance_dbs = []
+                for subdomain in list_active_subdomains():
+                    record = lookup_tenant(subdomain)
+                    if record is not None:
+                        instance_dbs.append(record.db_path)
+            except Exception:
+                instance_dbs = [None]
 
         for instance_db_path in instance_dbs:
             factory = get_session_factory(instance_db_path)
@@ -233,20 +239,12 @@ def create_app():
     app.include_router(exercise_aliases_router)
     app.include_router(search_router)
 
+    for router in iter_routers():
+        app.include_router(router)
 
-    try:
-        from bestrong_cloud import api as _plugin_api
-        app.include_router(_plugin_api.router)
-        _plugin_api.register_middlewares(app)
-    except (ImportError, AttributeError):
-        pass
-
-
-    try:
-        from bestrong_cloud.api import register_middlewares as _plugin_middlewares
-        _plugin_middlewares(app)
-    except ImportError:
-        pass
+    register_middlewares = get_hook("register_middlewares")
+    if register_middlewares is not None:
+        register_middlewares(app)
 
 
     _apply_stricter_limit(app, limiter, "/api/auth/login", "5/minute")

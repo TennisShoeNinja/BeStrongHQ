@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..plugins import get_hook
 from . import client
 from .sync import sync_folder
 
@@ -219,10 +220,10 @@ def start_scheduler():
     mode = os.environ.get("DEPLOYMENT_MODE", "local").lower().strip()
 
     if mode == "cloud":
-        try:
-            from bestrong_cloud.registry import list_active_subdomains, lookup_tenant
-        except ImportError:
-            logger.info("Multi-instance scheduler startup skipped — no registry available")
+        list_active_subdomains = get_hook("active_instances")
+        lookup_tenant = get_hook("instance_lookup")
+        if list_active_subdomains is None or lookup_tenant is None:
+            logger.info("Multi-instance scheduler startup skipped, no registry available")
             return
 
         started = 0

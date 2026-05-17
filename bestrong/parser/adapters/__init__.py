@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 
 import openpyxl
 
+from ...plugins import PLUGIN_PACKAGE_NAME
+
 
 @dataclass
 class AthleteInfo:
@@ -182,7 +184,7 @@ def get_registry() -> list[type[BaseAdapter]]:
 _overlay_loaded = False
 
 
-def load_overlay_adapters(package_name: str = "bestrong_cloud.parser.adapters") -> int:
+def load_overlay_adapters(package_name: str | None = None) -> int:
     """Import every adapter module in an optional sibling package, if present.
 
     Returns the number of modules imported. Idempotent — repeat calls are
@@ -192,6 +194,8 @@ def load_overlay_adapters(package_name: str = "bestrong_cloud.parser.adapters") 
     global _overlay_loaded
     if _overlay_loaded:
         return 0
+    if package_name is None:
+        package_name = f"{PLUGIN_PACKAGE_NAME}.parser.adapters"
     try:
         pkg = importlib.import_module(package_name)
     except ModuleNotFoundError:

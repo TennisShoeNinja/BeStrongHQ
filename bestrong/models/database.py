@@ -9,6 +9,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
+from ..plugins import get_hook
 from .orm import Base
 
 logger = logging.getLogger(__name__)
@@ -604,11 +605,9 @@ def migrate_db(db_path: Path | str | None = None) -> None:
     engine = get_engine(db_path)
 
     column_migrations = {table: list(cols) for table, cols in _COLUMN_MIGRATIONS.items()}
-    try:
-        from bestrong_cloud.migrations import extend_column_migrations
-        extend_column_migrations(column_migrations)
-    except ImportError:
-        pass
+    extend = get_hook("extend_migrations")
+    if extend is not None:
+        extend(column_migrations)
 
     with engine.connect() as conn:
 

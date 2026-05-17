@@ -10,18 +10,18 @@ from ..models.database import get_session, init_db
 from ..models.orm import Athlete, DailyWellness, ExerciseEntry, Program, Session, WeeklyVolume
 from ..parser.adapters import ProgramData
 from ..parser.pipeline import parse_file
+from ..plugins import get_hook
 
 
 def _resolve_parser_id(db: DBSession | None, db_path: str | Path | None) -> str | None:
-    """Look up a configured parser_id via an optional sibling registry.
+    """Look up a configured parser_id via an optional registry.
 
     Returns ``None`` when the registry is absent or when the path doesn't
     match a registered entry. Callers should treat ``None`` as "use
     auto-detection".
     """
-    try:
-        from bestrong_cloud.registry import lookup_tenant_by_db_path
-    except ModuleNotFoundError:
+    lookup = get_hook("instance_by_db_path")
+    if lookup is None:
         return None
 
     resolved_path: str | None = None
@@ -37,7 +37,7 @@ def _resolve_parser_id(db: DBSession | None, db_path: str | Path | None) -> str 
     if not resolved_path:
         return None
 
-    record = lookup_tenant_by_db_path(resolved_path)
+    record = lookup(resolved_path)
     return record.parser_id if record else None
 
 

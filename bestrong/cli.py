@@ -9,6 +9,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .plugins import get_hook
+
 
 def _load_dotenv() -> None:
     """Load .env file from the project root if it exists.
@@ -487,12 +489,9 @@ def reset_db(
     console.print("[green]Fresh database created.[/green]")
 
 
-try:
-    from bestrong_cloud.cli import register as _register_cloud_commands
-except ImportError:
-    pass
-else:
-    _register_cloud_commands(app)
+_register_cli = get_hook("register_cli")
+if _register_cli is not None:
+    _register_cli(app)
 
 
 def main():

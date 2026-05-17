@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..models.database import get_session_factory
 from ..models.orm import AllowedUser, AuthSession
+from ..plugins import get_hook
 from .security_logging import security_log
 
 
@@ -40,33 +41,23 @@ AUTH_EXEMPT_PATHS: tuple[str, ...] = (
 def _lazy_plugin_resolver():
     """Look up the optional tenant resolver at request time.
 
-    Mirrors the pattern in ``deps.py``. An eager top-level import would
-    fail silently if the cloud plugin is mid-initialization when this
-    module loads, permanently disabling tenant resolution for the process.
+    Mirrors the pattern in ``deps.py`` so optional integration startup order
+    cannot permanently disable resolution for the process.
     """
-    try:
-        from bestrong_cloud import resolve_tenant_db
-        return resolve_tenant_db
-    except ImportError:
-        return None
+    return get_hook("db_resolver")
 
 
 def _lazy_plugin_is_admin():
     """Look up the optional platform-admin check at request time."""
-    try:
-        from bestrong_cloud import is_platform_admin
-        return is_platform_admin
-    except ImportError:
-        return None
+    return get_hook("is_admin")
 
 
 def _exempt_paths() -> tuple[str, ...]:
-    """Return the auth-exempt path tuple, including any cloud-side additions."""
-    try:
-        from bestrong_cloud.api import AUTH_EXEMPT_PATHS as _plugin_exempt
-        return AUTH_EXEMPT_PATHS + _plugin_exempt
-    except (ImportError, AttributeError):
+    """Return the auth-exempt path tuple, including optional additions."""
+    hook = get_hook("extra_exempt_paths")
+    if hook is None:
         return AUTH_EXEMPT_PATHS
+    return AUTH_EXEMPT_PATHS + tuple(hook())
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
