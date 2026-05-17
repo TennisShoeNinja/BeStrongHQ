@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "@/lib/theme-provider";
+import { safeHttpUrl } from "@/lib/safe-url";
 import {
   LIFTS,
   type ChartRow,
@@ -86,8 +87,8 @@ const PINNED_TOOLTIP_WIDTH_ESTIMATE = 340;
 const PINNED_TOOLTIP_HEIGHT_ESTIMATE = 260;
 const PINNED_TOOLTIP_MARGIN = 8;
 
-// Recharts 3 chart-click state (MouseHandlerDataParam): no activePayload —
-// it gives the active row index, the category label, and the SVG coordinate.
+// Recharts 3 chart-click state (MouseHandlerDataParam) has no activePayload.
+// It gives the active row index, the category label, and the SVG coordinate.
 interface ChartClickState {
   activeIndex?: number | string | null;
   activeLabel?: string | number;
@@ -179,7 +180,7 @@ function RichTooltip({
       visiblePayload
         .map((entry) => {
           const m = row[metaKey(String(entry.dataKey ?? ""))];
-          return isPointMeta(m) ? m.sourceUrl : null;
+          return isPointMeta(m) ? safeHttpUrl(m.sourceUrl) : null;
         })
         .filter((u): u is string => Boolean(u)),
     ),
@@ -503,6 +504,7 @@ function OutlierExplainerDialog({
                         tracksRpe && ref.actual_rpe != null
                           ? ` @ RPE ${ref.actual_rpe}`
                           : "";
+                      const sourceUrl = safeHttpUrl(ref.google_sheet_url);
                       return (
                         <div
                           key={`${ref.program_number ?? "unknown"}-${ref.week_number}-${ref.day_number}-${index}`}
@@ -530,9 +532,9 @@ function OutlierExplainerDialog({
                             P{ref.program_number ?? "?"} W{ref.week_number} D{ref.day_number}
                             {ref.day_name ? `, ${ref.day_name}` : ""}
                           </div>
-                          {ref.google_sheet_url && (
+                          {sourceUrl && (
                             <a
-                              href={ref.google_sheet_url}
+                              href={sourceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{
@@ -696,8 +698,11 @@ export function ProgressionChart({
   }, [volumePeakMarkers]);
 
   useEffect(() => {
-    setPinnedTooltip(null);
-    setOutlierExplainer(null);
+    const handle = requestAnimationFrame(() => {
+      setPinnedTooltip(null);
+      setOutlierExplainer(null);
+    });
+    return () => cancelAnimationFrame(handle);
   }, [mode, rows, seriesSignature, unit]);
 
   useEffect(() => {

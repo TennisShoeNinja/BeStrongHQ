@@ -14,6 +14,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import * as Types from "@/lib/types";
 import { convertWeight, type WeightUnit } from "@/lib/units";
+import { safeHttpUrl } from "@/lib/safe-url";
 import {
   COMPARE_COLORS,
   LIFTS,
@@ -360,6 +361,7 @@ function DataQualityTable({
                       issue.actual_rpe != null ? ` @ ${issue.actual_rpe}` : ""
                     }`
                   : "-";
+              const sourceUrl = safeHttpUrl(issue.google_sheet_url);
               return (
                 <tr
                   key={`${issue.category}-${index}`}
@@ -386,9 +388,9 @@ function DataQualityTable({
                   </td>
                   <td style={{ padding: "5px 12px 5px 0" }}>{issue.reason}</td>
                   <td style={{ padding: "5px 0" }}>
-                    {issue.google_sheet_url ? (
+                    {sourceUrl ? (
                       <a
-                        href={issue.google_sheet_url}
+                        href={sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
@@ -852,41 +854,44 @@ export function ProgressionPanel({
   }, [preHighlightSnapshot]);
 
   useEffect(() => {
-    if (!highlightIdentity || !highlightedExercise) {
-      if (previousHighlightIdentityRef.current) restoreHighlightSnapshot();
-      previousHighlightIdentityRef.current = null;
-      return;
-    }
-    if (previousHighlightIdentityRef.current === highlightIdentity) return;
-    previousHighlightIdentityRef.current = highlightIdentity;
+    const handle = requestAnimationFrame(() => {
+      if (!highlightIdentity || !highlightedExercise) {
+        if (previousHighlightIdentityRef.current) restoreHighlightSnapshot();
+        previousHighlightIdentityRef.current = null;
+        return;
+      }
+      if (previousHighlightIdentityRef.current === highlightIdentity) return;
+      previousHighlightIdentityRef.current = highlightIdentity;
 
-    setPreHighlightSnapshot((current) =>
-      current ?? {
-        chartMode,
-        compareMode,
-        repFilter,
-        primaryOnly,
-        granularity,
-        visibleLifts: new Set(visibleLifts),
-        variationByLift: cloneVariationSelection(variationByLift),
-        selectedProgramIds: new Set(selectedProgramIds),
-      },
-    );
-    setCompareMode(false);
-    setChartMode("e1rm");
-    setGranularity("week");
-    setPrimaryOnly(false);
-    setRepFilter(repFilterForReps(highlightedExercise.reps));
-    setSelectedProgramIds(new Set<number>());
-    if (highlightedLift) {
-      setVisibleLifts((current) => {
-        if (current.has(highlightedLift)) return current;
-        const next = new Set(current);
-        next.add(highlightedLift);
-        return next;
-      });
-    }
+      setPreHighlightSnapshot((current) =>
+        current ?? {
+          chartMode,
+          compareMode,
+          repFilter,
+          primaryOnly,
+          granularity,
+          visibleLifts: new Set(visibleLifts),
+          variationByLift: cloneVariationSelection(variationByLift),
+          selectedProgramIds: new Set(selectedProgramIds),
+        },
+      );
+      setCompareMode(false);
+      setChartMode("e1rm");
+      setGranularity("week");
+      setPrimaryOnly(false);
+      setRepFilter(repFilterForReps(highlightedExercise.reps));
+      setSelectedProgramIds(new Set<number>());
+      if (highlightedLift) {
+        setVisibleLifts((current) => {
+          if (current.has(highlightedLift)) return current;
+          const next = new Set(current);
+          next.add(highlightedLift);
+          return next;
+        });
+      }
+    });
 
+    return () => cancelAnimationFrame(handle);
   }, [
     chartMode,
     compareMode,
@@ -943,16 +948,19 @@ export function ProgressionPanel({
     if (!highlightIdentity || !highlightedLift || !highlightedVariationCanonical) {
       return;
     }
-    setVariationByLift((currentSelection) => {
-      const current =
-        currentSelection[highlightedLift].size > 0
-          ? currentSelection[highlightedLift]
-          : effectiveSelectedVariations[highlightedLift];
-      if (current.has(highlightedVariationCanonical)) return currentSelection;
-      const next = new Set(current);
-      next.add(highlightedVariationCanonical);
-      return { ...currentSelection, [highlightedLift]: next };
+    const handle = requestAnimationFrame(() => {
+      setVariationByLift((currentSelection) => {
+        const current =
+          currentSelection[highlightedLift].size > 0
+            ? currentSelection[highlightedLift]
+            : effectiveSelectedVariations[highlightedLift];
+        if (current.has(highlightedVariationCanonical)) return currentSelection;
+        const next = new Set(current);
+        next.add(highlightedVariationCanonical);
+        return { ...currentSelection, [highlightedLift]: next };
+      });
     });
+    return () => cancelAnimationFrame(handle);
   }, [
     effectiveSelectedVariations,
     highlightedLift,
@@ -1079,10 +1087,13 @@ export function ProgressionPanel({
   }, [e1rmTrends]);
 
   const chartRows = compareMode ? compareChart.rows : series.rows;
-  const volumePeakLabel = (peak: Types.VolumeResponsePeak) =>
-    granularity === "week"
-      ? `P${peak.program_number ?? "?"} W${peak.week_number}`
-      : `P${peak.program_number ?? "?"}`;
+  const volumePeakLabel = useCallback(
+    (peak: Types.VolumeResponsePeak) =>
+      granularity === "week"
+        ? `P${peak.program_number ?? "?"} W${peak.week_number}`
+        : `P${peak.program_number ?? "?"}`,
+    [granularity],
+  );
   const volumeRowByLabel = useMemo(() => {
     const rows = new Map<string, ChartRow>();
     for (const row of series.rows) {
@@ -1121,7 +1132,7 @@ export function ProgressionPanel({
       });
     }
     return moments;
-  }, [granularity, visibleVolumeProfiles, volumeRowByLabel]);
+  }, [visibleVolumeProfiles, volumePeakLabel, volumeRowByLabel]);
   const volumePeakMarkers = useMemo<VolumePeakMarker[]>(
     () =>
       overlayPeaks
