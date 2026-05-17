@@ -34,6 +34,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ProgressionPanel } from "@/components/progression-panel";
 import { Input } from "@/components/ui/input";
 import BlockReviewSummary from "@/components/BlockReviewSummary";
 import { CurrentCycleCard } from "@/components/current-cycle-card";
@@ -64,8 +65,6 @@ import {
 import {
   ChevronLeft,
   AlertCircle,
-  ArrowRight,
-  BarChart3,
   Check,
   CheckCircle,
   ChevronDown,
@@ -4876,7 +4875,7 @@ export default function AthleteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
-  const { instance } = useAuth();
+  const { instance, instanceSettings } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
   const athleteId = parseInt(params.id as string, 10);
 
@@ -5021,9 +5020,17 @@ export default function AthleteDetailPage() {
   });
   const compMaxByLift = useMemo(() => {
     const m: Record<string, Types.CompetitionMaxForLift> = {};
-    for (const c of compMaxes) m[c.lift] = c;
+    for (const c of compMaxes) m[c.lift.toLowerCase()] = c;
     return m;
   }, [compMaxes]);
+  const competitionMaxesForProgression = useMemo(
+    () => ({
+      squat: compMaxByLift.squat?.weight_lbs ?? null,
+      bench: compMaxByLift.bench?.weight_lbs ?? null,
+      deadlift: compMaxByLift.deadlift?.weight_lbs ?? null,
+    }),
+    [compMaxByLift],
+  );
 
   
   
@@ -6489,101 +6496,19 @@ export default function AthleteDetailPage() {
         />
 
         {}
-        <Link
-          href={`/athletes/${athleteId}/progression`}
-          className="block"
-          style={{ marginBottom: "var(--cloud-s5)", textDecoration: "none" }}
-        >
-          <div
-            style={{
-              position: "relative",
-              background:
-                "linear-gradient(180deg, rgba(12, 92, 171, 0.14) 0%, rgba(12, 92, 171, 0) 75%), var(--cloud-panel)",
-              border: "1px solid rgba(12, 92, 171, 0.40)",
-              borderRadius: "var(--cloud-r-lg)",
-              padding: "var(--cloud-s4)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
-              transition: "border-color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor =
-                "rgba(12, 92, 171, 0.60)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor =
-                "rgba(12, 92, 171, 0.40)";
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                minWidth: 0,
-              }}
-            >
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  background: "rgba(12, 92, 171, 0.28)",
-                  border: "1px solid rgba(12, 92, 171, 0.40)",
-                  color: "var(--cloud-primary-text)",
-                  display: "grid",
-                  placeItems: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <BarChart3 style={{ width: 20, height: 20, strokeWidth: 1.8 }} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p
-                  className="cloud-eyebrow"
-                  style={{ marginBottom: 4 }}
-                >
-                  Progression
-                </p>
-                <p
-                  className="cloud-text"
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 600,
-                    letterSpacing: "-0.015em",
-                    margin: 0,
-                  }}
-                >
-                  Single-lift e1RM trajectory
-                </p>
-                <p
-                  className="cloud-text-muted"
-                  style={{
-                    fontSize: 13,
-                    marginTop: 2,
-                  }}
-                >
-                  Block boundaries, meet PRs, peaks by block.
-                </p>
-              </div>
-            </div>
-            <div
-              className="cloud-text-muted"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 13,
-                fontWeight: 500,
-                flexShrink: 0,
-              }}
-            >
-              Open <ArrowRight style={{ width: 14, height: 14, strokeWidth: 1.8 }} />
-            </div>
-          </div>
-        </Link>
+        <ProgressionPanel
+          athleteId={athleteId}
+          unit={unit}
+          competitionMaxes={competitionMaxesForProgression}
+          tracksRpe={instanceSettings.tracks_rpe}
+          hasPrimaryDays={Boolean(
+            athlete?.primary_squat_day ||
+              athlete?.primary_bench_day ||
+              athlete?.primary_deadlift_day,
+          )}
+          highlightedExercise={highlightedExercise}
+          onClearHighlight={() => setHighlightedExercise(null)}
+        />
 
         {}
         <BlockReviewSummary athleteId={athleteId} context="profile" athleteName={athlete?.name ?? null} unit={unit} />

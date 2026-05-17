@@ -353,12 +353,13 @@ def get_e1rm_trends(
                 continue
 
 
-        e1rm = (
-            calculate_e1rm(ex.weight_lbs, ex.reps, ex.actual_rpe)
-            if ex.actual_rpe is not None
-            else None
-        )
-        e1rm_method = "rpe" if e1rm is not None else None
+        # Use peak_e1rm so sets logged without an RPE still get an estimate
+        # via the Epley fallback. Tenants with tracks_rpe=False have no RPE
+        # on any set; computing e1rm from the RPE table alone would return
+        # null for every point and leave their progression chart empty.
+        e1rm, e1rm_method = peak_e1rm(ex.weight_lbs, ex.reps, ex.actual_rpe)
+        if e1rm is None:
+            e1rm_method = None
         results.append(
             E1RMDataPoint(
                 exercise_name=ex.exercise_name,
