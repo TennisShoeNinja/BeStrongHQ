@@ -86,11 +86,12 @@ const PINNED_TOOLTIP_WIDTH_ESTIMATE = 340;
 const PINNED_TOOLTIP_HEIGHT_ESTIMATE = 260;
 const PINNED_TOOLTIP_MARGIN = 8;
 
+// Recharts 3 chart-click state (MouseHandlerDataParam): no activePayload —
+// it gives the active row index, the category label, and the SVG coordinate.
 interface ChartClickState {
+  activeIndex?: number | string | null;
   activeLabel?: string | number;
-  activePayload?: TooltipPayloadEntry[];
-  chartX?: number;
-  chartY?: number;
+  activeCoordinate?: { x?: number; y?: number };
 }
 
 function metaKey(seriesKey: string): string {
@@ -170,6 +171,19 @@ function RichTooltip({
     return key && !key.endsWith("__meta") && entry.value != null;
   });
   if (visiblePayload.length === 0) return null;
+
+  // All lifts in one block share the same program spreadsheet, so collapse
+  // the per-lift sheet links into one footer link (distinct URLs only).
+  const sheetUrls = Array.from(
+    new Set(
+      visiblePayload
+        .map((entry) => {
+          const m = row[metaKey(String(entry.dataKey ?? ""))];
+          return isPointMeta(m) ? m.sourceUrl : null;
+        })
+        .filter((u): u is string => Boolean(u)),
+    ),
+  );
 
   return (
     <div
@@ -255,32 +269,14 @@ function RichTooltip({
               <div style={{ color, fontWeight: 700 }}>
                 {descriptor?.label ?? entry.name ?? key}
               </div>
-              <div>{meta.exerciseName}</div>
               <div style={{ color: "var(--cloud-text-muted)" }}>
                 {formatWeightValue(meta.weightLbs, unit)} x {meta.reps}
                 {rpePart}
               </div>
-              <div style={{ color: "var(--cloud-text-muted)" }}>
-                e1RM {formatWeightValue(meta.e1rmLbs, unit)}
-              </div>
               <div style={{ color: "var(--cloud-text-dim)" }}>
-                W{meta.weekNumber} D{meta.dayNumber}
+                e1RM {formatWeightValue(meta.e1rmLbs, unit)} · W{meta.weekNumber}{" "}
+                D{meta.dayNumber}
               </div>
-              {meta.sourceUrl && (
-                <a
-                  href={meta.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "var(--cloud-primary-text)",
-                    textDecoration: "none",
-                    fontWeight: 600,
-                    marginTop: 2,
-                  }}
-                >
-                  Open source sheet
-                </a>
-              )}
               {meta.isOutlier && descriptor && (
                 <div
                   style={{
@@ -327,6 +323,34 @@ function RichTooltip({
           );
         })}
       </div>
+      {sheetUrls.length > 0 && (
+        <div
+          style={{
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: "1px solid var(--cloud-border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          {sheetUrls.map((url) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--cloud-primary-text)",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              Open source sheet
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -730,17 +754,38 @@ export function ProgressionChart({
           data={rows}
           margin={{ top: 8, right: 12, bottom: 4, left: 4 }}
           onClick={(state: ChartClickState) => {
-            const payload = state.activePayload;
-            if (!payload || payload.length === 0) {
+            const rawIndex = state.activeIndex;
+            const index =
+              typeof rawIndex === "number" ? rawIndex : Number(rawIndex);
+            const row = Number.isInteger(index) ? rows[index] : undefined;
+            if (!row) {
               setPinnedTooltip(null);
               return;
             }
-            const label = state.activeLabel;
+            const payload: TooltipPayloadEntry[] = renderedSeries.flatMap(
+              (s) => {
+                const value = row[s.key];
+                if (typeof value !== "number") return [];
+                return [
+                  {
+                    dataKey: s.key,
+                    name: s.label,
+                    color: s.color,
+                    value,
+                    payload: row,
+                  },
+                ];
+              },
+            );
+            if (payload.length === 0) {
+              setPinnedTooltip(null);
+              return;
+            }
             setPinnedTooltip({
-              label: typeof label === "string" || typeof label === "number" ? String(label) : "",
+              label: String(state.activeLabel ?? row.label ?? ""),
               payload,
-              x: state.chartX ?? 0,
-              y: state.chartY ?? 0,
+              x: state.activeCoordinate?.x ?? 0,
+              y: state.activeCoordinate?.y ?? 0,
             });
           }}
         >

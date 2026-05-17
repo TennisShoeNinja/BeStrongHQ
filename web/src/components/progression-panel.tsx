@@ -1629,13 +1629,9 @@ export function ProgressionPanel({
                 <DropdownMenuContent
                   align="start"
                   className="cloud-panel-raised"
-                  style={{
-                    maxHeight: 360,
-                    overflowY: "auto",
-                    minWidth: 240,
-                    maxWidth: 360,
-                  }}
+                  style={{ minWidth: 240, maxWidth: 360 }}
                 >
+                  <div style={{ maxHeight: 300, overflowY: "auto" }}>
                   {LIFTS.map((lift) => {
                     const opts = variations[lift.key];
                     if (opts.length === 0) return null;
@@ -1670,6 +1666,7 @@ export function ProgressionPanel({
                       </Fragment>
                     );
                   })}
+                  </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setShowManageVariations(true)}
