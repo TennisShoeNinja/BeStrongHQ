@@ -3,12 +3,12 @@
 Reads every xlsx in a staging directory and emits a markdown report describing
 the corpus shape: tab inventory, header row candidates, column census per
 recurring tab, fill-color vocabulary, merged-cell quirks, and an exercise-name
-vocabulary harvested from string-heavy columns. The report is the brief Alex
-hands back to the assistant when building a per-instance adapter — full corpus
+vocabulary harvested from string-heavy columns. The report is the brief a
+maintainer hands to the assistant when building a new adapter: full corpus
 knowledge up front instead of one-example guessing.
 
 This module deliberately depends on nothing in the rest of the parser package
-so it can run before any adapter exists for a instance.
+so it can run before any adapter exists for an instance.
 """
 
 from __future__ import annotations
@@ -371,11 +371,10 @@ def scan_corpus(staging_dir: Path) -> str:
     out.append("## What to fill in next")
     out.append("")
     out.append(
-        "Hand this report to the assistant alongside the parser-brief template "
-        "at `.mex/patterns/parser_brief.md`. The brief asks for the things the "
-        "scan can't decide for you — which tab is the program grid, which row "
-        "is the canonical header, what each color means, and how the coach "
-        "expects rep / weight / RPE to be split across columns."
+        "Hand this report to the assistant along with a brief covering the "
+        "things the scan cannot decide for you: which tab is the program grid, "
+        "which row is the canonical header, what each color means, and how the "
+        "coach expects rep / weight / RPE to be split across columns."
     )
     out.append("")
 
