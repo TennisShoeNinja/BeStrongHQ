@@ -198,10 +198,20 @@ export function variationsForLift(
   return out;
 }
 
-export type ChartRow = { label: string } & Record<
-  string,
-  number | string | undefined
->;
+export interface SeriesPointMeta {
+  exerciseName: string;
+  weightLbs: number;
+  reps: number;
+  actualRpe: number | null;
+  e1rmLbs: number;
+  weekNumber: number;
+  dayNumber: number;
+  sourceUrl: string | null;
+}
+
+export type ChartRowValue = number | string | SeriesPointMeta | undefined;
+
+export type ChartRow = { label: string } & Record<string, ChartRowValue>;
 
 export interface LiftSeriesRow extends ChartRow {
   label: string;
@@ -350,6 +360,10 @@ function variationLabels(
   return labels;
 }
 
+function seriesMetaKey(seriesKey: string): string {
+  return `${seriesKey}__meta`;
+}
+
 /**
  * Build a unified categorical dataset for the multi-lift chart. Plots one
  * caller-chosen variation per lift, merged into rows keyed by block or week
@@ -424,7 +438,19 @@ export function buildLiftSeries(
         }
         const row = bucket.row;
         const prev = row[seriesKey];
-        if (typeof prev !== "number" || p.e1rm > prev) row[seriesKey] = p.e1rm;
+        if (typeof prev !== "number" || p.e1rm > prev) {
+          row[seriesKey] = p.e1rm;
+          row[seriesMetaKey(seriesKey)] = {
+            exerciseName: p.exercise_name,
+            weightLbs: p.weight_lbs,
+            reps: p.reps,
+            actualRpe: p.actual_rpe,
+            e1rmLbs: p.e1rm,
+            weekNumber: p.week_number,
+            dayNumber: p.day_number,
+            sourceUrl: p.google_sheet_url ?? program?.google_sheet_url ?? null,
+          };
+        }
         available[lift] = true;
       }
     });

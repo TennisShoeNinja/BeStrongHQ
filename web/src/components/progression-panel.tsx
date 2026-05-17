@@ -1031,6 +1031,7 @@ export function ProgressionPanel({
           competitionMaxes={
             !compareMode && chartMode === "e1rm" ? displayCompetitionMaxes : undefined
           }
+          tracksRpe={tracksRpe}
         />
 
         {!compareMode && blockPeaks.length > 0 && (
