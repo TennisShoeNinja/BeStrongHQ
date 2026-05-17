@@ -64,6 +64,16 @@ const GRANULARITIES: { key: ProgressionGranularity; label: string }[] = [
   { key: "week", label: "Per Week" },
 ];
 
+type VariationSelection = Record<LiftKey, Set<string>>;
+
+function emptyVariationSelection(): VariationSelection {
+  return {
+    squat: new Set<string>(),
+    bench: new Set<string>(),
+    deadlift: new Set<string>(),
+  };
+}
+
 // Connected segmented control: a pill-shaped container holding tab buttons.
 const SEG_GROUP: CSSProperties = {
   display: "inline-flex",
@@ -137,10 +147,10 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     useState<ProgressionGranularity>("block");
   const [showPeakTable, setShowPeakTable] = useState(false);
   const [showManageVariations, setShowManageVariations] = useState(false);
-  // Per-lift variation override (canonical name); null = use the default pick.
-  const [variationByLift, setVariationByLift] = useState<
-    Record<LiftKey, string | null>
-  >({ squat: null, bench: null, deadlift: null });
+  // Per-lift selected variations. Empty means use the derived competition default.
+  const [variationByLift, setVariationByLift] = useState<VariationSelection>(
+    () => emptyVariationSelection(),
+  );
   const [selectedProgramIds, setSelectedProgramIds] = useState<Set<number>>(
     new Set<number>(),
   );
@@ -220,18 +230,18 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     [e1rmTrends, programs],
   );
 
-  // The variation actually plotted per lift: a coach override if set,
-  // else the competition variation.
-  const resolvedVariations = useMemo<Record<LiftKey, string | null>>(() => {
-    const resolve = (lift: LiftKey): string | null => {
+  const effectiveSelectedVariations = useMemo<VariationSelection>(() => {
+    const resolve = (lift: LiftKey): Set<string> => {
       const opts = variations[lift];
-      if (opts.length === 0) return null;
-      const override = variationByLift[lift];
-      if (override && opts.some((o) => o.canonical === override)) {
-        return override;
+      if (opts.length === 0) return new Set<string>();
+      const canonicals = new Set(opts.map((opt) => opt.canonical));
+      const valid = new Set<string>();
+      for (const canonical of variationByLift[lift]) {
+        if (canonicals.has(canonical)) valid.add(canonical);
       }
+      if (valid.size > 0) return valid;
       const pick = opts.find((o) => o.isCompetition) ?? opts[0];
-      return pick.canonical;
+      return new Set<string>([pick.canonical]);
     };
     return {
       squat: resolve("squat"),
@@ -239,6 +249,22 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       deadlift: resolve("deadlift"),
     };
   }, [variations, variationByLift]);
+
+  const representativeVariations = useMemo<Record<LiftKey, string | null>>(() => {
+    const resolve = (lift: LiftKey): string | null => {
+      const selected = effectiveSelectedVariations[lift];
+      if (selected.size === 0) return null;
+      const opts = variations[lift];
+      const comp = opts.find((opt) => opt.isCompetition && selected.has(opt.canonical));
+      if (comp) return comp.canonical;
+      return opts.find((opt) => selected.has(opt.canonical))?.canonical ?? null;
+    };
+    return {
+      squat: resolve("squat"),
+      bench: resolve("bench"),
+      deadlift: resolve("deadlift"),
+    };
+  }, [effectiveSelectedVariations, variations]);
 
   const series = useMemo(
     () =>
@@ -252,7 +278,7 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
         : buildLiftSeries(
             e1rmTrends,
             programs,
-            resolvedVariations,
+            effectiveSelectedVariations,
             granularity,
             effectiveSelectedProgramIds,
           ),
@@ -260,9 +286,9 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       chartMode,
       e1rmTrends,
       effectiveSelectedProgramIds,
+      effectiveSelectedVariations,
       granularity,
       programs,
-      resolvedVariations,
       volumeTrends,
     ],
   );
@@ -291,8 +317,8 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     [compareSeries],
   );
   const blockPeaks = useMemo(
-    () => peaksByBlock(e1rmTrends, programs, resolvedVariations),
-    [e1rmTrends, programs, resolvedVariations],
+    () => peaksByBlock(e1rmTrends, programs, representativeVariations),
+    [e1rmTrends, programs, representativeVariations],
   );
   // Newest block first for the Peak Weight Per Block list (it scrolls).
   const recentBlockPeaks = useMemo(
@@ -362,6 +388,21 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       if (next.has(programId)) next.delete(programId);
       else next.add(programId);
       return next;
+    });
+  };
+
+  const toggleVariation = (lift: LiftKey, canonical: string) => {
+    setVariationByLift((prev) => {
+      const base =
+        prev[lift].size > 0 ? prev[lift] : effectiveSelectedVariations[lift];
+      const next = new Set(base);
+      if (next.has(canonical)) {
+        if (next.size === 1) return prev;
+        next.delete(canonical);
+      } else {
+        next.add(canonical);
+      }
+      return { ...prev, [lift]: next };
     });
   };
 
@@ -633,25 +674,20 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
                         >
                           {lift.label}
                         </div>
-                        <DropdownMenuRadioGroup
-                          value={resolvedVariations[lift.key] ?? ""}
-                          onValueChange={(value) =>
-                            setVariationByLift((prev) => ({
-                              ...prev,
-                              [lift.key]: value,
-                            }))
-                          }
-                        >
-                          {opts.map((opt) => (
-                            <DropdownMenuRadioItem
-                              key={opt.canonical}
-                              value={opt.canonical}
-                              title={opt.label}
-                            >
-                              {opt.label}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
+                        {opts.map((opt) => (
+                          <DropdownMenuCheckboxItem
+                            key={opt.canonical}
+                            checked={effectiveSelectedVariations[lift.key].has(
+                              opt.canonical,
+                            )}
+                            onCheckedChange={() =>
+                              toggleVariation(lift.key, opt.canonical)
+                            }
+                            title={opt.label}
+                          >
+                            {opt.label}
+                          </DropdownMenuCheckboxItem>
+                        ))}
                       </Fragment>
                     );
                   })}
@@ -866,7 +902,15 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
           visibleLifts={visibleLifts}
           unit={unit}
           mode={compareMode ? "e1rm" : chartMode}
-          series={compareMode ? compareChartSeries : undefined}
+          series={
+            compareMode
+              ? compareChartSeries
+              : chartMode === "e1rm"
+                ? series.series.filter(
+                    (item) => !item.lift || visibleLifts.has(item.lift),
+                  )
+                : undefined
+          }
         />
 
         {!compareMode && blockPeaks.length > 0 && (

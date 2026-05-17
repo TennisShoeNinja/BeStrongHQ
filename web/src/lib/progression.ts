@@ -73,6 +73,13 @@ export interface CompareSeries {
 
 export type ProgressionGranularity = "block" | "week";
 
+export interface ProgressionChartSeries {
+  key: string;
+  label: string;
+  lift?: LiftKey;
+  color: string;
+}
+
 export function compareSeriesLabel(series: CompareSeries): string {
   const lift = LIFTS.find((l) => l.key === series.lift)?.label ?? series.lift;
   const reps =
@@ -209,6 +216,8 @@ export interface LiftSeries {
   available: Record<LiftKey, boolean>;
   /** competition variation chosen per lift */
   variation: Record<LiftKey, string | null>;
+  /** chart lines to render for the generated row keys */
+  series: ProgressionChartSeries[];
 }
 
 export interface BlockPeaks {
@@ -308,6 +317,39 @@ function pointBucketKey(
     : programKey;
 }
 
+function stableSeriesKey(lift: LiftKey, canonical: string): string {
+  let hash = 0;
+  for (let i = 0; i < canonical.length; i += 1) {
+    hash = (hash * 31 + canonical.charCodeAt(i)) >>> 0;
+  }
+  return `${lift}_${hash.toString(36)}`;
+}
+
+const VARIATION_COLORS: Record<LiftKey, string[]> = {
+  squat: ["#7CB4ED", "#4A90D9", "#A8D0F5", "#2563EB"],
+  bench: ["#F59E0B", "#FBBF24", "#D97706", "#FDE68A"],
+  deadlift: ["#34D399", "#10B981", "#6EE7B7", "#059669"],
+};
+
+function variationColor(lift: LiftKey, index: number): string {
+  const palette = VARIATION_COLORS[lift];
+  return palette[index] ?? COMPARE_COLORS[(index - palette.length) % COMPARE_COLORS.length];
+}
+
+function variationLabels(
+  points: E1RMDataPoint[],
+  lift: LiftKey,
+): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const p of points) {
+    if (!liftMatches(p.lift_category, lift)) continue;
+    const canonical = (p.canonical_exercise_name ?? "").trim();
+    if (!canonical || labels.has(canonical)) continue;
+    labels.set(canonical, p.exercise_name?.trim() || canonical);
+  }
+  return labels;
+}
+
 /**
  * Build a unified categorical dataset for the multi-lift chart. Plots one
  * caller-chosen variation per lift, merged into rows keyed by block or week
@@ -316,7 +358,7 @@ function pointBucketKey(
 export function buildLiftSeries(
   points: E1RMDataPoint[],
   programs: ProgramListResponse[],
-  variationByLift: Record<LiftKey, string | null>,
+  variationByLift: Record<LiftKey, Set<string>>,
   granularity: ProgressionGranularity,
   selectedProgramIds?: Set<number>,
 ): LiftSeries {
@@ -328,12 +370,17 @@ export function buildLiftSeries(
     ? points.filter((p) => p.program_id != null && selectedProgramIds.has(p.program_id))
     : points;
 
-  const variation = variationByLift;
+  const representativeVariation: Record<LiftKey, string | null> = {
+    squat: null,
+    bench: null,
+    deadlift: null,
+  };
 
   const rowByBucket = new Map<
     string,
     { row: LiftSeriesRow; order: ReturnType<typeof programSortFields> }
   >();
+  const chartSeries: ProgressionChartSeries[] = [];
   const available: Record<LiftKey, boolean> = {
     squat: false,
     bench: false,
@@ -341,38 +388,52 @@ export function buildLiftSeries(
   };
 
   for (const lift of ["squat", "bench", "deadlift"] as LiftKey[]) {
-    const canon = variation[lift];
-    if (!canon) continue;
-    for (const p of filteredPoints) {
-      if (p.e1rm == null) continue;
-      if (!liftMatches(p.lift_category, lift)) continue;
-      if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
-      const key = pointBucketKey(p, granularity);
-      if (key == null) continue;
-      const program =
-        p.program_id == null ? undefined : programById.get(p.program_id);
-      let bucket = rowByBucket.get(key);
-      if (!bucket) {
-        const programNumber = p.program_number ?? program?.program_number;
-        bucket = {
-          row: {
-            label: bucketLabel(granularity, programNumber, p.week_number),
-          },
-          order: programSortFields(program, programNumber, p.week_number),
-        };
-        rowByBucket.set(key, bucket);
+    const selected = Array.from(variationByLift[lift] ?? []);
+    if (selected.length === 0) continue;
+    representativeVariation[lift] =
+      selected.find((canonical) => isCompetitionName(canonical, lift)) ?? selected[0];
+    const labels = variationLabels(filteredPoints, lift);
+
+    selected.forEach((canon, index) => {
+      const seriesKey = stableSeriesKey(lift, canon);
+      chartSeries.push({
+        key: seriesKey,
+        label: labels.get(canon) ?? canon,
+        lift,
+        color: variationColor(lift, index),
+      });
+
+      for (const p of filteredPoints) {
+        if (p.e1rm == null) continue;
+        if (!liftMatches(p.lift_category, lift)) continue;
+        if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
+        const key = pointBucketKey(p, granularity);
+        if (key == null) continue;
+        const program =
+          p.program_id == null ? undefined : programById.get(p.program_id);
+        let bucket = rowByBucket.get(key);
+        if (!bucket) {
+          const programNumber = p.program_number ?? program?.program_number;
+          bucket = {
+            row: {
+              label: bucketLabel(granularity, programNumber, p.week_number),
+            },
+            order: programSortFields(program, programNumber, p.week_number),
+          };
+          rowByBucket.set(key, bucket);
+        }
+        const row = bucket.row;
+        const prev = row[seriesKey];
+        if (typeof prev !== "number" || p.e1rm > prev) row[seriesKey] = p.e1rm;
+        available[lift] = true;
       }
-      const row = bucket.row;
-      const prev = row[lift];
-      if (prev == null || p.e1rm > prev) row[lift] = p.e1rm;
-      available[lift] = true;
-    }
+    });
   }
 
   const rows = Array.from(rowByBucket.values())
     .sort((a, b) => compareBucketOrder(a.order, b.order))
     .map((bucket) => bucket.row);
-  return { rows, available, variation };
+  return { rows, available, variation: representativeVariation, series: chartSeries };
 }
 
 export function buildCompareSeries(
@@ -592,6 +653,12 @@ export function buildVolumeSeries(
     { row: LiftSeriesRow; order: ReturnType<typeof programSortFields> }
   >();
   const lifts = LIFTS.map((l) => l.key);
+  const chartSeries: ProgressionChartSeries[] = LIFTS.map((lift) => ({
+    key: lift.key,
+    label: lift.label,
+    lift: lift.key,
+    color: lift.color,
+  }));
 
   for (const p of volumePoints) {
     if (selectedProgramIds) {
@@ -631,5 +698,5 @@ export function buildVolumeSeries(
   const rows = Array.from(rowByBucket.values())
     .sort((a, b) => compareBucketOrder(a.order, b.order))
     .map((bucket) => bucket.row);
-  return { rows, available, variation };
+  return { rows, available, variation, series: chartSeries };
 }

@@ -10,7 +10,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "@/lib/theme-provider";
-import { LIFTS, type ChartRow, type LiftKey } from "@/lib/progression";
+import {
+  LIFTS,
+  type ChartRow,
+  type LiftKey,
+  type ProgressionChartSeries,
+} from "@/lib/progression";
 
 interface Props {
   rows: ChartRow[];
@@ -18,7 +23,7 @@ interface Props {
   unit: string;
   height?: number;
   mode?: "e1rm" | "volume";
-  series?: { key: string; label: string; color: string }[];
+  series?: ProgressionChartSeries[];
 }
 
 /**
