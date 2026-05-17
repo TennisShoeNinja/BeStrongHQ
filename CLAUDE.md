@@ -1,6 +1,6 @@
 ---
 name: agents
-description: Always-loaded project anchor. Read this first. Contains project identity, non-negotiables, commands, and pointer to .mex/ROUTER.md for full context.
+description: Always-loaded project anchor. Read this first. Contains project identity, non-negotiables, and commands.
 last_updated: 2026-05-14
 ---
 
@@ -25,8 +25,5 @@ Powerlifting coaching CRM and analytics platform. Parses training program spread
 - Docker: `docker compose up --build`
 - Frontend dev: `cd web && npm run dev`
 
-## After Every Task
-If a `.mex/` directory exists locally (Alex's working notes, gitignored), update `.mex/ROUTER.md` and any other `.mex/` files that are now out of date. If no pattern existed for the task you just completed, create one in `.mex/patterns/`. Public contributors without `.mex/` can ignore this section.
-
 ## Navigation
-If a `.mex/ROUTER.md` exists locally, read it first; it has full project context, patterns, and task guidance. Otherwise this file plus the docs in `docs/` are the canonical entry points.
+This file, `STRUCTURE.md`, and the docs in `docs/` are the canonical entry points for the codebase.

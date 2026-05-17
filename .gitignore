@@ -47,9 +47,10 @@ node_modules/
 web/.next/
 web/node_modules/
 
-# AI tooling working files (keep root CLAUDE.md committed)
+# AI tooling working files (root + whitelisted subdir CLAUDE.md stay committed)
 **/CLAUDE.md
 !/CLAUDE.md
+!/bestrong/parser/CLAUDE.md
 CLAUDE copy.md
 .worktrees/
 .claude/
