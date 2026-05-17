@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   LineChart,
   Line,
@@ -20,6 +20,13 @@ import {
   type SeriesPointMeta,
 } from "@/lib/progression";
 import { convertWeight, type WeightUnit } from "@/lib/units";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Props {
   rows: ChartRow[];
@@ -45,6 +52,18 @@ interface TooltipState {
   payload: TooltipPayloadEntry[];
   x: number;
   y: number;
+}
+
+interface OutlierExplainerState {
+  series: ProgressionChartSeries;
+  meta: SeriesPointMeta;
+}
+
+interface SeriesDotProps {
+  cx?: number;
+  cy?: number;
+  index?: number;
+  payload?: ChartRow;
 }
 
 const PINNED_TOOLTIP_OFFSET = 12;
@@ -81,6 +100,13 @@ function formatWeightValue(valueLbs: number, unit: WeightUnit): string {
   return `${Math.round(value).toLocaleString("en-US")} ${unit}`;
 }
 
+function formatWeightDelta(valueLbs: number, unit: WeightUnit): string {
+  const value = unit === "lbs" ? valueLbs : convertWeight(valueLbs, unit);
+  const rounded = Math.round(value);
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+  return `${sign}${Math.abs(rounded).toLocaleString("en-US")} ${unit}`;
+}
+
 function TooltipLabel({ children }: { children: string }) {
   return (
     <div
@@ -107,6 +133,7 @@ function RichTooltip({
   tracksRpe,
   pinned,
   onClose,
+  onExplainOutlier,
 }: {
   active?: boolean;
   label?: string | number;
@@ -117,6 +144,7 @@ function RichTooltip({
   tracksRpe: boolean;
   pinned?: boolean;
   onClose?: () => void;
+  onExplainOutlier?: (series: ProgressionChartSeries, meta: SeriesPointMeta) => void;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const row = payload[0]?.payload;
@@ -238,11 +266,308 @@ function RichTooltip({
                   Open source sheet
                 </a>
               )}
+              {meta.isOutlier && descriptor && (
+                <div
+                  style={{
+                    marginTop: 5,
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    borderRadius: 8,
+                    background: "rgba(245, 158, 11, 0.1)",
+                    color: "var(--cloud-warning-text)",
+                    padding: "7px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ lineHeight: 1.35 }}>
+                    {meta.outlierReason ?? "This point was flagged as an outlier."}
+                  </span>
+                  {onExplainOutlier && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onExplainOutlier(descriptor, meta);
+                      }}
+                      style={{
+                        border: "1px solid rgba(245, 158, 11, 0.45)",
+                        borderRadius: 999,
+                        background: "var(--cloud-panel)",
+                        color: "var(--cloud-warning-text)",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "3px 7px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Explain
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function OutlierExplainerDialog({
+  state,
+  unit,
+  tracksRpe,
+  onOpenChange,
+}: {
+  state: OutlierExplainerState | null;
+  unit: WeightUnit;
+  tracksRpe: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const meta = state?.meta ?? null;
+  const average = meta?.outlierAverageLbs ?? null;
+  const delta = meta && average != null ? meta.e1rmLbs - average : null;
+  const references = meta?.outlierReferencePoints ?? [];
+
+  return (
+    <Dialog open={state !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] max-w-2xl">
+        {state && meta && (
+          <>
+            <DialogHeader>
+              <DialogTitle
+                style={{
+                  color: "var(--cloud-text)",
+                  fontSize: 18,
+                  fontWeight: 700,
+                }}
+              >
+                Where this flag came from
+              </DialogTitle>
+              <DialogDescription
+                style={{
+                  color: "var(--cloud-text-muted)",
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                }}
+              >
+                This point was flagged by comparing it with the recent average
+                for the same lift pattern.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div style={{ display: "grid", gap: 14 }}>
+              <div
+                style={{
+                  border: "1px solid rgba(245, 158, 11, 0.28)",
+                  borderRadius: 10,
+                  background: "rgba(245, 158, 11, 0.1)",
+                  color: "var(--cloud-warning-text)",
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                }}
+              >
+                {meta.outlierReason ?? "This e1RM sits outside the expected recent range."}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {[
+                  ["This point", formatWeightValue(meta.e1rmLbs, unit)],
+                  [
+                    "Trailing average",
+                    average == null ? "Not available" : formatWeightValue(average, unit),
+                  ],
+                  ["Delta", delta == null ? "Not available" : formatWeightDelta(delta, unit)],
+                ].map(([labelText, valueText]) => (
+                  <div
+                    key={labelText}
+                    style={{
+                      border: "1px solid var(--cloud-border)",
+                      borderRadius: 8,
+                      background: "var(--cloud-panel)",
+                      padding: "10px 12px",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    <TooltipLabel>{labelText}</TooltipLabel>
+                    <div
+                      style={{
+                        color: "var(--cloud-text)",
+                        fontSize: 18,
+                        fontWeight: 750,
+                        marginTop: 4,
+                      }}
+                    >
+                      {valueText}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <TooltipLabel>Flagged point</TooltipLabel>
+                <div
+                  style={{
+                    marginTop: 6,
+                    border: "1px solid var(--cloud-border)",
+                    borderRadius: 8,
+                    background: "var(--cloud-panel)",
+                    padding: "10px 12px",
+                    color: "var(--cloud-text)",
+                    fontSize: 13,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: state.series.color }}>
+                    {state.series.label}
+                  </div>
+                  <div>{meta.exerciseName}</div>
+                  <div style={{ color: "var(--cloud-text-muted)" }}>
+                    {formatWeightValue(meta.weightLbs, unit)} x {meta.reps}
+                    {tracksRpe && meta.actualRpe != null ? ` @ RPE ${meta.actualRpe}` : ""}
+                  </div>
+                  <div style={{ color: "var(--cloud-text-dim)" }}>
+                    W{meta.weekNumber} D{meta.dayNumber}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <TooltipLabel>Reference points</TooltipLabel>
+                <div style={{ display: "grid", gap: 8, marginTop: 6 }}>
+                  {references.length === 0 ? (
+                    <div
+                      style={{
+                        border: "1px solid var(--cloud-border)",
+                        borderRadius: 8,
+                        background: "var(--cloud-panel)",
+                        color: "var(--cloud-text-muted)",
+                        padding: "10px 12px",
+                        fontSize: 13,
+                      }}
+                    >
+                      No reference points were returned for this flag.
+                    </div>
+                  ) : (
+                    references.map((ref, index) => {
+                      const rpePart =
+                        tracksRpe && ref.actual_rpe != null
+                          ? ` @ RPE ${ref.actual_rpe}`
+                          : "";
+                      return (
+                        <div
+                          key={`${ref.program_number ?? "unknown"}-${ref.week_number}-${ref.day_number}-${index}`}
+                          style={{
+                            border: "1px solid var(--cloud-border)",
+                            borderRadius: 8,
+                            background: "var(--cloud-panel)",
+                            padding: "9px 11px",
+                            color: "var(--cloud-text)",
+                            display: "grid",
+                            gap: 3,
+                            fontSize: 12,
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700 }}>{ref.exercise_name}</div>
+                          <div style={{ color: "var(--cloud-text-muted)" }}>
+                            {formatWeightValue(ref.weight_lbs, unit)} x {ref.reps}
+                            {rpePart}
+                          </div>
+                          <div style={{ color: "var(--cloud-text-muted)" }}>
+                            e1RM {formatWeightValue(ref.e1rm, unit)}
+                          </div>
+                          <div style={{ color: "var(--cloud-text-dim)" }}>
+                            P{ref.program_number ?? "?"} W{ref.week_number} D{ref.day_number}
+                            {ref.day_name ? `, ${ref.day_name}` : ""}
+                          </div>
+                          {ref.google_sheet_url && (
+                            <a
+                              href={ref.google_sheet_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "var(--cloud-primary-text)",
+                                textDecoration: "none",
+                                fontWeight: 700,
+                              }}
+                            >
+                              Open source sheet
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function renderSeriesDot(
+  props: SeriesDotProps,
+  series: ProgressionChartSeries,
+  mode: "e1rm" | "volume",
+  onExplainOutlier: (series: ProgressionChartSeries, meta: SeriesPointMeta) => void,
+) {
+  const { cx, cy, payload, index } = props;
+  if (cx == null || cy == null) {
+    return <g key={`dot-${series.key}-${index ?? "empty"}`} />;
+  }
+  const metaValue = payload?.[metaKey(series.key)];
+  const meta = isPointMeta(metaValue) ? metaValue : null;
+  if (mode !== "e1rm" || !meta?.isOutlier) {
+    return (
+      <circle
+        key={`dot-${series.key}-${payload?.label ?? index ?? "point"}`}
+        cx={cx}
+        cy={cy}
+        r={2}
+        fill={series.color}
+        stroke="none"
+      />
+    );
+  }
+
+  const handleClick = (event: MouseEvent<SVGGElement>) => {
+    event.stopPropagation();
+    onExplainOutlier(series, meta);
+  };
+
+  return (
+    <g
+      key={`outlier-${series.key}-${payload?.label ?? index ?? "point"}`}
+      onClick={handleClick}
+      style={{ cursor: "pointer" }}
+      aria-label={`Explain outlier for ${series.label}`}
+    >
+      <title>{meta.outlierReason ?? "Outlier point"}</title>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={7}
+        fill="rgba(245, 158, 11, 0.12)"
+        stroke="var(--cloud-warning-text)"
+        strokeWidth={2}
+      />
+      <circle cx={cx} cy={cy} r={2.75} fill={series.color} stroke="none" />
+      <circle cx={cx} cy={cy} r={11} fill="transparent" />
+    </g>
   );
 }
 
@@ -270,6 +595,8 @@ export function ProgressionChart({
   const isVolume = mode === "volume";
   const showCompetitionMaxes = mode === "e1rm" && competitionMaxes != null;
   const [pinnedTooltip, setPinnedTooltip] = useState<TooltipState | null>(null);
+  const [outlierExplainer, setOutlierExplainer] =
+    useState<OutlierExplainerState | null>(null);
   const renderedSeries = series ?? LIFTS.filter((l) => visibleLifts.has(l.key));
   const chartRef = useRef<HTMLDivElement | null>(null);
   const [chartSize, setChartSize] = useState({ width: 0, height: 0 });
@@ -280,6 +607,7 @@ export function ProgressionChart({
 
   useEffect(() => {
     setPinnedTooltip(null);
+    setOutlierExplainer(null);
   }, [mode, rows, seriesSignature, unit]);
 
   useEffect(() => {
@@ -380,6 +708,9 @@ export function ProgressionChart({
                   mode={mode}
                   unit={unit}
                   tracksRpe={tracksRpe !== false}
+                  onExplainOutlier={(seriesItem, meta) =>
+                    setOutlierExplainer({ series: seriesItem, meta })
+                  }
                 />
               )
             }
@@ -414,7 +745,15 @@ export function ProgressionChart({
               name={s.label}
               stroke={s.color}
               strokeWidth={2}
-              dot={{ r: 2, fill: s.color }}
+              dot={(dotProps) =>
+                renderSeriesDot(
+                  dotProps as SeriesDotProps,
+                  s,
+                  mode,
+                  (seriesItem, meta) =>
+                    setOutlierExplainer({ series: seriesItem, meta }),
+                )
+              }
               activeDot={{ r: 5 }}
               connectNulls
               isAnimationActive={false}
@@ -441,9 +780,20 @@ export function ProgressionChart({
             tracksRpe={tracksRpe !== false}
             pinned
             onClose={() => setPinnedTooltip(null)}
+            onExplainOutlier={(seriesItem, meta) =>
+              setOutlierExplainer({ series: seriesItem, meta })
+            }
           />
         </div>
       )}
+      <OutlierExplainerDialog
+        state={outlierExplainer}
+        unit={unit}
+        tracksRpe={tracksRpe !== false}
+        onOpenChange={(open) => {
+          if (!open) setOutlierExplainer(null);
+        }}
+      />
     </div>
   );
 }

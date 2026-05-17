@@ -13,6 +13,7 @@
  */
 import type {
   E1RMDataPoint,
+  OutlierReferencePoint,
   ProgramListResponse,
   VolumeDataPoint,
 } from "@/lib/types";
@@ -141,7 +142,7 @@ export function competitionVariation(
 }
 
 export interface VariationOption {
-  /** server canonical_exercise_name — the grouping key */
+  /** server canonical_exercise_name - the grouping key */
   canonical: string;
   /** representative raw exercise_name for display */
   label: string;
@@ -207,6 +208,10 @@ export interface SeriesPointMeta {
   weekNumber: number;
   dayNumber: number;
   sourceUrl: string | null;
+  isOutlier: boolean;
+  outlierReason: string | null;
+  outlierAverageLbs: number | null;
+  outlierReferencePoints: OutlierReferencePoint[];
 }
 
 export type ChartRowValue = number | string | SeriesPointMeta | undefined;
@@ -449,6 +454,10 @@ export function buildLiftSeries(
             weekNumber: p.week_number,
             dayNumber: p.day_number,
             sourceUrl: p.google_sheet_url ?? program?.google_sheet_url ?? null,
+            isOutlier: p.is_outlier === true,
+            outlierReason: p.outlier_reason ?? null,
+            outlierAverageLbs: p.outlier_average ?? null,
+            outlierReferencePoints: p.outlier_reference_points ?? [],
           };
         }
         available[lift] = true;
