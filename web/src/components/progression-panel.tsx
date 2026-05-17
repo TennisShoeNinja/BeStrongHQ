@@ -516,6 +516,62 @@ function DataQualityBanner({
   );
 }
 
+function ChartStateCard({
+  eyebrow,
+  title,
+  detail,
+  loading = false,
+}: {
+  eyebrow: string;
+  title: string;
+  detail: string;
+  loading?: boolean;
+}) {
+  return (
+    <div
+      className="cloud-panel-raised"
+      style={{
+        border: "1px solid var(--cloud-border)",
+        borderRadius: 8,
+        background: "var(--cloud-surface-raised)",
+        padding: "18px 20px",
+        minHeight: 180,
+        display: "grid",
+        alignContent: "center",
+        justifyItems: "center",
+        textAlign: "center",
+        gap: 8,
+      }}
+      aria-busy={loading}
+    >
+      <div
+        style={{
+          color: "var(--cloud-primary-text)",
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+        }}
+      >
+        {eyebrow}
+      </div>
+      <div style={{ color: "var(--cloud-text)", fontSize: 15, fontWeight: 800 }}>
+        {title}
+      </div>
+      <div
+        style={{
+          color: "var(--cloud-text-muted)",
+          fontSize: 13,
+          lineHeight: 1.5,
+          maxWidth: 540,
+        }}
+      >
+        {detail}
+      </div>
+    </div>
+  );
+}
+
 const CONTROL_DIVIDER: CSSProperties = {
   width: 1,
   alignSelf: "stretch",
@@ -567,7 +623,10 @@ export function ProgressionPanel({
   const { minReps, maxReps } = repFilterRange(repFilter);
   const usePrimaryFilter = hasPrimaryDays && primaryOnly;
   const showRpeFields = tracksRpe !== false;
-  const { data: e1rmTrends = [] as Types.E1RMDataPoint[] } = useQuery({
+  const {
+    data: e1rmTrends = [] as Types.E1RMDataPoint[],
+    isLoading: e1rmLoading,
+  } = useQuery({
     queryKey: ["progression-e1rm", athleteId, repFilter, usePrimaryFilter],
     queryFn: () =>
       apiClient.getE1RMTrends(athleteId, {
@@ -576,7 +635,10 @@ export function ProgressionPanel({
         primaryOnly: usePrimaryFilter ? true : undefined,
       }),
   });
-  const { data: volumeTrends = [] as Types.VolumeDataPoint[] } = useQuery({
+  const {
+    data: volumeTrends = [] as Types.VolumeDataPoint[],
+    isLoading: volumeLoading,
+  } = useQuery({
     queryKey: ["progression-volume", athleteId],
     queryFn: () => apiClient.getVolumeTrends(athleteId),
     enabled: !compareMode && chartMode === "volume",
@@ -590,7 +652,7 @@ export function ProgressionPanel({
       }),
     enabled: !compareMode && chartMode === "volume",
   });
-  const { data: dataQuality } = useQuery({
+  const { data: dataQuality, isLoading: dataQualityLoading } = useQuery({
     queryKey: ["progression-data-quality", athleteId],
     queryFn: () => apiClient.getDataQuality(athleteId),
     enabled: !compareMode && chartMode === "e1rm",
@@ -618,7 +680,10 @@ export function ProgressionPanel({
       };
     }),
   });
-  const { data: programs = [] as Types.ProgramListResponse[] } = useQuery({
+  const {
+    data: programs = [] as Types.ProgramListResponse[],
+    isLoading: programsLoading,
+  } = useQuery({
     queryKey: ["programs", athleteId],
     queryFn: () => apiClient.listPrograms(athleteId),
   });
@@ -757,6 +822,17 @@ export function ProgressionPanel({
       })),
     [compareSeries, hasPrimaryDays],
   );
+  const activeChartSeries = useMemo(
+    () =>
+      compareMode
+        ? compareChartSeries
+        : chartMode === "e1rm"
+          ? series.series.filter(
+              (item) => !item.lift || visibleLifts.has(item.lift),
+            )
+          : LIFTS.filter((lift) => visibleLifts.has(lift.key)),
+    [chartMode, compareChartSeries, compareMode, series.series, visibleLifts],
+  );
   const blockPeaks = useMemo(
     () => peaksByBlock(e1rmTrends, programs, representativeVariations),
     [e1rmTrends, programs, representativeVariations],
@@ -864,6 +940,14 @@ export function ProgressionPanel({
       return next;
     });
   }, [chartRows, unit]);
+  const chartableRows = useMemo(
+    () =>
+      displayRows.filter((row) =>
+        activeChartSeries.some((item) => typeof row[item.key] === "number"),
+      ),
+    [activeChartSeries, displayRows],
+  );
+  const chartHasData = chartableRows.length >= 2;
 
   const displayCompetitionMaxes = useMemo<
     Partial<Record<LiftKey, number | null>> | undefined
@@ -1052,6 +1136,94 @@ export function ProgressionPanel({
     ? "compare"
     : chartMode;
   const compareSlotsLeft = Math.max(0, COMPARE_MAX_SERIES - compareSeries.length);
+  const compareLoading = compareSeriesQueries.some((query) => query.isLoading);
+  const isChartLoading =
+    programsLoading ||
+    (compareMode
+      ? compareLoading
+      : chartMode === "volume"
+        ? volumeLoading
+        : e1rmLoading || (e1rmTrends.length === 0 && dataQualityLoading));
+  const emptyState = useMemo(() => {
+    if (compareMode) {
+      const suggestions: string[] = [];
+      if (compareSeries.some((item) => item.repFilter !== "all")) {
+        suggestions.push("widening one or more series rep ranges");
+      }
+      if (hasPrimaryDays && compareSeries.some((item) => item.primaryOnly)) {
+        suggestions.push("turning off Primary day only on a series");
+      }
+      if (blockFilterActive) suggestions.push("clearing the block filter");
+      return {
+        title: "No compare rows match the current series.",
+        detail:
+          suggestions.length > 0
+            ? `Try ${suggestions.join(", ")}.`
+            : "Try adding a broader series or importing more training history.",
+      };
+    }
+
+    if (chartMode === "volume") {
+      if (volumeTrends.length === 0) {
+        return {
+          title: "No volume data yet.",
+          detail: "Import training programs with weekly volume to build this chart.",
+        };
+      }
+      const suggestions: string[] = [];
+      if (blockFilterActive) suggestions.push("clearing the block filter");
+      if (visibleLifts.size < LIFTS.length) suggestions.push("enabling more lifts");
+      return {
+        title: "No volume rows match the current filters.",
+        detail:
+          suggestions.length > 0
+            ? `Try ${suggestions.join(", ")}.`
+            : "Try importing more volume history.",
+      };
+    }
+
+    const hasAnyProgressionData =
+      dataQuality != null ? dataQuality.total_top_sets > 0 : e1rmTrends.length > 0;
+    if (!hasAnyProgressionData) {
+      return {
+        title: "No progression data yet.",
+        detail: "Import training programs with top sets to build this chart.",
+      };
+    }
+    const suggestions: string[] = [];
+    if (repFilter !== "all") suggestions.push("widening the rep range");
+    if (usePrimaryFilter) suggestions.push("turning off Primary day");
+    if (blockFilterActive) suggestions.push("clearing the block filter");
+    if (visibleLifts.size < LIFTS.length) suggestions.push("enabling more lifts");
+    const variationIsNarrow = LIFTS.some((lift) => {
+      if (!visibleLifts.has(lift.key)) return false;
+      const optionCount = variations[lift.key].length;
+      const selectedCount = effectiveSelectedVariations[lift.key].size;
+      return optionCount > selectedCount && selectedCount > 0;
+    });
+    if (variationIsNarrow) suggestions.push("selecting more variations");
+    return {
+      title: "No e1RM rows match the current filters.",
+      detail:
+        suggestions.length > 0
+          ? `Try ${suggestions.join(", ")}.`
+          : "Try importing more training history.",
+    };
+  }, [
+    blockFilterActive,
+    chartMode,
+    compareMode,
+    compareSeries,
+    dataQuality,
+    e1rmTrends.length,
+    effectiveSelectedVariations,
+    hasPrimaryDays,
+    repFilter,
+    usePrimaryFilter,
+    variations,
+    visibleLifts,
+    volumeTrends.length,
+  ]);
   const selectMode = (mode: "e1rm" | "volume" | "compare") => {
     if (mode === "compare") {
       setCompareMode(true);
@@ -1552,7 +1724,7 @@ export function ProgressionPanel({
           chartMode === "e1rm" &&
           dataQuality &&
           dataQuality.total_top_sets > 0 &&
-          displayRows.length >= 2 && (
+          chartHasData && (
             <DataQualityBanner
               athleteId={athleteId}
               data={dataQuality}
@@ -1562,30 +1734,39 @@ export function ProgressionPanel({
             />
           )}
 
-        <ProgressionChart
-          rows={displayRows}
-          visibleLifts={visibleLifts}
-          unit={unit}
-          mode={compareMode ? "e1rm" : chartMode}
-          series={
-            compareMode
-              ? compareChartSeries
-              : chartMode === "e1rm"
-                ? series.series.filter(
-                    (item) => !item.lift || visibleLifts.has(item.lift),
-                  )
-                : undefined
-          }
-          competitionMaxes={
-            !compareMode && chartMode === "e1rm" ? displayCompetitionMaxes : undefined
-          }
-          tracksRpe={tracksRpe}
-          volumePeakMarkers={
-            !compareMode && chartMode === "volume" ? volumePeakMarkers : undefined
-          }
-        />
+        {isChartLoading ? (
+          <ChartStateCard
+            eyebrow="Progression"
+            title="Loading chart data."
+            detail="Checking the athlete's training history and active filters."
+            loading
+          />
+        ) : !chartHasData ? (
+          <ChartStateCard
+            eyebrow="Progression"
+            title={emptyState.title}
+            detail={emptyState.detail}
+          />
+        ) : (
+          <ProgressionChart
+            rows={displayRows}
+            visibleLifts={visibleLifts}
+            unit={unit}
+            mode={compareMode ? "e1rm" : chartMode}
+            series={
+              compareMode || chartMode === "e1rm" ? activeChartSeries : undefined
+            }
+            competitionMaxes={
+              !compareMode && chartMode === "e1rm" ? displayCompetitionMaxes : undefined
+            }
+            tracksRpe={tracksRpe}
+            volumePeakMarkers={
+              !compareMode && chartMode === "volume" ? volumePeakMarkers : undefined
+            }
+          />
+        )}
 
-        {!compareMode && chartMode === "volume" && (
+        {!compareMode && chartMode === "volume" && chartHasData && (
           <section
             style={{
               background: "var(--cloud-surface-raised)",
@@ -1629,7 +1810,7 @@ export function ProgressionPanel({
           </section>
         )}
 
-        {!compareMode && chartMode === "volume" && (
+        {!compareMode && chartMode === "volume" && chartHasData && (
           <section
             style={{
               background: "var(--cloud-surface-raised)",
@@ -1763,7 +1944,7 @@ export function ProgressionPanel({
           </section>
         )}
 
-        {!compareMode && blockPeaks.length > 0 && (
+        {!compareMode && chartHasData && blockPeaks.length > 0 && (
           <section
             style={{
               background: "var(--cloud-surface-raised)",
@@ -1876,7 +2057,7 @@ export function ProgressionPanel({
           </section>
         )}
 
-        {!compareMode && peakEfforts.length > 0 && (
+        {!compareMode && chartHasData && peakEfforts.length > 0 && (
           <section
             style={{
               background: "var(--cloud-surface-raised)",
