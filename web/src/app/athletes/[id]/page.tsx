@@ -4875,7 +4875,7 @@ export default function AthleteDetailPage() {
   const router = useRouter();
   const params = useParams();
   const queryClient = useQueryClient();
-  const { instance } = useAuth();
+  const { instance, instanceSettings } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
   const athleteId = parseInt(params.id as string, 10);
 
@@ -6500,6 +6500,12 @@ export default function AthleteDetailPage() {
           athleteId={athleteId}
           unit={unit}
           competitionMaxes={competitionMaxesForProgression}
+          tracksRpe={instanceSettings.tracks_rpe}
+          hasPrimaryDays={Boolean(
+            athlete?.primary_squat_day ||
+              athlete?.primary_bench_day ||
+              athlete?.primary_deadlift_day,
+          )}
         />
 
         {}

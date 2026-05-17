@@ -45,6 +45,8 @@ interface Props {
   athleteId: number;
   unit: WeightUnit;
   competitionMaxes?: Partial<Record<LiftKey, number | null>>;
+  tracksRpe?: boolean;
+  hasPrimaryDays?: boolean;
 }
 
 let compareSeriesCounter = 0;
@@ -73,6 +75,14 @@ function emptyVariationSelection(): VariationSelection {
     bench: new Set<string>(),
     deadlift: new Set<string>(),
   };
+}
+
+function setEquals<T>(a: Set<T>, b: Set<T>): boolean {
+  if (a.size !== b.size) return false;
+  for (const value of a) {
+    if (!b.has(value)) return false;
+  }
+  return true;
 }
 
 // Connected segmented control: a pill-shaped container holding tab buttons.
@@ -136,7 +146,13 @@ const CONTROL_DIVIDER: CSSProperties = {
  * Rich coach progression panel: multiple lifts overlaid on one e1RM
  * trajectory, sliced by rep range. Mounted inline on the athlete profile.
  */
-export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
+export function ProgressionPanel({
+  athleteId,
+  unit,
+  competitionMaxes,
+  tracksRpe = true,
+  hasPrimaryDays = false,
+}: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [compareMode, setCompareMode] = useState(false);
   const [compareSeries, setCompareSeries] = useState<CompareSeries[]>(() => [
@@ -160,13 +176,15 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
   );
 
   const { minReps, maxReps } = repFilterRange(repFilter);
+  const usePrimaryFilter = hasPrimaryDays && primaryOnly;
+  const showRpeFields = tracksRpe !== false;
   const { data: e1rmTrends = [] as Types.E1RMDataPoint[] } = useQuery({
-    queryKey: ["progression-e1rm", athleteId, repFilter, primaryOnly],
+    queryKey: ["progression-e1rm", athleteId, repFilter, usePrimaryFilter],
     queryFn: () =>
       apiClient.getE1RMTrends(athleteId, {
         minReps,
         maxReps,
-        primaryOnly: primaryOnly ? true : undefined,
+        primaryOnly: usePrimaryFilter ? true : undefined,
       }),
   });
   const { data: volumeTrends = [] as Types.VolumeDataPoint[] } = useQuery({
@@ -231,6 +249,20 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
     [e1rmTrends, programs],
   );
 
+  const defaultSelectedVariations = useMemo<VariationSelection>(() => {
+    const resolve = (lift: LiftKey): Set<string> => {
+      const opts = variations[lift];
+      if (opts.length === 0) return new Set<string>();
+      const pick = opts.find((o) => o.isCompetition) ?? opts[0];
+      return new Set<string>([pick.canonical]);
+    };
+    return {
+      squat: resolve("squat"),
+      bench: resolve("bench"),
+      deadlift: resolve("deadlift"),
+    };
+  }, [variations]);
+
   const effectiveSelectedVariations = useMemo<VariationSelection>(() => {
     const resolve = (lift: LiftKey): Set<string> => {
       const opts = variations[lift];
@@ -241,15 +273,14 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
         if (canonicals.has(canonical)) valid.add(canonical);
       }
       if (valid.size > 0) return valid;
-      const pick = opts.find((o) => o.isCompetition) ?? opts[0];
-      return new Set<string>([pick.canonical]);
+      return defaultSelectedVariations[lift];
     };
     return {
       squat: resolve("squat"),
       bench: resolve("bench"),
       deadlift: resolve("deadlift"),
     };
-  }, [variations, variationByLift]);
+  }, [defaultSelectedVariations, variations, variationByLift]);
 
   const representativeVariations = useMemo<Record<LiftKey, string | null>>(() => {
     const resolve = (lift: LiftKey): string | null => {
@@ -383,6 +414,39 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
     }
     return next;
   }, [competitionMaxes, unit]);
+
+  const filtersDirty = useMemo(() => {
+    const defaultLifts = new Set<LiftKey>(["squat", "bench", "deadlift"]);
+    const variationsDirty = LIFTS.some(
+      (lift) =>
+        !setEquals(
+          effectiveSelectedVariations[lift.key],
+          defaultSelectedVariations[lift.key],
+        ),
+    );
+    return (
+      repFilter !== "1-3" ||
+      primaryOnly ||
+      !setEquals(visibleLifts, defaultLifts) ||
+      variationsDirty ||
+      selectedProgramIds.size > 0
+    );
+  }, [
+    defaultSelectedVariations,
+    effectiveSelectedVariations,
+    primaryOnly,
+    repFilter,
+    selectedProgramIds,
+    visibleLifts,
+  ]);
+
+  const resetFilters = () => {
+    setRepFilter("1-3");
+    setPrimaryOnly(false);
+    setVisibleLifts(new Set<LiftKey>(["squat", "bench", "deadlift"]));
+    setVariationByLift(emptyVariationSelection());
+    setSelectedProgramIds(new Set<number>());
+  };
 
   const toggleLift = (lift: LiftKey) => {
     setVisibleLifts((prev) => {
@@ -713,16 +777,17 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              {/* Primary day */}
-              <button
-                type="button"
-                onClick={() => setPrimaryOnly((value) => !value)}
-                aria-pressed={primaryOnly}
-                title="Show only the athlete's primary training day for each lift"
-                style={pillButton(primaryOnly)}
-              >
-                Primary day
-              </button>
+              {hasPrimaryDays && (
+                <button
+                  type="button"
+                  onClick={() => setPrimaryOnly((value) => !value)}
+                  aria-pressed={primaryOnly}
+                  title="Show only the athlete's primary training day for each lift"
+                  style={pillButton(primaryOnly)}
+                >
+                  Primary day
+                </button>
+              )}
             </>
           )}
 
@@ -765,7 +830,45 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
               )}
             </>
           )}
+
+          {filtersDirty && (
+            <>
+              <span aria-hidden style={CONTROL_DIVIDER} />
+              <button
+                type="button"
+                onClick={resetFilters}
+                style={pillButton(false)}
+                title="Reset rep range, primary day, lifts, variations, and blocks"
+              >
+                Reset filters
+              </button>
+            </>
+          )}
         </div>
+
+        {!compareMode && chartMode === "e1rm" && !hasPrimaryDays && (
+          <div
+            className="cloud-panel-raised"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(245, 158, 11, 0.30)",
+              background: "rgba(245, 158, 11, 0.10)",
+              color: "var(--cloud-warning-text)",
+              fontSize: 12,
+              lineHeight: 1.45,
+            }}
+          >
+            <span style={{ fontWeight: 700 }}>Primary days are not set.</span>
+            <span>
+              Set primary days from the athlete menu to filter this chart to main
+              training days.
+            </span>
+          </div>
+        )}
 
         {compareMode && (
           <section
@@ -1119,7 +1222,9 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(56px, 0.45fr) minmax(76px, 0.6fr) minmax(130px, 1fr)",
+                    gridTemplateColumns: showRpeFields
+                      ? "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(56px, 0.45fr) minmax(76px, 0.6fr) minmax(130px, 1fr)"
+                      : "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(76px, 0.6fr) minmax(130px, 1fr)",
                     gap: 8,
                     padding: "7px 10px",
                     borderBottom: "1px solid var(--cloud-border)",
@@ -1132,7 +1237,7 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
                 >
                   <span>Exercise</span>
                   <span>Weight x Reps</span>
-                  <span>RPE</span>
+                  {showRpeFields && <span>RPE</span>}
                   <span>e1RM</span>
                   <span>Block</span>
                 </div>
@@ -1141,7 +1246,9 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
                     key={effort.canonicalName}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(56px, 0.45fr) minmax(76px, 0.6fr) minmax(130px, 1fr)",
+                      gridTemplateColumns: showRpeFields
+                        ? "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(56px, 0.45fr) minmax(76px, 0.6fr) minmax(130px, 1fr)"
+                        : "minmax(150px, 1.4fr) minmax(88px, 0.7fr) minmax(76px, 0.6fr) minmax(130px, 1fr)",
                       gap: 8,
                       alignItems: "center",
                       padding: "8px 10px",
@@ -1164,16 +1271,18 @@ export function ProgressionPanel({ athleteId, unit, competitionMaxes }: Props) {
                     <span>
                       {formatWeightOnly(effort.weightLbs)} x {effort.reps}
                     </span>
-                    <span
-                      style={{
-                        color:
-                          effort.rpe == null
-                            ? "var(--cloud-text-dim)"
-                            : "var(--cloud-text)",
-                      }}
-                    >
-                      {effort.rpe == null ? "-" : effort.rpe}
-                    </span>
+                    {showRpeFields && (
+                      <span
+                        style={{
+                          color:
+                            effort.rpe == null
+                              ? "var(--cloud-text-dim)"
+                              : "var(--cloud-text)",
+                        }}
+                      >
+                        {effort.rpe == null ? "-" : effort.rpe}
+                      </span>
+                    )}
                     <span style={{ fontWeight: 700 }}>
                       {formatPeak(effort.e1rm)}
                     </span>
