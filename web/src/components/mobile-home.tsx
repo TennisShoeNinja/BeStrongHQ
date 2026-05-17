@@ -199,7 +199,7 @@ export function MobileHome() {
         </div>
         <div className="cloud-mhome-review">
           {needsReview.map((item) => (
-            <div key={`${item.kind}-${item.athlete_id}-${item.occurred_at}`} className="cloud-mhome-rcard">
+            <div key={item.id} className="cloud-mhome-rcard">
               <div className={`ava ${item.avatar_class}`}>{item.athlete_initials}</div>
               <div>
                 <p className="who">{item.athlete_name}</p>

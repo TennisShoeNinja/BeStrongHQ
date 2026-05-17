@@ -62,6 +62,7 @@ class WeeklyStatsResponse(BaseModel):
 
 
 class NeedsReviewItem(BaseModel):
+    id: str
     kind: str
     athlete_id: int
     athlete_name: str
@@ -246,6 +247,7 @@ def needs_review(
             (
                 mh.recorded_at,
                 NeedsReviewItem(
+                    id=f"pr-{mh.id}",
                     kind="pr",
                     athlete_id=athlete.id,
                     athlete_name=athlete.name,
@@ -285,6 +287,7 @@ def needs_review(
             (
                 latest_imported_at,
                 NeedsReviewItem(
+                    id=f"miss-{athlete.id}",
                     kind="miss",
                     athlete_id=athlete.id,
                     athlete_name=athlete.name,
@@ -319,6 +322,7 @@ def needs_review(
             (
                 imported_at,
                 NeedsReviewItem(
+                    id=f"load-{entry.id}",
                     kind="load",
                     athlete_id=athlete.id,
                     athlete_name=athlete.name,

@@ -170,6 +170,7 @@ export interface WeeklyStatsResponse {
 }
 
 export interface NeedsReviewItem {
+  id: string;
   kind: "pr" | "miss" | "load";
   athlete_id: number;
   athlete_name: string;
