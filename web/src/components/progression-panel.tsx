@@ -60,6 +60,7 @@ interface Props {
 }
 
 let compareSeriesCounter = 0;
+const COMPARE_MAX_SERIES = COMPARE_COLORS.length;
 
 function newCompareSeriesId() {
   compareSeriesCounter += 1;
@@ -537,7 +538,12 @@ export function ProgressionPanel({
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [compareMode, setCompareMode] = useState(false);
   const [compareSeries, setCompareSeries] = useState<CompareSeries[]>(() => [
-    { id: newCompareSeriesId(), lift: "squat", repFilter: "1-3" },
+    {
+      id: newCompareSeriesId(),
+      lift: "squat",
+      repFilter: "1-3",
+      primaryOnly: false,
+    },
   ]);
   const [repFilter, setRepFilter] = useState<RepFilterKey>("1-3");
   const [primaryOnly, setPrimaryOnly] = useState(false);
@@ -592,18 +598,21 @@ export function ProgressionPanel({
   const compareSeriesQueries = useQueries({
     queries: compareSeries.map((series) => {
       const range = repFilterRange(series.repFilter);
+      const useSeriesPrimaryOnly = hasPrimaryDays && series.primaryOnly;
       return {
         queryKey: [
           "progression-compare",
           athleteId,
           series.lift,
           series.repFilter,
+          useSeriesPrimaryOnly,
         ],
         queryFn: () =>
           apiClient.getE1RMTrends(athleteId, {
             liftCategory: series.lift,
             minReps: range.minReps,
             maxReps: range.maxReps,
+            primaryOnly: useSeriesPrimaryOnly ? true : undefined,
           }),
         enabled: compareMode,
       };
@@ -740,10 +749,13 @@ export function ProgressionPanel({
     () =>
       compareSeries.map((seriesItem, index) => ({
         key: seriesItem.id,
-        label: compareSeriesLabel(seriesItem),
+        label: compareSeriesLabel({
+          ...seriesItem,
+          primaryOnly: hasPrimaryDays && seriesItem.primaryOnly,
+        }),
         color: COMPARE_COLORS[index % COMPARE_COLORS.length],
       })),
-    [compareSeries],
+    [compareSeries, hasPrimaryDays],
   );
   const blockPeaks = useMemo(
     () => peaksByBlock(e1rmTrends, programs, representativeVariations),
@@ -937,7 +949,7 @@ export function ProgressionPanel({
 
   const updateCompareSeries = (
     id: string,
-    patch: Partial<Pick<CompareSeries, "lift" | "repFilter">>,
+    patch: Partial<Pick<CompareSeries, "lift" | "repFilter" | "primaryOnly">>,
   ) => {
     setCompareSeries((prev) =>
       prev.map((seriesItem) =>
@@ -947,10 +959,19 @@ export function ProgressionPanel({
   };
 
   const addCompareSeries = () => {
-    setCompareSeries((prev) => [
-      ...prev,
-      { id: newCompareSeriesId(), lift: "squat", repFilter: "1-3" },
-    ]);
+    setCompareSeries((prev) =>
+      prev.length >= COMPARE_MAX_SERIES
+        ? prev
+        : [
+            ...prev,
+            {
+              id: newCompareSeriesId(),
+              lift: "squat",
+              repFilter: "1-3",
+              primaryOnly: false,
+            },
+          ],
+    );
   };
 
   const removeCompareSeries = (id: string) => {
@@ -1030,6 +1051,7 @@ export function ProgressionPanel({
   const currentMode: "e1rm" | "volume" | "compare" = compareMode
     ? "compare"
     : chartMode;
+  const compareSlotsLeft = Math.max(0, COMPARE_MAX_SERIES - compareSeries.length);
   const selectMode = (mode: "e1rm" | "volume" | "compare") => {
     if (mode === "compare") {
       setCompareMode(true);
@@ -1365,7 +1387,9 @@ export function ProgressionPanel({
                   key={seriesItem.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "10px minmax(108px, 1fr) minmax(124px, 1fr) auto",
+                    gridTemplateColumns: hasPrimaryDays
+                      ? "10px minmax(108px, 1fr) minmax(124px, 1fr) auto auto"
+                      : "10px minmax(108px, 1fr) minmax(124px, 1fr) auto",
                     gap: 8,
                     alignItems: "center",
                     padding: "8px 10px",
@@ -1433,6 +1457,24 @@ export function ProgressionPanel({
                       </option>
                     ))}
                   </select>
+                  {hasPrimaryDays && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateCompareSeries(seriesItem.id, {
+                          primaryOnly: !seriesItem.primaryOnly,
+                        })
+                      }
+                      aria-pressed={seriesItem.primaryOnly}
+                      style={{
+                        ...pillButton(seriesItem.primaryOnly),
+                        justifyContent: "center",
+                        padding: "6px 10px",
+                      }}
+                    >
+                      Primary day only
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeCompareSeries(seriesItem.id)}
@@ -1458,25 +1500,51 @@ export function ProgressionPanel({
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={addCompareSeries}
+            <div
               style={{
-                alignSelf: "flex-start",
-                background: "var(--cloud-panel)",
-                border: "1px solid var(--cloud-border)",
-                color: "var(--cloud-primary-text)",
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "6px 12px",
-                borderRadius: 999,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "0.02em",
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 8,
               }}
             >
-              Add series
-            </button>
+              <button
+                type="button"
+                onClick={addCompareSeries}
+                disabled={compareSeries.length >= COMPARE_MAX_SERIES}
+                style={{
+                  alignSelf: "flex-start",
+                  background: "var(--cloud-panel)",
+                  border: "1px solid var(--cloud-border)",
+                  color:
+                    compareSeries.length >= COMPARE_MAX_SERIES
+                      ? "var(--cloud-text-dim)"
+                      : "var(--cloud-primary-text)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  cursor:
+                    compareSeries.length >= COMPARE_MAX_SERIES
+                      ? "not-allowed"
+                      : "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "0.02em",
+                  opacity: compareSeries.length >= COMPARE_MAX_SERIES ? 0.65 : 1,
+                }}
+              >
+                Add series
+              </button>
+              <span
+                style={{
+                  color: "var(--cloud-text-dim)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              >
+                {compareSlotsLeft} slot{compareSlotsLeft === 1 ? "" : "s"} left
+              </span>
+            </div>
           </section>
         )}
 

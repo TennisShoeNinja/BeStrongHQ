@@ -70,6 +70,7 @@ export interface CompareSeries {
   id: string;
   lift: LiftKey;
   repFilter: RepFilterKey;
+  primaryOnly: boolean;
 }
 
 export type ProgressionGranularity = "block" | "week";
@@ -86,7 +87,8 @@ export function compareSeriesLabel(series: CompareSeries): string {
   const reps =
     REP_FILTERS.find((filter) => filter.key === series.repFilter)?.label ??
     series.repFilter;
-  return `${lift} ${reps}`;
+  const days = series.primaryOnly ? "Primary days" : "All days";
+  return `${lift} ${reps} ${days}`;
 }
 
 /** Match an exercise's `lift_category` tag to one of the three lifts. */
