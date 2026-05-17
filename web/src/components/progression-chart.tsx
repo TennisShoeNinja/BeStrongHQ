@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "@/lib/theme-provider";
@@ -16,8 +15,6 @@ import { LIFTS, type ChartRow, type LiftKey } from "@/lib/progression";
 interface Props {
   rows: ChartRow[];
   visibleLifts: Set<LiftKey>;
-  /** block-boundary timestamps for dashed reference verticals */
-  boundaries: number[];
   unit: string;
   height?: number;
   mode?: "e1rm" | "volume";
@@ -26,12 +23,11 @@ interface Props {
 
 /**
  * Multi-lift e1RM trajectory chart. One themed Recharts line per visible
- * lift, sharing a time x-axis, with dashed verticals where programs change.
+ * lift, sharing a categorical block or week x-axis.
  */
 export function ProgressionChart({
   rows,
   visibleLifts,
-  boundaries,
   unit,
   height = 280,
   mode = "e1rm",
@@ -43,9 +39,6 @@ export function ProgressionChart({
   const textColor = dark ? "rgba(250,250,250,0.5)" : "#64748b";
   const tooltipBg = dark ? "#09090b" : "#ffffff";
   const tooltipBorder = dark ? "rgba(255,255,255,0.18)" : "#e2e8f0";
-  const boundaryColor = dark
-    ? "rgba(124,180,237,0.20)"
-    : "rgba(12,92,171,0.16)";
   const valueFormatter = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
   });
@@ -67,18 +60,11 @@ export function ProgressionChart({
         <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
           <XAxis
-            dataKey="ts"
-            type="number"
-            scale="time"
-            domain={["dataMin", "dataMax"]}
+            dataKey="label"
+            type="category"
             tick={{ fontSize: 11, fill: textColor }}
             tickLine={false}
-            tickFormatter={(ts: number) =>
-              new Date(ts).toLocaleDateString("en-US", {
-                month: "short",
-                year: "2-digit",
-              })
-            }
+            interval="preserveStartEnd"
           />
           <YAxis
             tick={{ fontSize: 11, fill: textColor }}
@@ -97,14 +83,7 @@ export function ProgressionChart({
               fontSize: "12px",
             }}
             labelFormatter={(label) => {
-              const ts = Number(label);
-              return Number.isFinite(ts)
-                ? new Date(ts).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                : "";
+              return typeof label === "string" ? label : "";
             }}
             formatter={(value, name) => {
               const formatted = valueFormatter.format(Math.round(Number(value)));
@@ -114,14 +93,6 @@ export function ProgressionChart({
               ];
             }}
           />
-          {boundaries.map((b, i) => (
-            <ReferenceLine
-              key={`boundary-${i}`}
-              x={b}
-              stroke={boundaryColor}
-              strokeDasharray="2 3"
-            />
-          ))}
           {(series ?? LIFTS.filter((l) => visibleLifts.has(l.key))).map((s) => (
             <Line
               key={s.key}

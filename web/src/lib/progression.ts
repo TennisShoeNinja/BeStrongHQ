@@ -8,8 +8,8 @@
  *     competition + paused + tempo + SSB squats under "squat", and e1RM
  *     normalises for reps/RPE but NOT for variation difficulty. So per
  *     lift we plot exactly one variation (the competition lift).
- *  2. e1RM trend points are indexed by program/week/day, not calendar
- *     date, so timestamps are derived by offsetting from program start.
+ *  2. Chart rows are indexed by program block or program week labels so
+ *     coaches see training blocks as the x-axis categories.
  */
 import type {
   E1RMDataPoint,
@@ -70,6 +70,8 @@ export interface CompareSeries {
   lift: LiftKey;
   repFilter: RepFilterKey;
 }
+
+export type ProgressionGranularity = "block" | "week";
 
 export function compareSeriesLabel(series: CompareSeries): string {
   const lift = LIFTS.find((l) => l.key === series.lift)?.label ?? series.lift;
@@ -189,10 +191,13 @@ export function variationsForLift(
   return out;
 }
 
-export type ChartRow = { ts: number } & Record<string, number | undefined>;
+export type ChartRow = { label: string } & Record<
+  string,
+  number | string | undefined
+>;
 
 export interface LiftSeriesRow extends ChartRow {
-  ts: number;
+  label: string;
   squat?: number;
   bench?: number;
   deadlift?: number;
@@ -253,25 +258,82 @@ function programStartTimestamps(programs: ProgramListResponse[]): Map<number, nu
   return startByProgram;
 }
 
+function programNumberLabel(programNumber: number | null | undefined): string {
+  return programNumber == null ? "P?" : `P${programNumber}`;
+}
+
+function bucketLabel(
+  granularity: ProgressionGranularity,
+  programNumber: number | null | undefined,
+  weekNumber: number | null | undefined,
+): string {
+  const block = programNumberLabel(programNumber);
+  return granularity === "week" ? `${block} W${weekNumber ?? "?"}` : block;
+}
+
+function programSortFields(
+  program: ProgramListResponse | undefined,
+  programNumber: number | null | undefined,
+  weekNumber: number | null | undefined,
+) {
+  return {
+    dateStart: parseLocalDate(program?.date_start)?.getTime() ?? 0,
+    programNumber: programNumber ?? program?.program_number ?? Number.MAX_SAFE_INTEGER,
+    weekNumber: weekNumber ?? Number.MAX_SAFE_INTEGER,
+  };
+}
+
+function compareBucketOrder(
+  a: ReturnType<typeof programSortFields>,
+  b: ReturnType<typeof programSortFields>,
+) {
+  if (a.dateStart !== b.dateStart) return a.dateStart - b.dateStart;
+  if (a.programNumber !== b.programNumber) return a.programNumber - b.programNumber;
+  return a.weekNumber - b.weekNumber;
+}
+
+function pointBucketKey(
+  p: E1RMDataPoint,
+  granularity: ProgressionGranularity,
+): string | null {
+  const programKey =
+    p.program_id != null
+      ? `id:${p.program_id}`
+      : p.program_number != null
+        ? `num:${p.program_number}`
+        : null;
+  if (programKey == null) return null;
+  return granularity === "week"
+    ? `${programKey}:week:${p.week_number}`
+    : programKey;
+}
+
 /**
- * Build a unified time-series dataset for the multi-lift chart. Plots one
- * caller-chosen variation per lift, merged into rows keyed by timestamp
+ * Build a unified categorical dataset for the multi-lift chart. Plots one
+ * caller-chosen variation per lift, merged into rows keyed by block or week
  * (max e1RM wins when a lift has two top sets a day).
  */
 export function buildLiftSeries(
   points: E1RMDataPoint[],
   programs: ProgramListResponse[],
   variationByLift: Record<LiftKey, string | null>,
+  granularity: ProgressionGranularity,
   selectedProgramIds?: Set<number>,
 ): LiftSeries {
-  const startByProgram = programStartTimestamps(programs);
+  const programById = new Map<number, ProgramListResponse>();
+  for (const program of programs) {
+    programById.set(program.id, program);
+  }
   const filteredPoints = selectedProgramIds
     ? points.filter((p) => p.program_id != null && selectedProgramIds.has(p.program_id))
     : points;
 
   const variation = variationByLift;
 
-  const rowByTs = new Map<number, LiftSeriesRow>();
+  const rowByBucket = new Map<
+    string,
+    { row: LiftSeriesRow; order: ReturnType<typeof programSortFields> }
+  >();
   const available: Record<LiftKey, boolean> = {
     squat: false,
     bench: false,
@@ -285,30 +347,48 @@ export function buildLiftSeries(
       if (p.e1rm == null) continue;
       if (!liftMatches(p.lift_category, lift)) continue;
       if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
-      const ts = pointTimestamp(p, startByProgram);
-      if (ts == null) continue;
-      let row = rowByTs.get(ts);
-      if (!row) {
-        row = { ts };
-        rowByTs.set(ts, row);
+      const key = pointBucketKey(p, granularity);
+      if (key == null) continue;
+      const program =
+        p.program_id == null ? undefined : programById.get(p.program_id);
+      let bucket = rowByBucket.get(key);
+      if (!bucket) {
+        const programNumber = p.program_number ?? program?.program_number;
+        bucket = {
+          row: {
+            label: bucketLabel(granularity, programNumber, p.week_number),
+          },
+          order: programSortFields(program, programNumber, p.week_number),
+        };
+        rowByBucket.set(key, bucket);
       }
+      const row = bucket.row;
       const prev = row[lift];
       if (prev == null || p.e1rm > prev) row[lift] = p.e1rm;
       available[lift] = true;
     }
   }
 
-  const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
+  const rows = Array.from(rowByBucket.values())
+    .sort((a, b) => compareBucketOrder(a.order, b.order))
+    .map((bucket) => bucket.row);
   return { rows, available, variation };
 }
 
 export function buildCompareSeries(
   inputs: { id: string; lift: LiftKey; points: E1RMDataPoint[] }[],
   programs: ProgramListResponse[],
+  granularity: ProgressionGranularity,
 ): { rows: ChartRow[]; available: Record<string, boolean> } {
-  const startByProgram = programStartTimestamps(programs);
+  const programById = new Map<number, ProgramListResponse>();
+  for (const program of programs) {
+    programById.set(program.id, program);
+  }
 
-  const rowByTs = new Map<number, ChartRow>();
+  const rowByBucket = new Map<
+    string,
+    { row: ChartRow; order: ReturnType<typeof programSortFields> }
+  >();
   const available: Record<string, boolean> = {};
 
   for (const input of inputs) {
@@ -320,20 +400,31 @@ export function buildCompareSeries(
       if (p.e1rm == null) continue;
       if (!liftMatches(p.lift_category, input.lift)) continue;
       if ((p.canonical_exercise_name ?? "").trim() !== canon) continue;
-      const ts = pointTimestamp(p, startByProgram);
-      if (ts == null) continue;
-      let row = rowByTs.get(ts);
-      if (!row) {
-        row = { ts };
-        rowByTs.set(ts, row);
+      const key = pointBucketKey(p, granularity);
+      if (key == null) continue;
+      const program =
+        p.program_id == null ? undefined : programById.get(p.program_id);
+      let bucket = rowByBucket.get(key);
+      if (!bucket) {
+        const programNumber = p.program_number ?? program?.program_number;
+        bucket = {
+          row: {
+            label: bucketLabel(granularity, programNumber, p.week_number),
+          },
+          order: programSortFields(program, programNumber, p.week_number),
+        };
+        rowByBucket.set(key, bucket);
       }
+      const row = bucket.row;
       const prev = row[input.id];
-      if (prev == null || p.e1rm > prev) row[input.id] = p.e1rm;
+      if (typeof prev !== "number" || p.e1rm > prev) row[input.id] = p.e1rm;
       available[input.id] = true;
     }
   }
 
-  const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
+  const rows = Array.from(rowByBucket.values())
+    .sort((a, b) => compareBucketOrder(a.order, b.order))
+    .map((bucket) => bucket.row);
   return { rows, available };
 }
 
@@ -453,18 +544,6 @@ export function topEfforts(
     });
 }
 
-/** Offset a program/week-indexed volume point to a calendar timestamp. */
-function volumePointTimestamp(
-  p: VolumeDataPoint,
-  startByProgramNumber: Map<number, number>,
-): number | null {
-  if (p.program_number == null) return null;
-  const start = startByProgramNumber.get(p.program_number);
-  if (start == null) return null;
-  const offsetDays = Math.max(0, (p.week_number - 1) * 7);
-  return start + offsetDays * 86400000;
-}
-
 /**
  * Build weekly training-volume rows in the same shape as e1RM rows so the
  * progression chart can render either mode unchanged.
@@ -472,14 +551,14 @@ function volumePointTimestamp(
 export function buildVolumeSeries(
   volumePoints: VolumeDataPoint[],
   programs: ProgramListResponse[],
+  granularity: ProgressionGranularity,
   selectedProgramIds?: Set<number>,
 ): LiftSeries {
-  const startByProgramNumber = new Map<number, number>();
+  const programByNumber = new Map<number, ProgramListResponse>();
   const selectedProgramNumbers = new Set<number>();
   for (const prog of programs) {
-    const d = parseLocalDate(prog.date_start);
-    if (prog.program_number != null && d) {
-      startByProgramNumber.set(prog.program_number, d.getTime());
+    if (prog.program_number != null) {
+      programByNumber.set(prog.program_number, prog);
     }
     if (
       selectedProgramIds &&
@@ -508,7 +587,10 @@ export function buildVolumeSeries(
     bench: "bench_volume",
     deadlift: "deadlift_volume",
   };
-  const rowByTs = new Map<number, LiftSeriesRow>();
+  const rowByBucket = new Map<
+    string,
+    { row: LiftSeriesRow; order: ReturnType<typeof programSortFields> }
+  >();
   const lifts = LIFTS.map((l) => l.key);
 
   for (const p of volumePoints) {
@@ -517,33 +599,37 @@ export function buildVolumeSeries(
         continue;
       }
     }
-    const ts = volumePointTimestamp(p, startByProgramNumber);
+    if (p.program_number == null) continue;
+    const key =
+      granularity === "week"
+        ? `num:${p.program_number}:week:${p.week_number}`
+        : `num:${p.program_number}`;
+    let bucket = rowByBucket.get(key);
+    if (!bucket) {
+      const program = programByNumber.get(p.program_number);
+      bucket = {
+        row: {
+          label: bucketLabel(granularity, p.program_number, p.week_number),
+        },
+        order: programSortFields(program, p.program_number, p.week_number),
+      };
+      rowByBucket.set(key, bucket);
+    }
+    const row = bucket.row;
     for (const lift of lifts) {
       const value = p[volumeFieldByLift[lift]];
       if (value == null) continue;
-      if (ts == null) continue;
-      let row = rowByTs.get(ts);
-      if (!row) {
-        row = { ts };
-        rowByTs.set(ts, row);
+      if (granularity === "block") {
+        row[lift] = (row[lift] ?? 0) + value;
+      } else {
+        row[lift] = value;
       }
-      row[lift] = value;
       available[lift] = true;
     }
   }
 
-  const rows = Array.from(rowByTs.values()).sort((a, b) => a.ts - b.ts);
+  const rows = Array.from(rowByBucket.values())
+    .sort((a, b) => compareBucketOrder(a.order, b.order))
+    .map((bucket) => bucket.row);
   return { rows, available, variation };
-}
-
-/** Block-boundary timestamps for chart reference lines. */
-export function blockBoundaryTimestamps(
-  programs: ProgramListResponse[],
-  selectedProgramIds?: Set<number>,
-): number[] {
-  return programs
-    .filter((p) => !selectedProgramIds || selectedProgramIds.has(p.id))
-    .map((p) => parseLocalDate(p.date_start)?.getTime())
-    .filter((t): t is number => t != null)
-    .sort((a, b) => a - b);
 }

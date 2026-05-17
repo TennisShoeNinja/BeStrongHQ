@@ -9,7 +9,6 @@ import {
   COMPARE_COLORS,
   LIFTS,
   REP_FILTERS,
-  blockBoundaryTimestamps,
   buildCompareSeries,
   buildLiftSeries,
   buildVolumeSeries,
@@ -24,6 +23,7 @@ import {
   type CompareSeries,
   type LiftKey,
   type PeakEffort,
+  type ProgressionGranularity,
   type RepFilterKey,
 } from "@/lib/progression";
 import { ProgressionChart } from "@/components/progression-chart";
@@ -59,13 +59,9 @@ const MODES: { key: "e1rm" | "volume" | "compare"; label: string }[] = [
   { key: "compare", label: "Compare" },
 ];
 
-type RangeKey = "3m" | "6m" | "1y" | "all";
-
-const RANGES: { key: RangeKey; label: string; months: number | null }[] = [
-  { key: "3m", label: "3M", months: 3 },
-  { key: "6m", label: "6M", months: 6 },
-  { key: "1y", label: "1Y", months: 12 },
-  { key: "all", label: "All", months: null },
+const GRANULARITIES: { key: ProgressionGranularity; label: string }[] = [
+  { key: "block", label: "Per Block" },
+  { key: "week", label: "Per Week" },
 ];
 
 // Connected segmented control: a pill-shaped container holding tab buttons.
@@ -137,7 +133,8 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
   ]);
   const [repFilter, setRepFilter] = useState<RepFilterKey>("1-3");
   const [primaryOnly, setPrimaryOnly] = useState(false);
-  const [rangeKey, setRangeKey] = useState<RangeKey>("6m");
+  const [granularity, setGranularity] =
+    useState<ProgressionGranularity>("block");
   const [showPeakTable, setShowPeakTable] = useState(false);
   const [showManageVariations, setShowManageVariations] = useState(false);
   // Per-lift variation override (canonical name); null = use the default pick.
@@ -213,15 +210,6 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     return effective.size > 0 ? effective : availableIds;
   }, [programOptions, selectedProgramIds]);
 
-  // Time-range window. Compare mode stays all-time (no range control there).
-  const rangeCutoff = useMemo(() => {
-    const months = RANGES.find((r) => r.key === rangeKey)?.months ?? null;
-    if (months == null) return null;
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - months);
-    return cutoff.getTime();
-  }, [rangeKey]);
-
   // Every variation per lift, for the variation picker.
   const variations = useMemo(
     () => ({
@@ -232,9 +220,8 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
     [e1rmTrends, programs],
   );
 
-  // The variation actually plotted per lift: a coach override if set, else
-  // the competition variation, falling back to the most recent variation
-  // when the competition one has no data in the current time window.
+  // The variation actually plotted per lift: a coach override if set,
+  // else the competition variation.
   const resolvedVariations = useMemo<Record<LiftKey, string | null>>(() => {
     const resolve = (lift: LiftKey): string | null => {
       const opts = variations[lift];
@@ -244,13 +231,6 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
         return override;
       }
       const pick = opts.find((o) => o.isCompetition) ?? opts[0];
-      if (rangeCutoff != null && pick.lastTs < rangeCutoff) {
-        const inWindow = opts.filter((o) => o.lastTs >= rangeCutoff);
-        if (inWindow.length > 0) {
-          return inWindow.reduce((a, b) => (b.lastTs > a.lastTs ? b : a))
-            .canonical;
-        }
-      }
       return pick.canonical;
     };
     return {
@@ -258,34 +238,33 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
       bench: resolve("bench"),
       deadlift: resolve("deadlift"),
     };
-  }, [variations, variationByLift, rangeCutoff]);
+  }, [variations, variationByLift]);
 
   const series = useMemo(
     () =>
       chartMode === "volume"
-        ? buildVolumeSeries(volumeTrends, programs, effectiveSelectedProgramIds)
+        ? buildVolumeSeries(
+            volumeTrends,
+            programs,
+            granularity,
+            effectiveSelectedProgramIds,
+          )
         : buildLiftSeries(
             e1rmTrends,
             programs,
             resolvedVariations,
+            granularity,
             effectiveSelectedProgramIds,
           ),
     [
       chartMode,
       e1rmTrends,
       effectiveSelectedProgramIds,
+      granularity,
       programs,
       resolvedVariations,
       volumeTrends,
     ],
-  );
-  const boundaries = useMemo(
-    () => blockBoundaryTimestamps(programs, effectiveSelectedProgramIds),
-    [effectiveSelectedProgramIds, programs],
-  );
-  const compareBoundaries = useMemo(
-    () => blockBoundaryTimestamps(programs),
-    [programs],
   );
   const compareChart = useMemo(
     () =>
@@ -298,8 +277,9 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
             [],
         })),
         programs,
+        granularity,
       ),
-    [compareSeries, compareSeriesQueries, programs],
+    [compareSeries, compareSeriesQueries, granularity, programs],
   );
   const compareChartSeries = useMemo(
     () =>
@@ -349,32 +329,20 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
   }, [e1rmTrends]);
 
   const chartRows = compareMode ? compareChart.rows : series.rows;
-  const chartBoundaries = compareMode ? compareBoundaries : boundaries;
 
   // Progression data from the API is in pounds; convert for kg-preference coaches.
   const displayRows: ChartRow[] = useMemo(() => {
-    const ranged =
-      rangeCutoff == null || compareMode
-        ? chartRows
-        : chartRows.filter((row) => row.ts >= rangeCutoff);
-    if (unit === "lbs") return ranged;
-    return ranged.map((row) => {
-      const next: ChartRow = { ts: row.ts };
+    if (unit === "lbs") return chartRows;
+    return chartRows.map((row) => {
+      const next: ChartRow = { label: row.label };
       for (const [key, value] of Object.entries(row)) {
-        if (key === "ts") continue;
-        next[key] = value != null ? convertWeight(value, unit) : undefined;
+        if (key === "label") continue;
+        next[key] =
+          typeof value === "number" ? convertWeight(value, unit) : value;
       }
       return next;
     });
-  }, [chartRows, unit, rangeCutoff, compareMode]);
-
-  const displayBoundaries = useMemo(
-    () =>
-      rangeCutoff == null || compareMode
-        ? chartBoundaries
-        : chartBoundaries.filter((ts) => ts >= rangeCutoff),
-    [chartBoundaries, rangeCutoff, compareMode],
-  );
+  }, [chartRows, unit]);
 
   const toggleLift = (lift: LiftKey) => {
     setVisibleLifts((prev) => {
@@ -542,6 +510,25 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
             })}
           </div>
 
+          <span aria-hidden style={CONTROL_DIVIDER} />
+          <div role="tablist" aria-label="Chart granularity" style={SEG_GROUP}>
+            {GRANULARITIES.map((item) => {
+              const active = granularity === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setGranularity(item.key)}
+                  style={segButton(active)}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
           {!compareMode && (
             <>
               <span aria-hidden style={CONTROL_DIVIDER} />
@@ -692,56 +679,38 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
           {!compareMode && (
             <>
               <span aria-hidden style={CONTROL_DIVIDER} />
-              {/* Time range */}
-              <div role="tablist" aria-label="Time range" style={SEG_GROUP}>
-                {RANGES.map((r) => {
-                  const active = rangeKey === r.key;
-                  return (
-                    <button
-                      key={r.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => setRangeKey(r.key)}
-                      style={segButton(active)}
-                    >
-                      {r.label}
-                    </button>
-                  );
-                })}
-              </div>
               {programOptions.length > 0 && (
                 <DropdownMenu>
-                <DropdownMenuTrigger style={pillButton(blockFilterActive)}>
-                  {blockTriggerLabel}
-                  <ChevronDown style={{ width: 13, height: 13, opacity: 0.6 }} />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="cloud-panel-raised"
-                  style={{
-                    maxHeight: 288,
-                    overflowY: "auto",
-                    minWidth: 220,
-                    maxWidth: 360,
-                  }}
-                >
-                  <DropdownMenuItem
-                    onClick={() => setSelectedProgramIds(new Set())}
+                  <DropdownMenuTrigger style={pillButton(blockFilterActive)}>
+                    {blockTriggerLabel}
+                    <ChevronDown style={{ width: 13, height: 13, opacity: 0.6 }} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="cloud-panel-raised"
+                    style={{
+                      maxHeight: 288,
+                      overflowY: "auto",
+                      minWidth: 220,
+                      maxWidth: 360,
+                    }}
                   >
-                    Clear (show all)
-                  </DropdownMenuItem>
-                  {programOptions.map((program) => (
-                    <DropdownMenuCheckboxItem
-                      key={program.id}
-                      checked={selectedProgramIds.has(program.id)}
-                      onCheckedChange={() => toggleProgram(program.id)}
-                      title={programLabel(program)}
+                    <DropdownMenuItem
+                      onClick={() => setSelectedProgramIds(new Set())}
                     >
-                      {blockDropdownLabel(program)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
+                      Clear (show all)
+                    </DropdownMenuItem>
+                    {programOptions.map((program) => (
+                      <DropdownMenuCheckboxItem
+                        key={program.id}
+                        checked={selectedProgramIds.has(program.id)}
+                        onCheckedChange={() => toggleProgram(program.id)}
+                        title={programLabel(program)}
+                      >
+                        {blockDropdownLabel(program)}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
                 </DropdownMenu>
               )}
             </>
@@ -895,7 +864,6 @@ export function ProgressionPanel({ athleteId, unit }: Props) {
         <ProgressionChart
           rows={displayRows}
           visibleLifts={visibleLifts}
-          boundaries={displayBoundaries}
           unit={unit}
           mode={compareMode ? "e1rm" : chartMode}
           series={compareMode ? compareChartSeries : undefined}
