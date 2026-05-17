@@ -3,7 +3,9 @@
 import {
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -27,11 +29,15 @@ import {
   variationsForLift,
   type BlockPeaks,
   type ChartRow,
+  type ChartRowValue,
   type CompareSeries,
+  type HighlightedExercise,
   type LiftKey,
   type PeakEffort,
+  type ProgressionChartSeries,
   type ProgressionGranularity,
   type RepFilterKey,
+  type SeriesPointMeta,
 } from "@/lib/progression";
 import {
   ProgressionChart,
@@ -57,6 +63,8 @@ interface Props {
   competitionMaxes?: Partial<Record<LiftKey, number | null>>;
   tracksRpe?: boolean;
   hasPrimaryDays?: boolean;
+  highlightedExercise: HighlightedExercise | null;
+  onClearHighlight: () => void;
 }
 
 let compareSeriesCounter = 0;
@@ -80,6 +88,17 @@ const GRANULARITIES: { key: ProgressionGranularity; label: string }[] = [
 
 type VariationSelection = Record<LiftKey, Set<string>>;
 
+interface HighlightSnapshot {
+  chartMode: "e1rm" | "volume";
+  compareMode: boolean;
+  repFilter: RepFilterKey;
+  primaryOnly: boolean;
+  granularity: ProgressionGranularity;
+  visibleLifts: Set<LiftKey>;
+  variationByLift: VariationSelection;
+  selectedProgramIds: Set<number>;
+}
+
 interface VolumePeakMoment extends VolumePeakMarker {
   peak: Types.VolumeResponsePeak;
   volumeLbs: number;
@@ -94,12 +113,62 @@ function emptyVariationSelection(): VariationSelection {
   };
 }
 
+function cloneVariationSelection(selection: VariationSelection): VariationSelection {
+  return {
+    squat: new Set(selection.squat),
+    bench: new Set(selection.bench),
+    deadlift: new Set(selection.deadlift),
+  };
+}
+
 function setEquals<T>(a: Set<T>, b: Set<T>): boolean {
   if (a.size !== b.size) return false;
   for (const value of a) {
     if (!b.has(value)) return false;
   }
   return true;
+}
+
+function liftKeyFromCategory(category: string | null | undefined): LiftKey | null {
+  for (const lift of LIFTS) {
+    if (liftMatches(category, lift.key)) return lift.key;
+  }
+  return null;
+}
+
+function repFilterForReps(reps: number): RepFilterKey {
+  if (reps === 1) return "singles";
+  if (reps === 2) return "doubles";
+  if (reps === 3) return "triples";
+  return "all";
+}
+
+function highlightedExerciseKey(
+  highlightedExercise: HighlightedExercise | null,
+): string | null {
+  if (!highlightedExercise) return null;
+  return [
+    highlightedExercise.lift_category,
+    highlightedExercise.exercise_name,
+    highlightedExercise.program_number,
+    highlightedExercise.week_number,
+    highlightedExercise.day_number,
+    highlightedExercise.reps,
+    Math.round(highlightedExercise.weight_lbs * 100) / 100,
+  ].join("|");
+}
+
+function isSeriesPointMeta(value: ChartRowValue): value is SeriesPointMeta {
+  if (typeof value !== "object" || value == null) return false;
+  const candidate = value as Partial<SeriesPointMeta>;
+  return (
+    typeof candidate.exerciseName === "string" &&
+    typeof candidate.weightLbs === "number" &&
+    typeof candidate.reps === "number" &&
+    typeof candidate.e1rmLbs === "number" &&
+    typeof candidate.weekNumber === "number" &&
+    typeof candidate.dayNumber === "number"
+  );
 }
 
 // Connected segmented control: a pill-shaped container holding tab buttons.
@@ -590,6 +659,8 @@ export function ProgressionPanel({
   competitionMaxes,
   tracksRpe = true,
   hasPrimaryDays = false,
+  highlightedExercise,
+  onClearHighlight,
 }: Props) {
   const [chartMode, setChartMode] = useState<"e1rm" | "volume">("e1rm");
   const [compareMode, setCompareMode] = useState(false);
@@ -619,6 +690,10 @@ export function ProgressionPanel({
   const [visibleLifts, setVisibleLifts] = useState<Set<LiftKey>>(
     new Set<LiftKey>(["squat", "bench", "deadlift"]),
   );
+  const chartSectionRef = useRef<HTMLDivElement | null>(null);
+  const previousHighlightIdentityRef = useRef<string | null>(null);
+  const [preHighlightSnapshot, setPreHighlightSnapshot] =
+    useState<HighlightSnapshot | null>(null);
 
   const { minReps, maxReps } = repFilterRange(repFilter);
   const usePrimaryFilter = hasPrimaryDays && primaryOnly;
@@ -753,6 +828,138 @@ export function ProgressionPanel({
     };
   }, [defaultSelectedVariations, variations, variationByLift]);
 
+  const highlightIdentity = useMemo(
+    () => highlightedExerciseKey(highlightedExercise),
+    [highlightedExercise],
+  );
+  const highlightedLift = useMemo(
+    () => liftKeyFromCategory(highlightedExercise?.lift_category),
+    [highlightedExercise?.lift_category],
+  );
+
+  const restoreHighlightSnapshot = useCallback(() => {
+    if (!preHighlightSnapshot) return;
+    setChartMode(preHighlightSnapshot.chartMode);
+    setCompareMode(preHighlightSnapshot.compareMode);
+    setRepFilter(preHighlightSnapshot.repFilter);
+    setPrimaryOnly(preHighlightSnapshot.primaryOnly);
+    setGranularity(preHighlightSnapshot.granularity);
+    setVisibleLifts(new Set(preHighlightSnapshot.visibleLifts));
+    setVariationByLift(cloneVariationSelection(preHighlightSnapshot.variationByLift));
+    setSelectedProgramIds(new Set(preHighlightSnapshot.selectedProgramIds));
+    setPreHighlightSnapshot(null);
+    previousHighlightIdentityRef.current = null;
+  }, [preHighlightSnapshot]);
+
+  useEffect(() => {
+    if (!highlightIdentity || !highlightedExercise) {
+      if (previousHighlightIdentityRef.current) restoreHighlightSnapshot();
+      previousHighlightIdentityRef.current = null;
+      return;
+    }
+    if (previousHighlightIdentityRef.current === highlightIdentity) return;
+    previousHighlightIdentityRef.current = highlightIdentity;
+
+    setPreHighlightSnapshot((current) =>
+      current ?? {
+        chartMode,
+        compareMode,
+        repFilter,
+        primaryOnly,
+        granularity,
+        visibleLifts: new Set(visibleLifts),
+        variationByLift: cloneVariationSelection(variationByLift),
+        selectedProgramIds: new Set(selectedProgramIds),
+      },
+    );
+    setCompareMode(false);
+    setChartMode("e1rm");
+    setGranularity("week");
+    setPrimaryOnly(false);
+    setRepFilter(repFilterForReps(highlightedExercise.reps));
+    setSelectedProgramIds(new Set<number>());
+    if (highlightedLift) {
+      setVisibleLifts((current) => {
+        if (current.has(highlightedLift)) return current;
+        const next = new Set(current);
+        next.add(highlightedLift);
+        return next;
+      });
+    }
+
+  }, [
+    chartMode,
+    compareMode,
+    granularity,
+    highlightedExercise,
+    highlightedLift,
+    highlightIdentity,
+    primaryOnly,
+    repFilter,
+    restoreHighlightSnapshot,
+    selectedProgramIds,
+    variationByLift,
+    visibleLifts,
+  ]);
+
+  useEffect(() => {
+    if (!highlightIdentity) return;
+    const handle = requestAnimationFrame(() => {
+      chartSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [highlightIdentity]);
+
+  const highlightedVariationCanonical = useMemo(() => {
+    if (!highlightedExercise || !highlightedLift) return null;
+    const exactWeight = Math.round(highlightedExercise.weight_lbs);
+    const exact = e1rmTrends.find(
+      (point) =>
+        liftMatches(point.lift_category, highlightedLift) &&
+        point.program_number === highlightedExercise.program_number &&
+        point.week_number === highlightedExercise.week_number &&
+        point.day_number === highlightedExercise.day_number &&
+        point.reps === highlightedExercise.reps &&
+        Math.round(point.weight_lbs) === exactWeight &&
+        point.exercise_name === highlightedExercise.exercise_name,
+    );
+    const fallback = exact
+      ? null
+      : e1rmTrends.find(
+          (point) =>
+            liftMatches(point.lift_category, highlightedLift) &&
+            point.program_number === highlightedExercise.program_number &&
+            point.week_number === highlightedExercise.week_number &&
+            point.day_number === highlightedExercise.day_number &&
+            point.reps === highlightedExercise.reps,
+        );
+    return (exact ?? fallback)?.canonical_exercise_name?.trim() || null;
+  }, [e1rmTrends, highlightedExercise, highlightedLift]);
+
+  useEffect(() => {
+    if (!highlightIdentity || !highlightedLift || !highlightedVariationCanonical) {
+      return;
+    }
+    setVariationByLift((currentSelection) => {
+      const current =
+        currentSelection[highlightedLift].size > 0
+          ? currentSelection[highlightedLift]
+          : effectiveSelectedVariations[highlightedLift];
+      if (current.has(highlightedVariationCanonical)) return currentSelection;
+      const next = new Set(current);
+      next.add(highlightedVariationCanonical);
+      return { ...currentSelection, [highlightedLift]: next };
+    });
+  }, [
+    effectiveSelectedVariations,
+    highlightedLift,
+    highlightedVariationCanonical,
+    highlightIdentity,
+  ]);
+
   const representativeVariations = useMemo<Record<LiftKey, string | null>>(() => {
     const resolve = (lift: LiftKey): string | null => {
       const selected = effectiveSelectedVariations[lift];
@@ -822,7 +1029,7 @@ export function ProgressionPanel({
       })),
     [compareSeries, hasPrimaryDays],
   );
-  const activeChartSeries = useMemo(
+  const activeChartSeries = useMemo<ProgressionChartSeries[]>(
     () =>
       compareMode
         ? compareChartSeries
@@ -940,6 +1147,50 @@ export function ProgressionPanel({
       return next;
     });
   }, [chartRows, unit]);
+  const highlightMarker = useMemo(() => {
+    if (
+      !highlightedExercise ||
+      !highlightedLift ||
+      compareMode ||
+      chartMode !== "e1rm"
+    ) {
+      return null;
+    }
+    const label = `P${highlightedExercise.program_number} W${highlightedExercise.week_number}`;
+    const row = displayRows.find((item) => item.label === label);
+    if (!row) return null;
+
+    const liftSeries = activeChartSeries.filter(
+      (item) => item.lift === highlightedLift,
+    );
+    const exactSeries = liftSeries.find((item) => {
+      const meta = row[`${item.key}__meta`];
+      if (!isSeriesPointMeta(meta)) return false;
+      return (
+        meta.exerciseName === highlightedExercise.exercise_name &&
+        meta.weekNumber === highlightedExercise.week_number &&
+        meta.dayNumber === highlightedExercise.day_number &&
+        meta.reps === highlightedExercise.reps &&
+        Math.round(meta.weightLbs) === Math.round(highlightedExercise.weight_lbs)
+      );
+    });
+    const targetSeries = exactSeries ?? (liftSeries.length === 1 ? liftSeries[0] : null);
+    if (!targetSeries) return null;
+    const value = row[targetSeries.key];
+    if (typeof value !== "number") return null;
+    return {
+      label,
+      y: value,
+      color: targetSeries.color,
+    };
+  }, [
+    activeChartSeries,
+    chartMode,
+    compareMode,
+    displayRows,
+    highlightedExercise,
+    highlightedLift,
+  ]);
   const chartableRows = useMemo(
     () =>
       displayRows.filter((row) =>
@@ -994,6 +1245,11 @@ export function ProgressionPanel({
     setVariationByLift(emptyVariationSelection());
     setSelectedProgramIds(new Set<number>());
   };
+
+  const clearHighlightedExercise = useCallback(() => {
+    restoreHighlightSnapshot();
+    onClearHighlight();
+  }, [onClearHighlight, restoreHighlightSnapshot]);
 
   const toggleLift = (lift: LiftKey) => {
     setVisibleLifts((prev) => {
@@ -1720,51 +1976,142 @@ export function ProgressionPanel({
           </section>
         )}
 
-        {!compareMode &&
-          chartMode === "e1rm" &&
-          dataQuality &&
-          dataQuality.total_top_sets > 0 &&
-          chartHasData && (
-            <DataQualityBanner
-              athleteId={athleteId}
-              data={dataQuality}
-              isOpen={dataQualityOpen}
-              onToggle={() => setDataQualityOpen((value) => !value)}
-              unit={unit}
-            />
+        <div
+          ref={chartSectionRef}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--cloud-s3)",
+          }}
+        >
+          {highlightedExercise && (
+            <div
+              className="cloud-panel-raised"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(245, 158, 11, 0.36)",
+                background: "rgba(245, 158, 11, 0.11)",
+                color: "var(--cloud-warning-text)",
+                fontSize: 12,
+                lineHeight: 1.45,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 9,
+                  minWidth: 0,
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "var(--cloud-warning-text)",
+                    boxShadow: "0 0 0 4px rgba(245, 158, 11, 0.18)",
+                    flex: "0 0 auto",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: "var(--cloud-text)", fontWeight: 800 }}>
+                    Showing {highlightedExercise.exercise_name}
+                  </div>
+                  <div
+                    style={{
+                      color: "var(--cloud-text-muted)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {highlightedExercise.reps} x{" "}
+                    {Math.round(
+                      convertWeight(highlightedExercise.weight_lbs, unit),
+                    ).toLocaleString("en-US")}{" "}
+                    {unit} from P{highlightedExercise.program_number} W
+                    {highlightedExercise.week_number} D
+                    {highlightedExercise.day_number}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={clearHighlightedExercise}
+                style={{
+                  border: "1px solid rgba(245, 158, 11, 0.42)",
+                  background: "var(--cloud-panel)",
+                  color: "var(--cloud-warning-text)",
+                  borderRadius: 999,
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Clear
+              </button>
+            </div>
           )}
 
-        {isChartLoading ? (
-          <ChartStateCard
-            eyebrow="Progression"
-            title="Loading chart data."
-            detail="Checking the athlete's training history and active filters."
-            loading
-          />
-        ) : !chartHasData ? (
-          <ChartStateCard
-            eyebrow="Progression"
-            title={emptyState.title}
-            detail={emptyState.detail}
-          />
-        ) : (
-          <ProgressionChart
-            rows={displayRows}
-            visibleLifts={visibleLifts}
-            unit={unit}
-            mode={compareMode ? "e1rm" : chartMode}
-            series={
-              compareMode || chartMode === "e1rm" ? activeChartSeries : undefined
-            }
-            competitionMaxes={
-              !compareMode && chartMode === "e1rm" ? displayCompetitionMaxes : undefined
-            }
-            tracksRpe={tracksRpe}
-            volumePeakMarkers={
-              !compareMode && chartMode === "volume" ? volumePeakMarkers : undefined
-            }
-          />
-        )}
+          {!compareMode &&
+            chartMode === "e1rm" &&
+            dataQuality &&
+            dataQuality.total_top_sets > 0 &&
+            chartHasData && (
+              <DataQualityBanner
+                athleteId={athleteId}
+                data={dataQuality}
+                isOpen={dataQualityOpen}
+                onToggle={() => setDataQualityOpen((value) => !value)}
+                unit={unit}
+              />
+            )}
+
+          {isChartLoading ? (
+            <ChartStateCard
+              eyebrow="Progression"
+              title="Loading chart data."
+              detail="Checking the athlete's training history and active filters."
+              loading
+            />
+          ) : !chartHasData ? (
+            <ChartStateCard
+              eyebrow="Progression"
+              title={emptyState.title}
+              detail={emptyState.detail}
+            />
+          ) : (
+            <ProgressionChart
+              rows={displayRows}
+              visibleLifts={visibleLifts}
+              unit={unit}
+              mode={compareMode ? "e1rm" : chartMode}
+              series={
+                compareMode || chartMode === "e1rm" ? activeChartSeries : undefined
+              }
+              competitionMaxes={
+                !compareMode && chartMode === "e1rm"
+                  ? displayCompetitionMaxes
+                  : undefined
+              }
+              tracksRpe={tracksRpe}
+              volumePeakMarkers={
+                !compareMode && chartMode === "volume" ? volumePeakMarkers : undefined
+              }
+              highlightMarker={
+                !compareMode && chartMode === "e1rm" ? highlightMarker : null
+              }
+            />
+          )}
+        </div>
 
         {!compareMode && chartMode === "volume" && chartHasData && (
           <section

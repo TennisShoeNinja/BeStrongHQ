@@ -6506,6 +6506,8 @@ export default function AthleteDetailPage() {
               athlete?.primary_bench_day ||
               athlete?.primary_deadlift_day,
           )}
+          highlightedExercise={highlightedExercise}
+          onClearHighlight={() => setHighlightedExercise(null)}
         />
 
         {}

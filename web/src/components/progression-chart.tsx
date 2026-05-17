@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
+  ReferenceDot,
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "@/lib/theme-provider";
@@ -38,6 +39,7 @@ interface Props {
   competitionMaxes?: Partial<Record<LiftKey, number | null>>;
   tracksRpe?: boolean;
   volumePeakMarkers?: VolumePeakMarker[];
+  highlightMarker?: ProgressionHighlightMarker | null;
 }
 
 interface TooltipPayloadEntry {
@@ -71,6 +73,12 @@ export interface VolumePeakMarker {
   lift: LiftKey;
   label: string;
   rank: number;
+}
+
+export interface ProgressionHighlightMarker {
+  label: string;
+  y: number;
+  color?: string;
 }
 
 const PINNED_TOOLTIP_OFFSET = 12;
@@ -634,6 +642,7 @@ export function ProgressionChart({
   competitionMaxes,
   tracksRpe = true,
   volumePeakMarkers = [],
+  highlightMarker = null,
 }: Props) {
   const { resolvedMode } = useTheme();
   const dark = resolvedMode === "dark";
@@ -817,6 +826,17 @@ export function ProgressionChart({
               isAnimationActive={false}
             />
           ))}
+          {mode === "e1rm" && highlightMarker && (
+            <ReferenceDot
+              x={highlightMarker.label}
+              y={highlightMarker.y}
+              r={9}
+              fill="rgba(245, 158, 11, 0.22)"
+              stroke={highlightMarker.color ?? "var(--cloud-warning-text)"}
+              strokeWidth={3}
+              ifOverflow="extendDomain"
+            />
+          )}
         </LineChart>
       </ResponsiveContainer>
       {pinnedTooltip && pinnedPosition && (

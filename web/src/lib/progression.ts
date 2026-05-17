@@ -21,6 +21,16 @@ import parseLocalDate from "@/lib/parseLocalDate";
 
 export type LiftKey = "squat" | "bench" | "deadlift";
 
+export interface HighlightedExercise {
+  exercise_name: string;
+  program_number: number;
+  week_number: number;
+  day_number: number;
+  reps: number;
+  weight_lbs: number;
+  lift_category: string;
+}
+
 export const LIFTS: { key: LiftKey; label: string; color: string }[] = [
   { key: "squat", label: "Squat", color: "#7CB4ED" },
   { key: "bench", label: "Bench", color: "#F59E0B" },
