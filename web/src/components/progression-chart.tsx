@@ -37,6 +37,7 @@ interface Props {
   series?: ProgressionChartSeries[];
   competitionMaxes?: Partial<Record<LiftKey, number | null>>;
   tracksRpe?: boolean;
+  volumePeakMarkers?: VolumePeakMarker[];
 }
 
 interface TooltipPayloadEntry {
@@ -64,6 +65,12 @@ interface SeriesDotProps {
   cy?: number;
   index?: number;
   payload?: ChartRow;
+}
+
+export interface VolumePeakMarker {
+  lift: LiftKey;
+  label: string;
+  rank: number;
 }
 
 const PINNED_TOOLTIP_OFFSET = 12;
@@ -524,10 +531,52 @@ function renderSeriesDot(
   series: ProgressionChartSeries,
   mode: "e1rm" | "volume",
   onExplainOutlier: (series: ProgressionChartSeries, meta: SeriesPointMeta) => void,
+  volumePeakByKey: Map<string, VolumePeakMarker>,
 ) {
   const { cx, cy, payload, index } = props;
   if (cx == null || cy == null) {
     return <g key={`dot-${series.key}-${index ?? "empty"}`} />;
+  }
+  if (mode === "volume") {
+    const label = String(payload?.label ?? "");
+    const marker = volumePeakByKey.get(`${series.key}|${label}`);
+    if (!marker) {
+      return (
+        <circle
+          key={`dot-${series.key}-${payload?.label ?? index ?? "point"}`}
+          cx={cx}
+          cy={cy}
+          r={2}
+          fill={series.color}
+          stroke="none"
+        />
+      );
+    }
+    return (
+      <g key={`volume-peak-${series.key}-${label}`} style={{ pointerEvents: "none" }}>
+        <title>{`${series.label} peak ${marker.rank}`}</title>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={9}
+          fill="var(--cloud-surface-raised)"
+          stroke={series.color}
+          strokeWidth={2}
+        />
+        <text
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="var(--cloud-text)"
+          fontSize={9}
+          fontWeight={800}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {marker.rank}
+        </text>
+      </g>
+    );
   }
   const metaValue = payload?.[metaKey(series.key)];
   const meta = isPointMeta(metaValue) ? metaValue : null;
@@ -584,6 +633,7 @@ export function ProgressionChart({
   series,
   competitionMaxes,
   tracksRpe = true,
+  volumePeakMarkers = [],
 }: Props) {
   const { resolvedMode } = useTheme();
   const dark = resolvedMode === "dark";
@@ -604,6 +654,13 @@ export function ProgressionChart({
     () => renderedSeries.map((item) => item.key).join("|"),
     [renderedSeries],
   );
+  const volumePeakByKey = useMemo(() => {
+    const markers = new Map<string, VolumePeakMarker>();
+    for (const marker of volumePeakMarkers) {
+      markers.set(`${marker.lift}|${marker.label}`, marker);
+    }
+    return markers;
+  }, [volumePeakMarkers]);
 
   useEffect(() => {
     setPinnedTooltip(null);
@@ -752,6 +809,7 @@ export function ProgressionChart({
                   mode,
                   (seriesItem, meta) =>
                     setOutlierExplainer({ series: seriesItem, meta }),
+                  volumePeakByKey,
                 )
               }
               activeDot={{ r: 5 }}

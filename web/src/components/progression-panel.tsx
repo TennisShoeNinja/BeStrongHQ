@@ -26,7 +26,10 @@ import {
   type ProgressionGranularity,
   type RepFilterKey,
 } from "@/lib/progression";
-import { ProgressionChart } from "@/components/progression-chart";
+import {
+  ProgressionChart,
+  type VolumePeakMarker,
+} from "@/components/progression-chart";
 import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
@@ -68,6 +71,12 @@ const GRANULARITIES: { key: ProgressionGranularity; label: string }[] = [
 ];
 
 type VariationSelection = Record<LiftKey, Set<string>>;
+
+interface VolumePeakMoment extends VolumePeakMarker {
+  peak: Types.VolumeResponsePeak;
+  volumeLbs: number;
+  color: string;
+}
 
 function emptyVariationSelection(): VariationSelection {
   return {
@@ -134,6 +143,82 @@ function pillButton(active: boolean): CSSProperties {
   };
 }
 
+function profileToneStyle(profile: Types.VolumeResponseProfile): CSSProperties {
+  if (profile.profile === "rising") {
+    return {
+      background: "rgba(16, 185, 129, 0.12)",
+      border: "1px solid rgba(16, 185, 129, 0.35)",
+      color: "var(--cloud-success-text)",
+    };
+  }
+  if (profile.profile === "tapered") {
+    return {
+      background: "rgba(245, 158, 11, 0.12)",
+      border: "1px solid rgba(245, 158, 11, 0.35)",
+      color: "var(--cloud-warning-text)",
+    };
+  }
+  if (profile.profile === "mixed") {
+    return {
+      background: "rgba(12, 92, 171, 0.16)",
+      border: "1px solid rgba(12, 92, 171, 0.36)",
+      color: "var(--cloud-primary-text)",
+    };
+  }
+  if (profile.profile === "steady") {
+    return {
+      background: "rgba(12, 92, 171, 0.16)",
+      border: "1px solid rgba(12, 92, 171, 0.36)",
+      color: "var(--cloud-primary-text)",
+    };
+  }
+  return {
+    background: "var(--cloud-panel)",
+    border: "1px solid var(--cloud-border)",
+    color: "var(--cloud-text-muted)",
+  };
+}
+
+function confidencePercent(score: number): number {
+  return Math.round(score <= 1 ? score * 100 : score);
+}
+
+function VolumeResponseTag({ profile }: { profile: Types.VolumeResponseProfile }) {
+  const lift = LIFTS.find((item) => liftMatches(profile.lift_category, item.key));
+  const confidence = confidencePercent(profile.confidence.score);
+  return (
+    <div
+      title={profile.confidence.explanation}
+      style={{
+        ...profileToneStyle(profile),
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "7px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 700,
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: lift?.color ?? "var(--cloud-text-dim)",
+        }}
+      />
+      <span style={{ color: lift?.color ?? "var(--cloud-text-muted)" }}>
+        {lift?.label ?? profile.lift_category}
+      </span>
+      <span>{profile.profile_label}</span>
+      <span style={{ color: "var(--cloud-text-muted)" }}>{confidence}%</span>
+    </div>
+  );
+}
+
 const CONTROL_DIVIDER: CSSProperties = {
   width: 1,
   alignSelf: "stretch",
@@ -163,6 +248,7 @@ export function ProgressionPanel({
   const [granularity, setGranularity] =
     useState<ProgressionGranularity>("block");
   const [showPeakTable, setShowPeakTable] = useState(false);
+  const [overlayPeaks, setOverlayPeaks] = useState(false);
   const [showManageVariations, setShowManageVariations] = useState(false);
   // Per-lift selected variations. Empty means use the derived competition default.
   const [variationByLift, setVariationByLift] = useState<VariationSelection>(
@@ -190,6 +276,15 @@ export function ProgressionPanel({
   const { data: volumeTrends = [] as Types.VolumeDataPoint[] } = useQuery({
     queryKey: ["progression-volume", athleteId],
     queryFn: () => apiClient.getVolumeTrends(athleteId),
+    enabled: !compareMode && chartMode === "volume",
+  });
+  const { data: volumeResponseData, isLoading: volumeResponseLoading } = useQuery({
+    queryKey: ["progression-volume-response", athleteId],
+    queryFn: () =>
+      apiClient.getVolumeResponse(athleteId, {
+        topN: 5,
+        trailingWeeks: 6,
+      }),
     enabled: !compareMode && chartMode === "volume",
   });
   const compareSeriesQueries = useQueries({
@@ -387,6 +482,60 @@ export function ProgressionPanel({
   }, [e1rmTrends]);
 
   const chartRows = compareMode ? compareChart.rows : series.rows;
+  const volumePeakLabel = (peak: Types.VolumeResponsePeak) =>
+    granularity === "week"
+      ? `P${peak.program_number ?? "?"} W${peak.week_number}`
+      : `P${peak.program_number ?? "?"}`;
+  const volumeRowByLabel = useMemo(() => {
+    const rows = new Map<string, ChartRow>();
+    for (const row of series.rows) {
+      rows.set(row.label, row);
+    }
+    return rows;
+  }, [series.rows]);
+  const visibleVolumeProfiles = useMemo(() => {
+    const profiles = volumeResponseData?.profiles ?? [];
+    return LIFTS.map((lift) =>
+      profiles.find((profile) => liftMatches(profile.lift_category, lift.key)),
+    ).filter((profile): profile is Types.VolumeResponseProfile => {
+      if (!profile) return false;
+      const lift = LIFTS.find((item) => liftMatches(profile.lift_category, item.key));
+      return lift != null && visibleLifts.has(lift.key);
+    });
+  }, [visibleLifts, volumeResponseData]);
+  const volumePeakMoments = useMemo<VolumePeakMoment[]>(() => {
+    const moments: VolumePeakMoment[] = [];
+    for (const profile of visibleVolumeProfiles) {
+      const lift = LIFTS.find((item) => liftMatches(profile.lift_category, item.key));
+      if (!lift) continue;
+      profile.peaks.forEach((peak, index) => {
+        const label = volumePeakLabel(peak);
+        const row = volumeRowByLabel.get(label);
+        const value = row?.[lift.key];
+        if (typeof value !== "number") return;
+        moments.push({
+          lift: lift.key,
+          label,
+          rank: index + 1,
+          peak,
+          volumeLbs: value,
+          color: lift.color,
+        });
+      });
+    }
+    return moments;
+  }, [granularity, visibleVolumeProfiles, volumeRowByLabel]);
+  const volumePeakMarkers = useMemo<VolumePeakMarker[]>(
+    () =>
+      overlayPeaks
+        ? volumePeakMoments.map((moment) => ({
+            lift: moment.lift,
+            label: moment.label,
+            rank: moment.rank,
+          }))
+        : [],
+    [overlayPeaks, volumePeakMoments],
+  );
 
   // Progression data from the API is in pounds; convert for kg-preference coaches.
   const displayRows: ChartRow[] = useMemo(() => {
@@ -791,6 +940,21 @@ export function ProgressionPanel({
             </>
           )}
 
+          {!compareMode && chartMode === "volume" && (
+            <>
+              <span aria-hidden style={CONTROL_DIVIDER} />
+              <button
+                type="button"
+                onClick={() => setOverlayPeaks((value) => !value)}
+                aria-pressed={overlayPeaks}
+                title="Show numbered peak moments on the volume chart"
+                style={pillButton(overlayPeaks)}
+              >
+                Overlay peaks
+              </button>
+            </>
+          )}
+
           {!compareMode && (
             <>
               <span aria-hidden style={CONTROL_DIVIDER} />
@@ -1032,7 +1196,188 @@ export function ProgressionPanel({
             !compareMode && chartMode === "e1rm" ? displayCompetitionMaxes : undefined
           }
           tracksRpe={tracksRpe}
+          volumePeakMarkers={
+            !compareMode && chartMode === "volume" ? volumePeakMarkers : undefined
+          }
         />
+
+        {!compareMode && chartMode === "volume" && (
+          <section
+            style={{
+              background: "var(--cloud-surface-raised)",
+              border: "1px solid var(--cloud-border)",
+              borderRadius: 8,
+              padding: "var(--cloud-s3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--cloud-s2)",
+            }}
+          >
+            <div
+              style={{
+                color: "var(--cloud-primary-text)",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              VOLUME RESPONSE
+            </div>
+            {volumeResponseLoading ? (
+              <div style={{ color: "var(--cloud-text-dim)", fontSize: 12 }}>
+                Analyzing volume response.
+              </div>
+            ) : visibleVolumeProfiles.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {visibleVolumeProfiles.map((profile) => (
+                  <VolumeResponseTag
+                    key={profile.lift_category}
+                    profile={profile}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: "var(--cloud-text-dim)", fontSize: 12 }}>
+                No volume response tags are available for the selected lifts.
+              </div>
+            )}
+          </section>
+        )}
+
+        {!compareMode && chartMode === "volume" && (
+          <section
+            style={{
+              background: "var(--cloud-surface-raised)",
+              border: "1px solid var(--cloud-border)",
+              borderRadius: 8,
+              padding: "var(--cloud-s3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--cloud-s2)",
+            }}
+          >
+            <div
+              style={{
+                color: "var(--cloud-primary-text)",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              PEAK MOMENTS
+            </div>
+            {volumeResponseLoading ? (
+              <div style={{ color: "var(--cloud-text-dim)", fontSize: 12 }}>
+                Loading peak moments.
+              </div>
+            ) : volumePeakMoments.length === 0 ? (
+              <div style={{ color: "var(--cloud-text-dim)", fontSize: 12 }}>
+                No peak moments match the current volume chart.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {LIFTS.filter((lift) => visibleLifts.has(lift.key)).map((lift) => {
+                  const moments = volumePeakMoments.filter(
+                    (moment) => moment.lift === lift.key,
+                  );
+                  if (moments.length === 0) return null;
+                  return (
+                    <div
+                      key={lift.key}
+                      style={{
+                        border: "1px solid var(--cloud-border)",
+                        borderRadius: 8,
+                        background: "var(--cloud-panel)",
+                        padding: "10px 12px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: lift.color,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          marginBottom: 8,
+                        }}
+                      >
+                        {lift.label}
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: 8,
+                        }}
+                      >
+                        {moments.map((moment) => (
+                          <div
+                            key={`${moment.lift}-${moment.rank}-${moment.label}-${moment.peak.week_number}-${moment.peak.day_number}`}
+                            style={{
+                              border: "1px solid var(--cloud-border)",
+                              borderRadius: 8,
+                              background: "rgba(255,255,255,0.02)",
+                              padding: "8px 10px",
+                              display: "grid",
+                              gap: 3,
+                              fontSize: 12,
+                              fontVariantNumeric: "tabular-nums",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                color: "var(--cloud-text)",
+                                fontWeight: 700,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: "50%",
+                                  display: "inline-grid",
+                                  placeItems: "center",
+                                  border: `2px solid ${moment.color}`,
+                                  color: "var(--cloud-text)",
+                                  background: "var(--cloud-surface-raised)",
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {moment.rank}
+                              </span>
+                              <span>{moment.label}</span>
+                            </div>
+                            <div style={{ color: "var(--cloud-text-muted)" }}>
+                              Volume {formatPeak(moment.volumeLbs)}
+                            </div>
+                            <div
+                              title={moment.peak.exercise_name}
+                              style={{
+                                color: "var(--cloud-text-muted)",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {moment.peak.exercise_name}
+                            </div>
+                            <div style={{ color: "var(--cloud-text-dim)" }}>
+                              W{moment.peak.week_number} D{moment.peak.day_number}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         {!compareMode && blockPeaks.length > 0 && (
           <section
