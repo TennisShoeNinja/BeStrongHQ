@@ -131,6 +131,64 @@ export function competitionVariation(
   return (comp ?? ranked[0])[0];
 }
 
+export interface VariationOption {
+  /** server canonical_exercise_name — the grouping key */
+  canonical: string;
+  /** representative raw exercise_name for display */
+  label: string;
+  /** plottable point count */
+  count: number;
+  /** heuristically the competition lift */
+  isCompetition: boolean;
+  /** newest plottable point timestamp */
+  lastTs: number;
+}
+
+/**
+ * Every variation of a lift the athlete has e1RM data for, sorted
+ * competition-first then most-recent. Powers the variation picker.
+ */
+export function variationsForLift(
+  points: E1RMDataPoint[],
+  programs: ProgramListResponse[],
+  lift: LiftKey,
+): VariationOption[] {
+  const startByProgram = programStartTimestamps(programs);
+  const groups = new Map<
+    string,
+    { label: string; count: number; lastTs: number }
+  >();
+  for (const p of points) {
+    if (p.e1rm == null) continue;
+    if (!liftMatches(p.lift_category, lift)) continue;
+    const canon = (p.canonical_exercise_name ?? "").trim();
+    if (!canon) continue;
+    let g = groups.get(canon);
+    if (!g) {
+      g = { label: p.exercise_name?.trim() || canon, count: 0, lastTs: 0 };
+      groups.set(canon, g);
+    }
+    g.count += 1;
+    const ts = pointTimestamp(p, startByProgram);
+    if (ts != null && ts > g.lastTs) g.lastTs = ts;
+  }
+  const out: VariationOption[] = Array.from(groups.entries()).map(
+    ([canonical, g]) => ({
+      canonical,
+      label: g.label,
+      count: g.count,
+      isCompetition: isCompetitionName(canonical, lift),
+      lastTs: g.lastTs,
+    }),
+  );
+  out.sort((a, b) => {
+    if (a.isCompetition !== b.isCompetition) return a.isCompetition ? -1 : 1;
+    if (b.lastTs !== a.lastTs) return b.lastTs - a.lastTs;
+    return b.count - a.count;
+  });
+  return out;
+}
+
 export type ChartRow = { ts: number } & Record<string, number | undefined>;
 
 export interface LiftSeriesRow extends ChartRow {
@@ -196,13 +254,14 @@ function programStartTimestamps(programs: ProgramListResponse[]): Map<number, nu
 }
 
 /**
- * Build a unified time-series dataset for the multi-lift chart. Per lift,
- * take the competition variation's e1RM points and merge them into rows
- * keyed by timestamp (max e1RM wins when a lift has two top sets a day).
+ * Build a unified time-series dataset for the multi-lift chart. Plots one
+ * caller-chosen variation per lift, merged into rows keyed by timestamp
+ * (max e1RM wins when a lift has two top sets a day).
  */
 export function buildLiftSeries(
   points: E1RMDataPoint[],
   programs: ProgramListResponse[],
+  variationByLift: Record<LiftKey, string | null>,
   selectedProgramIds?: Set<number>,
 ): LiftSeries {
   const startByProgram = programStartTimestamps(programs);
@@ -210,11 +269,7 @@ export function buildLiftSeries(
     ? points.filter((p) => p.program_id != null && selectedProgramIds.has(p.program_id))
     : points;
 
-  const variation: Record<LiftKey, string | null> = {
-    squat: competitionVariation(filteredPoints, "squat"),
-    bench: competitionVariation(filteredPoints, "bench"),
-    deadlift: competitionVariation(filteredPoints, "deadlift"),
-  };
+  const variation = variationByLift;
 
   const rowByTs = new Map<number, LiftSeriesRow>();
   const available: Record<LiftKey, boolean> = {
@@ -289,12 +344,9 @@ export function buildCompareSeries(
 export function peaksByBlock(
   points: E1RMDataPoint[],
   programs: ProgramListResponse[],
+  variationByLift: Record<LiftKey, string | null>,
 ): BlockPeaks[] {
-  const variation: Record<LiftKey, string | null> = {
-    squat: competitionVariation(points, "squat"),
-    bench: competitionVariation(points, "bench"),
-    deadlift: competitionVariation(points, "deadlift"),
-  };
+  const variation = variationByLift;
   const sortedPrograms = [...programs].sort((a, b) => {
     const aDate = parseLocalDate(a.date_start)?.getTime();
     const bDate = parseLocalDate(b.date_start)?.getTime();
