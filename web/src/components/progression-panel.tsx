@@ -1,6 +1,13 @@
 "use client";
 
-import { Fragment, useMemo, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useCallback,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import * as Types from "@/lib/types";
@@ -30,7 +37,7 @@ import {
   ProgressionChart,
   type VolumePeakMarker,
 } from "@/components/progression-chart";
-import { ChevronDown } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronRight, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -219,6 +226,295 @@ function VolumeResponseTag({ profile }: { profile: Types.VolumeResponseProfile }
   );
 }
 
+function DataQualityTable({
+  title,
+  issues,
+  unit,
+}: {
+  title: string;
+  issues: Types.DataQualityIssue[];
+  unit: WeightUnit;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          color: "var(--cloud-text-dim)",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          marginBottom: 6,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            textAlign: "left",
+            borderCollapse: "collapse",
+            fontSize: 12,
+          }}
+        >
+          <thead>
+            <tr style={{ color: "var(--cloud-text-dim)" }}>
+              {["Where", "Lift", "Set", "Reason", "Source"].map((heading) => (
+                <th
+                  key={heading}
+                  style={{
+                    padding: "4px 12px 4px 0",
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {issues.map((issue, index) => {
+              const where = [
+                issue.program_number != null ? `P${issue.program_number}` : null,
+                issue.week_number != null ? `W${issue.week_number}` : null,
+                issue.day_name ??
+                  (issue.day_number != null ? `D${issue.day_number}` : null),
+              ]
+                .filter(Boolean)
+                .join(", ");
+              const setDesc =
+                issue.weight_lbs != null && issue.reps != null
+                  ? `${Math.round(convertWeight(issue.weight_lbs, unit)).toLocaleString("en-US")} ${unit} x ${issue.reps}${
+                      issue.actual_rpe != null ? ` @ ${issue.actual_rpe}` : ""
+                    }`
+                  : "-";
+              return (
+                <tr
+                  key={`${issue.category}-${index}`}
+                  style={{
+                    borderTop: "1px solid var(--cloud-border)",
+                    color: "var(--cloud-text)",
+                  }}
+                >
+                  <td style={{ padding: "5px 12px 5px 0", whiteSpace: "nowrap" }}>
+                    {where || "-"}
+                  </td>
+                  <td style={{ padding: "5px 12px 5px 0" }}>
+                    <span style={{ textTransform: "capitalize" }}>
+                      {issue.lift_category ?? "-"}
+                    </span>
+                    {issue.exercise_name && (
+                      <span style={{ color: "var(--cloud-text-dim)", marginLeft: 5 }}>
+                        ({issue.exercise_name})
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "5px 12px 5px 0", whiteSpace: "nowrap" }}>
+                    {setDesc}
+                  </td>
+                  <td style={{ padding: "5px 12px 5px 0" }}>{issue.reason}</td>
+                  <td style={{ padding: "5px 0" }}>
+                    {issue.google_sheet_url ? (
+                      <a
+                        href={issue.google_sheet_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "var(--cloud-primary-text)",
+                          textDecoration: "none",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Open source
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DataQualityBanner({
+  athleteId,
+  data,
+  isOpen,
+  onToggle,
+  unit,
+}: {
+  athleteId: number;
+  data: Types.DataQualityResponse;
+  isOpen: boolean;
+  onToggle: () => void;
+  unit: WeightUnit;
+}) {
+  const outlierCount = data.outliers.length;
+  const excludedCount = data.excluded.length;
+  const hasIssues = outlierCount > 0 || excludedCount > 0;
+  const storageKey = `bestrong.dq.dismissed.${athleteId}.${data.plotted_top_sets}_${data.total_top_sets}_${outlierCount}_${excludedCount}`;
+  const subscribe = useCallback((callback: () => void) => {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener("bestrong:dqDismissChanged", callback);
+    window.addEventListener("storage", callback);
+    return () => {
+      window.removeEventListener("bestrong:dqDismissChanged", callback);
+      window.removeEventListener("storage", callback);
+    };
+  }, []);
+  const getSnapshot = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(storageKey) === "1";
+    } catch {
+      return false;
+    }
+  }, [storageKey]);
+  const dismissed = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  if (dismissed) return null;
+
+  const tone: CSSProperties = hasIssues
+    ? {
+        background: "rgba(245, 158, 11, 0.10)",
+        border: "1px solid rgba(245, 158, 11, 0.35)",
+        color: "var(--cloud-warning-text)",
+      }
+    : {
+        background: "rgba(16, 185, 129, 0.08)",
+        border: "1px solid rgba(16, 185, 129, 0.30)",
+        color: "var(--cloud-success-text)",
+      };
+
+  const dismiss = () => {
+    try {
+      window.localStorage.setItem(storageKey, "1");
+      window.dispatchEvent(new Event("bestrong:dqDismissChanged"));
+    } catch {}
+  };
+
+  return (
+    <div className="cloud-panel-raised" style={{ ...tone, borderRadius: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "10px 12px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+            fontSize: 12,
+          }}
+        >
+          <CheckCircle style={{ width: 16, height: 16 }} />
+          <span style={{ fontWeight: 700 }}>
+            {data.plotted_top_sets} of {data.total_top_sets} top sets plotted
+          </span>
+          {outlierCount > 0 && (
+            <span>
+              {outlierCount} outlier{outlierCount === 1 ? "" : "s"}
+            </span>
+          )}
+          {excludedCount > 0 && <span>{excludedCount} excluded</span>}
+          {!hasIssues && <span style={{ opacity: 0.82 }}>No issues detected</span>}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {hasIssues && (
+            <button
+              type="button"
+              onClick={onToggle}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                border: "1px solid rgba(245, 158, 11, 0.40)",
+                background: "transparent",
+                color: "var(--cloud-warning-text)",
+                borderRadius: 999,
+                padding: "4px 9px",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {isOpen ? (
+                <>
+                  <ChevronDown style={{ width: 13, height: 13 }} />
+                  Hide review
+                </>
+              ) : (
+                <>
+                  <ChevronRight style={{ width: 13, height: 13 }} />
+                  Review
+                </>
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Dismiss data quality banner"
+            title="Dismiss"
+            style={{
+              display: "inline-grid",
+              placeItems: "center",
+              width: 24,
+              height: 24,
+              border: "1px solid transparent",
+              background: "transparent",
+              color: "inherit",
+              borderRadius: 999,
+              cursor: "pointer",
+            }}
+          >
+            <X style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+      </div>
+      {isOpen && hasIssues && (
+        <div
+          style={{
+            borderTop: "1px solid rgba(245, 158, 11, 0.22)",
+            padding: "10px 12px 12px",
+            display: "grid",
+            gap: 12,
+          }}
+        >
+          {outlierCount > 0 && (
+            <DataQualityTable
+              title={`Outliers (${outlierCount})`}
+              issues={data.outliers}
+              unit={unit}
+            />
+          )}
+          {excludedCount > 0 && (
+            <DataQualityTable
+              title={`Excluded from chart (${excludedCount})`}
+              issues={data.excluded}
+              unit={unit}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CONTROL_DIVIDER: CSSProperties = {
   width: 1,
   alignSelf: "stretch",
@@ -249,6 +545,7 @@ export function ProgressionPanel({
     useState<ProgressionGranularity>("block");
   const [showPeakTable, setShowPeakTable] = useState(false);
   const [overlayPeaks, setOverlayPeaks] = useState(false);
+  const [dataQualityOpen, setDataQualityOpen] = useState(false);
   const [showManageVariations, setShowManageVariations] = useState(false);
   // Per-lift selected variations. Empty means use the derived competition default.
   const [variationByLift, setVariationByLift] = useState<VariationSelection>(
@@ -286,6 +583,11 @@ export function ProgressionPanel({
         trailingWeeks: 6,
       }),
     enabled: !compareMode && chartMode === "volume",
+  });
+  const { data: dataQuality } = useQuery({
+    queryKey: ["progression-data-quality", athleteId],
+    queryFn: () => apiClient.getDataQuality(athleteId),
+    enabled: !compareMode && chartMode === "e1rm",
   });
   const compareSeriesQueries = useQueries({
     queries: compareSeries.map((series) => {
@@ -1177,6 +1479,20 @@ export function ProgressionPanel({
             </button>
           </section>
         )}
+
+        {!compareMode &&
+          chartMode === "e1rm" &&
+          dataQuality &&
+          dataQuality.total_top_sets > 0 &&
+          displayRows.length >= 2 && (
+            <DataQualityBanner
+              athleteId={athleteId}
+              data={dataQuality}
+              isOpen={dataQualityOpen}
+              onToggle={() => setDataQualityOpen((value) => !value)}
+              unit={unit}
+            />
+          )}
 
         <ProgressionChart
           rows={displayRows}
