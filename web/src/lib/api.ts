@@ -144,6 +144,13 @@ class APIClient {
     return response.data;
   }
 
+  async getTodaySessions(): Promise<Types.TodaySessionEntry[]> {
+    const response = await this.client.get<Types.TodaySessionEntry[]>(
+      "/athletes/today-sessions"
+    );
+    return response.data;
+  }
+
   async getTodayStatus(): Promise<Types.TodayStatusResponse> {
     const response = await this.client.get<Types.TodayStatusResponse>(
       "/dashboard/today-status"

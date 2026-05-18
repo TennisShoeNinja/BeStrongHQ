@@ -1,4 +1,4 @@
-"""Tests for the import service — upsert logic, duplicate day fix, display names."""
+"""Tests for the import service, upsert logic, duplicate day fix, display names."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ class TestBuildProgramDisplayName:
             date_end="04/11/26",
             theme="Hypertrophy",
         )
-        assert result == "Andrew Helguera's Program 21 -- (03/08/26 - 04/11/26) -- Hypertrophy"
+        assert result == "Andrew Helguera's Program 21 - (03/08/26 - 04/11/26) - Hypertrophy"
 
     def test_no_theme(self):
         result = _build_program_display_name(
@@ -61,7 +61,7 @@ class TestBuildProgramDisplayName:
             date_end="01/28/26",
             theme=None,
         )
-        assert result == "Andrew's Program 5 -- (01/01/26 - 01/28/26)"
+        assert result == "Andrew's Program 5 - (01/01/26 - 01/28/26)"
 
     def test_no_dates(self):
         result = _build_program_display_name(
@@ -71,7 +71,7 @@ class TestBuildProgramDisplayName:
             date_end=None,
             theme="Peaking",
         )
-        assert result == "Lamar's Program 38 -- Peaking"
+        assert result == "Lamar's Program 38 - Peaking"
 
     def test_no_athlete_name(self):
         result = _build_program_display_name(
@@ -81,7 +81,7 @@ class TestBuildProgramDisplayName:
             date_end="01/28/26",
             theme="Block A",
         )
-        assert result == "Program 10 -- (01/01/26 - 01/28/26) -- Block A"
+        assert result == "Program 10 - (01/01/26 - 01/28/26) - Block A"
 
     def test_no_program_number(self):
         result = _build_program_display_name(

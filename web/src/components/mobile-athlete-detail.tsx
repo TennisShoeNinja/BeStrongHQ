@@ -15,6 +15,7 @@ import {
 } from "@/lib/units";
 import { CurrentCycleCard } from "@/components/current-cycle-card";
 import { EmptyState } from "@/components/empty-state";
+import { TodaySessionCard } from "@/components/today-session-card";
 import type * as Types from "@/lib/types";
 
 interface Props {
@@ -52,7 +53,7 @@ function formatRelativeDay(iso: string | null | undefined): string {
 }
 
 function formatLiftValue(lbs: number | null | undefined, unit: WeightUnit): string {
-  if (lbs == null || !Number.isFinite(lbs)) return "—";
+  if (lbs == null || !Number.isFinite(lbs)) return "-";
   const v = convertWeight(lbs, unit);
   return String(Math.round(v));
 }
@@ -81,6 +82,13 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
     queryKey: ["max-history", athlete.id],
     queryFn: () => apiClient.getMaxHistory(athlete.id),
   });
+  const { data: todaySessions = [] } = useQuery({
+    queryKey: ["today-sessions"],
+    queryFn: () => apiClient.getTodaySessions(),
+    staleTime: 60000,
+  });
+  const todaySessionEntry =
+    todaySessions.find((entry) => entry.athlete_id === athlete.id) ?? null;
 
   const recentEntries = [...maxHistory]
     .sort((a, b) => {
@@ -188,6 +196,12 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
             onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
           />
         </div>
+
+        {todaySessionEntry?.session && (
+          <div style={{ marginBottom: "var(--cloud-s5)" }}>
+            <TodaySessionCard entry={todaySessionEntry} />
+          </div>
+        )}
 
         {/* Recent activity */}
         <div className="cloud-mhome-section-h">

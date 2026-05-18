@@ -129,7 +129,7 @@ class AthleteBase(BaseModel):
 def _clear_past_meet_fields(model) -> None:
     """Null out next_meet_* when the cached meet_date has already passed.
 
-    Response-only shaping — lives outside AthleteBase so it doesn't strip
+    Response-only shaping - lives outside AthleteBase so it doesn't strip
     incoming AthleteCreate payloads (a coach backdating an assignment should
     still reach the DB). Callers invoke this from response-class validators.
     """
@@ -355,6 +355,37 @@ class ExerciseEntryResponse(BaseModel):
     notes: str | None = None
 
 
+class TodayExercise(BaseModel):
+    exercise_name: str
+    lift_category: str
+    sets: int
+    reps: int | None = None
+    weight_lbs: float | None = None
+    target_rpe: str | None = None
+    is_accessory: bool
+
+
+class TodaySessionSummary(BaseModel):
+    id: int
+    week_number: int
+    day_number: int
+    day_name: str
+    session_label: str | None = None
+    status: Literal["not_started", "in_progress", "completed", "unknown"]
+    exercises: list[TodayExercise]
+
+
+class TodaySessionEntry(BaseModel):
+    athlete_id: int
+    program_id: int
+    program_name: str | None = None
+    week_number: int
+    total_weeks: int
+    week_confidence: Literal["logged", "estimated", "unknown"]
+    match_mode: Literal["weekday", "next_up"]
+    session: TodaySessionSummary | None = None
+
+
 class WeeklyVolumeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -446,7 +477,7 @@ class OutlierReferencePoint(BaseModel):
     """One of the prior e1RM points that built the "average" a flagged
     outlier was scored against.
 
-    Surfaced so the coach can see exactly which rows the detector used —
+    Surfaced so the coach can see exactly which rows the detector used -
     every number in the explainer modal should be one click from its
     source cell, so a suspect average can be audited end-to-end.
     """
@@ -503,7 +534,7 @@ class DataQualityIssue(BaseModel):
     """A single plot-eligible top set that deserves coach attention.
 
     Used for both outliers (flagged by the percent-of-median pass) and
-    excluded rows (structurally can't be plotted — missing weight, reps,
+    excluded rows (structurally can't be plotted - missing weight, reps,
     etc.). The shape is intentionally shared so the UI can render them
     in one table with a typed category column.
     """
@@ -541,11 +572,11 @@ class DataQualityResponse(BaseModel):
 
 class EstimatedMaxForLift(BaseModel):
     """Best estimated 1RM for a lift from RPE-gated training singles, doubles,
-    or triples — used to flag when an athlete's declared max may be stale.
+    or triples - used to flag when an athlete's declared max may be stale.
 
     All source-set fields are null when no qualifying set exists (no top set
     at 1-3 reps with an actual RPE logged). ``exceeds_declared`` is True only
-    when the estimate is meaningfully above the declared max — the threshold
+    when the estimate is meaningfully above the declared max - the threshold
     is set in the endpoint to avoid nagging on trivial differences.
     """
     lift: str
@@ -761,7 +792,7 @@ class MaxHistoryEntry(BaseModel):
 
 
 class ExerciseAliasEntry(BaseModel):
-    """Single alias row — one variant mapped to its primary name."""
+    """Single alias row - one variant mapped to its primary name."""
     model_config = ConfigDict(from_attributes=True)
     id: int
     primary_name: str
@@ -769,7 +800,7 @@ class ExerciseAliasEntry(BaseModel):
 
 
 class ExerciseAliasGroup(BaseModel):
-    """Grouped view of aliases by primary name — the shape the UI wants."""
+    """Grouped view of aliases by primary name - the shape the UI wants."""
     primary_name: str
 
 
@@ -779,7 +810,7 @@ class ExerciseAliasGroup(BaseModel):
 class CreateExerciseAliasRequest(BaseModel):
     """Create one or more alias rows under a single primary name.
 
-    Posting the same primary_name multiple times is fine — new aliases
+    Posting the same primary_name multiple times is fine - new aliases
     are appended to the existing group. Aliases that already point at a
     different primary will be moved.
     """
@@ -792,7 +823,7 @@ class MeetAttemptInput(BaseModel):
 
     ``weight_lbs`` is optional so the Log Meet Results modal can post a full
     3×3 attempt grid and have the backend skip blank cells. A missing
-    ``made`` defaults to True — coaches typically only bother logging
+    ``made`` defaults to True - coaches typically only bother logging
     attempts they made; misses are opt-in.
     """
     lift: str
@@ -803,7 +834,7 @@ class MeetAttemptInput(BaseModel):
 
 
 class MeetResultsWrite(BaseModel):
-    """Write payload for the Log Meet Results modal — one call per meet.
+    """Write payload for the Log Meet Results modal - one call per meet.
 
     Either ``meet_id`` or the denormalized meet fields (``meet_name`` +
     ``meet_date``) must be provided so the result has identifiable

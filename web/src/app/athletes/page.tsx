@@ -357,8 +357,24 @@ function AthletesPageInner() {
     staleTime: 60_000,
   });
 
+  const { data: todaySessions = [] } = useQuery({
+    queryKey: ["today-sessions"],
+    queryFn: () => apiClient.getTodaySessions(),
+    staleTime: 60_000,
+  });
+
   
   const activeAthletes = useMemo(() => athletes.filter((a) => !a.archived), [athletes]);
+
+  const todaySessionByAthleteId = useMemo(() => {
+    const byAthlete = new Map<number, Types.TodaySessionEntry>();
+    for (const entry of todaySessions) {
+      if (entry.match_mode === "weekday" && entry.session) {
+        byAthlete.set(entry.athlete_id, entry);
+      }
+    }
+    return byAthlete;
+  }, [todaySessions]);
 
   const upcomingMeets = useMemo(() => {
     return meets
@@ -402,13 +418,13 @@ function AthletesPageInner() {
 
   
   const formatDate = (dateStr: string | undefined | null) => {
-    if (!dateStr) return "—";
+    if (!dateStr) return "-";
     try {
       const c = dateStr.trim();
       const parsed = /^\d{4}-\d{2}-\d{2}$/.test(c)
         ? new Date(c + "T00:00:00")
         : new Date(c);
-      if (isNaN(parsed.getTime())) return "—";
+      if (isNaN(parsed.getTime())) return "-";
       const sameYear = parsed.getFullYear() === new Date().getFullYear();
       return parsed.toLocaleDateString(
         "en-US",
@@ -417,7 +433,7 @@ function AthletesPageInner() {
           : { month: "short", day: "numeric", year: "numeric" },
       );
     } catch {
-      return "—";
+      return "-";
     }
   };
 
@@ -427,7 +443,7 @@ function AthletesPageInner() {
   };
 
   const formatWeight = (lbs: number | undefined | null): string => {
-    if (!lbs) return "—";
+    if (!lbs) return "-";
     if (weightUnit === "kg") return `${convertToKg(lbs)} kg`;
     return `${lbs} lbs`;
   };
@@ -448,11 +464,11 @@ function AthletesPageInner() {
       case "program_due": return formatDate(athlete.program_due);
       case "meet_date": return formatDate(athlete.meet_date);
       case "out_from":
-        return isAvailable(athlete) ? "—" : formatDate(athlete.out_from);
+        return isAvailable(athlete) ? "-" : formatDate(athlete.out_from);
       case "out_through":
-        return isAvailable(athlete) ? "—" : formatDate(athlete.out_through);
+        return isAvailable(athlete) ? "-" : formatDate(athlete.out_through);
       default:
-        return (athlete[columnKey as keyof FilteredAthlete] as string | number | undefined) || "—";
+        return (athlete[columnKey as keyof FilteredAthlete] as string | number | undefined) || "-";
     }
   };
 
@@ -620,7 +636,7 @@ function AthletesPageInner() {
                 overflow: "hidden",
               }}
             >
-              {isLoading ? "Loading…" : (subtitleParts.join(" · ") || "—")}
+              {isLoading ? "Loading…" : (subtitleParts.join(" · ") || "-")}
             </p>
           </div>
           <div className="flex items-center flex-shrink-0" style={{ gap: "var(--cloud-s2)" }}>
@@ -643,7 +659,7 @@ function AthletesPageInner() {
         <div className="cloud-stats">
           <StatCard
             label="Active athletes"
-            value={isLoading ? "—" : activeAthletes.length.toString()}
+            value={isLoading ? "-" : activeAthletes.length.toString()}
             foot={
               <span className="cloud-text-muted">
                 {athletes.length - activeAthletes.length} archived
@@ -653,7 +669,7 @@ function AthletesPageInner() {
           <StatCard
             label="Sessions this week"
             value={
-              sessionsStats ? sessionsStats.this_window.toString() : "—"
+              sessionsStats ? sessionsStats.this_window.toString() : "-"
             }
             foot={
               sessionsStats ? (
@@ -679,7 +695,7 @@ function AthletesPageInner() {
           />
           <StatCard
             label="Avg score"
-            value={avgScore ? avgScore.value.toFixed(1) : "—"}
+            value={avgScore ? avgScore.value.toFixed(1) : "-"}
             labelAccessory={
               <ScoreFormulaToggle value={scoreFormula} onChange={setScoreFormula} />
             }
@@ -697,7 +713,7 @@ function AthletesPageInner() {
           />
           <StatCard
             label="Next meet in"
-            value={nextMeetDays !== null ? `${nextMeetDays}` : "—"}
+            value={nextMeetDays !== null ? `${nextMeetDays}` : "-"}
             valueSuffix={
               nextMeetDays !== null ? (
                 <span className="cloud-text-muted" style={{ fontSize: 14, fontWeight: 400 }}> days</span>
@@ -1002,7 +1018,7 @@ function AthletesPageInner() {
                                         athlete.weight_class,
                                         athlete.sex,
                                         archived ? "Archived" : null,
-                                      ].filter(Boolean).join(" · ") || "—"}
+                                      ].filter(Boolean).join(" · ") || "-"}
                                     </span>
                                   </span>
                                 </Link>
@@ -1021,21 +1037,50 @@ function AthletesPageInner() {
                                     {athlete.next_meet_name}
                                   </Link>
                                 ) : (
-                                  <span className="cloud-text-dim">—</span>
+                                  <span className="cloud-text-dim">-</span>
                                 )}
                               </td>
                             );
                           }
                           if (columnKey === "latest_block_type") {
+                            const todayEntry = todaySessionByAthleteId.get(athlete.id);
+                            const todayLabel = todayEntry
+                              ? todayEntry.session?.status === "completed"
+                                ? "Done"
+                                : "Today"
+                              : null;
                             return (
                               <td key={columnKey} style={tdStyle}>
-                                {athlete.latest_block_type ? (
-                                  <span className={getBlockBadgeClass(athlete.latest_block_type)}>
-                                    <span className="cloud-badge-dot" />
-                                    {athlete.latest_block_type}
+                                {athlete.latest_block_type || todayLabel ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    {athlete.latest_block_type && (
+                                      <span className={getBlockBadgeClass(athlete.latest_block_type)}>
+                                        <span className="cloud-badge-dot" />
+                                        {athlete.latest_block_type}
+                                      </span>
+                                    )}
+                                    {todayLabel && (
+                                      <span
+                                        className={
+                                          todayLabel === "Done"
+                                            ? "cloud-badge"
+                                            : "cloud-badge cloud-badge-primary"
+                                        }
+                                      >
+                                        <span className="cloud-badge-dot" />
+                                        {todayLabel}
+                                      </span>
+                                    )}
                                   </span>
                                 ) : (
-                                  <span className="cloud-text-dim">—</span>
+                                  <span className="cloud-text-dim">-</span>
                                 )}
                               </td>
                             );
@@ -1049,14 +1094,14 @@ function AthletesPageInner() {
                                 {status ? (
                                   <StatusPill value={status} />
                                 ) : (
-                                  <span className="cloud-text-dim">—</span>
+                                  <span className="cloud-text-dim">-</span>
                                 )}
                               </td>
                             );
                           }
 
                           const val = getCellValue(athlete, columnKey);
-                          const isDash = val === "—";
+                          const isDash = val === "-";
                           const classes = [
                             isDash ? "cloud-text-dim" : "cloud-text",
                             isNumeric ? "cloud-mono" : null,
@@ -1278,7 +1323,7 @@ function FeaturedChartPanel({
           <div className="cloud-chart-stat-value">
             {currentE1rm !== null && currentE1rm !== undefined
               ? Math.round(currentE1rm as number)
-              : "—"}
+              : "-"}
             {currentE1rm !== null && currentE1rm !== undefined && (
               <span className="cloud-text-dim" style={{ fontSize: 12, fontWeight: 400 }}> lb</span>
             )}
@@ -1297,13 +1342,13 @@ function FeaturedChartPanel({
                   : undefined,
             }}
           >
-            {blockDelta !== null ? `${blockDelta >= 0 ? "+" : ""}${blockDelta}` : "—"}
+            {blockDelta !== null ? `${blockDelta >= 0 ? "+" : ""}${blockDelta}` : "-"}
           </div>
         </div>
         {tracksRpe && (
           <div>
             <div className="cloud-chart-stat-label">RPE avg</div>
-            <div className="cloud-chart-stat-value">{rpeAvg ?? "—"}</div>
+            <div className="cloud-chart-stat-value">{rpeAvg ?? "-"}</div>
           </div>
         )}
       </div>
@@ -1422,7 +1467,7 @@ function RecentPRsPanel() {
             </div>
             <div className="cloud-feed-body">
               <div className="cloud-feed-title">
-                <strong>{pr.athlete_name}</strong> hit a {pr.lift} PR —{" "}
+                <strong>{pr.athlete_name}</strong> hit a {pr.lift} PR -{" "}
                 <span className="cloud-feed-value">
                   {Math.round(pr.weight_lbs)} lb
                 </span>

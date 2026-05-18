@@ -8,14 +8,44 @@ import logging
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from ..models.orm import Athlete, AthleteSession, DailyWellness, GDriveImport, MaxHistory, MeetResult, Notification, OplLink, OplMeet, Program, Session as SessionModel, WorkLog
+from ..models.orm import (
+    Athlete,
+    AthleteSession,
+    DailyWellness,
+    ExerciseEntry,
+    GDriveImport,
+    MaxHistory,
+    MeetResult,
+    Notification,
+    OplLink,
+    OplMeet,
+    Program,
+    Session as SessionModel,
+    WorkLog,
+)
 from ..plugins import get_hook
+from ..services.today_session import infer_today_session
 from .deps import get_db
-from .schemas import AthleteCreate, AthleteListResponse, AthleteResponse, AthleteUpdate, MaxHistoryEntry, MergePreview, MergeRequest, MergeResult, PendingMeetResults, ProgramListResponse, FixDuplicateDaysResult
 from .error_helpers import safe_error
+from .schemas import (
+    AthleteCreate,
+    AthleteListResponse,
+    AthleteResponse,
+    AthleteUpdate,
+    FixDuplicateDaysResult,
+    MaxHistoryEntry,
+    MergePreview,
+    MergeRequest,
+    MergeResult,
+    PendingMeetResults,
+    ProgramListResponse,
+    TodayExercise,
+    TodaySessionEntry,
+    TodaySessionSummary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +56,7 @@ def _unwatch_folders_for_athlete(athlete_name: str, db: Session | None = None) -
     """Drop any Drive watched folders whose name matches the athlete.
 
     Matched by normalized name (lowercase + strip). Returns the number of
-    folders removed. Never raises — a broken GDrive config shouldn't block
+    folders removed. Never raises - a broken GDrive config shouldn't block
     archiving an athlete.
     """
     try:
@@ -256,6 +286,130 @@ def export_athletes_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/today-sessions", response_model=list[TodaySessionEntry])
+def list_today_sessions(db: Session = Depends(get_db)):
+    athletes = (
+        db.query(Athlete.id)
+        .filter(Athlete.archived == False)  # noqa: E712
+        .order_by(Athlete.name)
+        .all()
+    )
+    athlete_ids = [row[0] for row in athletes]
+    if not athlete_ids:
+        return []
+
+    latest_programs = (
+        db.query(
+            Program.id.label("program_id"),
+            func.row_number()
+            .over(
+                partition_by=Program.athlete_id,
+                order_by=(Program.program_number.desc(), Program.id.desc()),
+            )
+            .label("rank"),
+        )
+        .filter(Program.athlete_id.in_(athlete_ids))
+        .subquery()
+    )
+    programs = (
+        db.query(Program)
+        .join(latest_programs, Program.id == latest_programs.c.program_id)
+        .filter(latest_programs.c.rank == 1)
+        .all()
+    )
+    if not programs:
+        return []
+
+    program_ids = [program.id for program in programs]
+    sessions = (
+        db.query(SessionModel)
+        .filter(SessionModel.program_id.in_(program_ids))
+        .order_by(
+            SessionModel.program_id,
+            SessionModel.week_number,
+            SessionModel.day_number,
+            SessionModel.id,
+        )
+        .all()
+    )
+    if not sessions:
+        return []
+
+    sessions_by_program: dict[int, list[SessionModel]] = {}
+    for session in sessions:
+        sessions_by_program.setdefault(session.program_id, []).append(session)
+
+    session_ids = [session.id for session in sessions]
+    exercises = (
+        db.query(ExerciseEntry)
+        .filter(ExerciseEntry.session_id.in_(session_ids))
+        .order_by(
+            ExerciseEntry.session_id,
+            ExerciseEntry.is_accessory,
+            ExerciseEntry.exercise_order,
+            ExerciseEntry.exercise_group,
+            ExerciseEntry.id,
+        )
+        .all()
+    )
+    exercises_by_session: dict[int, list[ExerciseEntry]] = {}
+    for exercise in exercises:
+        exercises_by_session.setdefault(exercise.session_id, []).append(exercise)
+
+    results = []
+    today = date.today()
+    for program in programs:
+        program_sessions = sessions_by_program.get(program.id, [])
+        if not program_sessions:
+            continue
+        inferred = infer_today_session(
+            program,
+            program_sessions,
+            exercises_by_session,
+            today,
+        )
+        if inferred is None:
+            continue
+
+        session = None
+        if inferred.session is not None:
+            session = TodaySessionSummary(
+                id=inferred.session.id,
+                week_number=inferred.session.week_number,
+                day_number=inferred.session.day_number,
+                day_name=inferred.session.day_name,
+                session_label=inferred.session.session_label,
+                status=inferred.session.status,
+                exercises=[
+                    TodayExercise(
+                        exercise_name=exercise.exercise_name,
+                        lift_category=exercise.lift_category,
+                        sets=exercise.sets,
+                        reps=exercise.reps,
+                        weight_lbs=exercise.weight_lbs,
+                        target_rpe=exercise.target_rpe,
+                        is_accessory=exercise.is_accessory,
+                    )
+                    for exercise in inferred.session.exercises
+                ],
+            )
+
+        results.append(
+            TodaySessionEntry(
+                athlete_id=program.athlete_id,
+                program_id=inferred.program_id,
+                program_name=inferred.program_name,
+                week_number=inferred.week_number,
+                total_weeks=inferred.total_weeks,
+                week_confidence=inferred.week_confidence,
+                match_mode=inferred.match_mode,
+                session=session,
+            )
+        )
+
+    return results
 
 
 @router.get("/{athlete_id}", response_model=AthleteResponse)

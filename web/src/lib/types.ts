@@ -244,6 +244,35 @@ export interface ExerciseEntryResponse {
   notes?: string | null;
 }
 
+export interface TodayExercise {
+  exercise_name: string;
+  lift_category: string;
+  sets: number;
+  reps: number | null;
+  weight_lbs: number | null;
+  target_rpe: string | null;
+  is_accessory: boolean;
+}
+
+export interface TodaySessionEntry {
+  athlete_id: number;
+  program_id: number;
+  program_name: string | null;
+  week_number: number;
+  total_weeks: number;
+  week_confidence: "logged" | "estimated" | "unknown";
+  match_mode: "weekday" | "next_up";
+  session: {
+    id: number;
+    week_number: number;
+    day_number: number;
+    day_name: string;
+    session_label: string | null;
+    status: "not_started" | "in_progress" | "completed" | "unknown";
+    exercises: TodayExercise[];
+  } | null;
+}
+
 
 export interface VolumeDataPoint {
   week_number: number;
