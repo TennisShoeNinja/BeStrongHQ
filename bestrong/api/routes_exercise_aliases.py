@@ -1,18 +1,25 @@
-"""Coach-managed exercise-name merges (instance-wide).
+"""Coach-managed exercise-name merges.
 
 Lets the coach declare "these two raw names are the same exercise" so
 PR tracking and variation dropdowns collapse them. See the ExerciseAlias
 ORM class for the design rationale.
 
+Merges are hybrid-scoped: a merge with a null ``athlete_id`` applies to
+every athlete in the instance; a merge with an ``athlete_id`` applies
+only to that one athlete. The list and create endpoints take an optional
+``athlete_id`` so the UI can manage a single athlete's merges alongside
+the instance-wide ones.
+
 Endpoints:
-- GET    /api/exercise-aliases            — list groups
-- POST   /api/exercise-aliases            — add aliases under a primary
-- DELETE /api/exercise-aliases/{alias_id} — un-merge a single alias
+- GET    /api/exercise-aliases            : list groups
+- POST   /api/exercise-aliases            : add aliases under a primary
+- DELETE /api/exercise-aliases/{alias_id} : un-merge a single alias
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..models.orm import ExerciseAlias
@@ -26,15 +33,40 @@ from .schemas import (
 router = APIRouter(prefix="/api/exercise-aliases", tags=["exercise-aliases"])
 
 
-@router.get("", response_model=list[ExerciseAliasGroup])
-def list_exercise_aliases(db: Session = Depends(get_db)):
-    """Return every merge group, grouped by primary name.
+def _scope_filter(athlete_id: int | None):
+    """Build the filter for merges visible in a given athlete's scope.
 
-    Groups are returned sorted by primary_name; aliases within each
-    group are sorted by their raw spelling so the UI renders
-    consistently across loads.
+    With no athlete_id, only instance-wide rows are visible. With an
+    athlete_id, instance-wide rows plus that athlete's own rows are.
     """
-    rows = db.query(ExerciseAlias).order_by(ExerciseAlias.primary_name, ExerciseAlias.alias_name).all()
+    if athlete_id is None:
+        return ExerciseAlias.athlete_id.is_(None)
+    return or_(
+        ExerciseAlias.athlete_id.is_(None),
+        ExerciseAlias.athlete_id == athlete_id,
+    )
+
+
+@router.get("", response_model=list[ExerciseAliasGroup])
+def list_exercise_aliases(
+    athlete_id: int | None = Query(
+        None, description="Include this athlete's merges alongside instance-wide ones"
+    ),
+    db: Session = Depends(get_db),
+):
+    """Return every merge group visible in the requested scope.
+
+    Without ``athlete_id`` only instance-wide merges are returned; with
+    it, that athlete's own merges are included too. Groups are returned
+    sorted by primary_name; aliases within each group are sorted by their
+    raw spelling so the UI renders consistently across loads.
+    """
+    rows = (
+        db.query(ExerciseAlias)
+        .filter(_scope_filter(athlete_id))
+        .order_by(ExerciseAlias.primary_name, ExerciseAlias.alias_name)
+        .all()
+    )
     grouped: dict[str, list[ExerciseAlias]] = {}
     for row in rows:
         grouped.setdefault(row.primary_name, []).append(row)
@@ -61,19 +93,24 @@ def create_exercise_aliases(
     - ``primary_name`` is the display name the coach wants to see.
     - Each entry in ``aliases`` is a raw exercise_name that should fold
       into ``primary_name``.
-    - Aliases that already exist under a different primary are moved,
-      not duplicated. Aliases equal to the primary_name are no-ops.
+    - ``athlete_id`` scopes the merge: null makes it instance-wide, a
+      value scopes it to that athlete.
+    - Aliases that already exist in the same scope under a different
+      primary are moved, not duplicated. Aliases equal to the
+      primary_name are no-ops.
     - Rejects an attempt to alias a name that is itself a primary_name
-      for other rows — that would create a chain and complicate the
-      lookup.
+      for other rows in scope (that would create a chain and complicate
+      the lookup).
     """
     primary = payload.primary_name.strip()
     if not primary:
         raise HTTPException(status_code=400, detail="primary_name cannot be empty")
 
+    athlete_id = payload.athlete_id
 
     chain_conflicts = (
         db.query(ExerciseAlias.primary_name)
+        .filter(_scope_filter(athlete_id))
         .filter(ExerciseAlias.primary_name.in_([a.strip() for a in payload.aliases if a.strip()]))
         .distinct()
         .all()
@@ -92,15 +129,34 @@ def create_exercise_aliases(
         alias = raw.strip()
         if not alias or alias == primary:
             continue
-        existing = db.query(ExerciseAlias).filter(ExerciseAlias.alias_name == alias).first()
+        # Match within the same scope only, so an instance-wide alias and
+        # an athlete-specific one for the same raw name can coexist.
+        scope_match = (
+            ExerciseAlias.athlete_id.is_(None)
+            if athlete_id is None
+            else ExerciseAlias.athlete_id == athlete_id
+        )
+        existing = (
+            db.query(ExerciseAlias)
+            .filter(ExerciseAlias.alias_name == alias)
+            .filter(scope_match)
+            .first()
+        )
         if existing:
             existing.primary_name = primary
         else:
-            db.add(ExerciseAlias(primary_name=primary, alias_name=alias))
+            db.add(
+                ExerciseAlias(
+                    primary_name=primary,
+                    alias_name=alias,
+                    athlete_id=athlete_id,
+                )
+            )
     db.commit()
 
     rows = (
         db.query(ExerciseAlias)
+        .filter(_scope_filter(athlete_id))
         .filter(ExerciseAlias.primary_name == primary)
         .order_by(ExerciseAlias.alias_name)
         .all()

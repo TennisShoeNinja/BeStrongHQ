@@ -500,21 +500,25 @@ class APIClient {
   
 
   
-  async listExerciseAliases(): Promise<Types.ExerciseAliasGroup[]> {
+  async listExerciseAliases(
+    athleteId?: number,
+  ): Promise<Types.ExerciseAliasGroup[]> {
     const response = await this.client.get<Types.ExerciseAliasGroup[]>(
       "/exercise-aliases",
+      athleteId != null ? { params: { athlete_id: athleteId } } : undefined,
     );
     return response.data;
   }
 
-  
+
   async createExerciseAlias(
     primary_name: string,
     aliases: string[],
+    athleteId?: number,
   ): Promise<Types.ExerciseAliasGroup> {
     const response = await this.client.post<Types.ExerciseAliasGroup>(
       "/exercise-aliases",
-      { primary_name, aliases },
+      { primary_name, aliases, athlete_id: athleteId ?? null },
     );
     return response.data;
   }

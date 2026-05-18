@@ -11,17 +11,27 @@ import type { ExerciseAliasGroup } from "@/lib/types";
 interface Props {
   open: boolean;
   onClose: () => void;
-  
+
+  athleteId: number;
   candidatesByLift: Record<string, string[]>;
 }
 
-export function ManageVariationsModal({ open, onClose, candidatesByLift }: Props) {
+export function ManageVariationsModal({
+  open,
+  onClose,
+  athleteId,
+  candidatesByLift,
+}: Props) {
   const queryClient = useQueryClient();
   const groupsQuery = useQuery({
-    queryKey: ["exercise-aliases"],
-    queryFn: () => apiClient.listExerciseAliases(),
+    queryKey: ["exercise-aliases", athleteId],
+    queryFn: () => apiClient.listExerciseAliases(athleteId),
     enabled: open,
   });
+
+
+  // Whether a new merge applies to just this athlete or every athlete.
+  const [scope, setScope] = useState<"athlete" | "instance">("athlete");
 
   
   const liftOrder = useMemo(
@@ -37,7 +47,11 @@ export function ManageVariationsModal({ open, onClose, candidatesByLift }: Props
 
   const createMutation = useMutation({
     mutationFn: ({ primary_name, aliases }: { primary_name: string; aliases: string[] }) =>
-      apiClient.createExerciseAlias(primary_name, aliases),
+      apiClient.createExerciseAlias(
+        primary_name,
+        aliases,
+        scope === "athlete" ? athleteId : undefined,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exercise-aliases"] });
       
@@ -145,7 +159,8 @@ export function ManageVariationsModal({ open, onClose, candidatesByLift }: Props
               }}
             >
               Merge differently-spelled names into a single lift. Raw names stay
-              in the data — only PR tracking and dropdowns fold them.
+              in the data; only PR tracking and dropdowns fold them. A merge can
+              apply to just this athlete or to every athlete.
             </p>
           </div>
           <button
@@ -205,9 +220,23 @@ export function ManageVariationsModal({ open, onClose, candidatesByLift }: Props
                           className="flex items-center justify-between"
                           style={{ fontSize: 12, color: "var(--cloud-text-muted)" }}
                         >
-                          <span className="truncate" title={a.alias_name}>
+                          <span
+                            className="truncate flex-1 min-w-0"
+                            title={a.alias_name}
+                          >
                             ↳ {a.alias_name}
                           </span>
+                          {a.athlete_id == null && (
+                            <span
+                              className="ml-2 flex-shrink-0"
+                              style={{
+                                ...microLabelStyle,
+                                color: "#93c5fd",
+                              }}
+                            >
+                              all athletes
+                            </span>
+                          )}
                           <button
                             onClick={() => deleteMutation.mutate(a.id)}
                             disabled={deleteMutation.isPending}
@@ -237,6 +266,48 @@ export function ManageVariationsModal({ open, onClose, candidatesByLift }: Props
             <h3 style={{ ...microLabelStyle, color: "var(--cloud-text-dim)", marginBottom: 10 }}>
               Merge new variations
             </h3>
+
+            {}
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <span style={{ fontSize: 11, color: "var(--cloud-text-muted)" }}>
+                Apply merge to
+              </span>
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["athlete", "This athlete"],
+                    ["instance", "All athletes"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const isActive = scope === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setScope(value)}
+                      className="transition-colors"
+                      style={{
+                        padding: "5px 11px",
+                        borderRadius: "var(--cloud-r-sm)",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        border: "1px solid",
+                        borderColor: isActive
+                          ? "rgba(12, 92, 171, 0.4)"
+                          : "var(--cloud-border)",
+                        background: isActive
+                          ? "rgba(12, 92, 171, 0.18)"
+                          : "transparent",
+                        color: isActive ? "#93c5fd" : "var(--cloud-text-muted)",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {}
             <div className="flex gap-2 mb-3 flex-wrap">
               {liftOrder.map((lift) => {
@@ -363,7 +434,7 @@ export function ManageVariationsModal({ open, onClose, candidatesByLift }: Props
                 style={{ fontSize: 11, color: "var(--cloud-text-muted)" }}
               >
                 {selected.size > 0
-                  ? `${selected.size} selected${primary ? ` — primary: "${primary}"` : ""}`
+                  ? `${selected.size} selected${primary ? `, primary: "${primary}"` : ""}`
                   : "Pick two or more, then choose the primary."}
               </span>
               <button

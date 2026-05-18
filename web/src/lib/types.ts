@@ -399,6 +399,8 @@ export interface ExerciseAliasEntry {
   id: number;
   primary_name: string;
   alias_name: string;
+  // null = instance-wide merge (every athlete); set = scoped to one athlete.
+  athlete_id: number | null;
 }
 
 export interface ExerciseAliasGroup {

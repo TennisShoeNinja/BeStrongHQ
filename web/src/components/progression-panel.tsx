@@ -2573,6 +2573,7 @@ export function ProgressionPanel({
       <ManageVariationsModal
         open={showManageVariations}
         onClose={() => setShowManageVariations(false)}
+        athleteId={athleteId}
         candidatesByLift={variationCandidates}
       />
     </div>

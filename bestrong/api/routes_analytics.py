@@ -77,7 +77,7 @@ def get_athlete_analytics(athlete_id: int, db: Session = Depends(get_db)):
     total_exercises = 0
     volume_points: list[VolumeDataPoint] = []
     pr_map: dict[str, PRRecord] = {}
-    alias_map = load_alias_map(db)
+    alias_map = load_alias_map(db, athlete_id)
 
     for program in programs:
 
@@ -257,7 +257,7 @@ def get_prs(
     rows = q.all()
 
 
-    alias_map = load_alias_map(db)
+    alias_map = load_alias_map(db, athlete_id)
     pr_map: dict[str, PRRecord] = {}
     for ex, sess, prog in rows:
         canon = canonicalize_with_aliases(ex.exercise_name, alias_map)
@@ -338,7 +338,7 @@ def get_e1rm_trends(
     today = datetime.utcnow()
     rows = [(ex, sess, prog) for ex, sess, prog in rows if not session_is_future(prog, sess, today)]
 
-    e1rm_alias_map = load_alias_map(db)
+    e1rm_alias_map = load_alias_map(db, athlete_id)
     results = []
     for ex, sess, prog in rows:
 

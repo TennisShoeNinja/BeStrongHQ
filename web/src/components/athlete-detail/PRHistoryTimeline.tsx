@@ -44,8 +44,8 @@ export function PRHistoryTimeline({
   
   
   const { data: aliasGroups = [] } = useQuery({
-    queryKey: ["exercise-aliases"],
-    queryFn: () => apiClient.listExerciseAliases(),
+    queryKey: ["exercise-aliases", athleteId],
+    queryFn: () => apiClient.listExerciseAliases(athleteId),
   });
   const displayNameFor = useMemo(() => {
     const map = new Map<string, string>();

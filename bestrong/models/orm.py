@@ -625,7 +625,7 @@ class RawProgram(Base):
 
 
 class ExerciseAlias(Base):
-    """Coach-managed exercise-name merges for this instance.
+    """Coach-managed exercise-name merges.
 
     Coaches enter free text in the spreadsheet so the same lift ends up
     spelled several ways with different parenthetical cues ("Paused
@@ -635,18 +635,31 @@ class ExerciseAlias(Base):
     structurally-different cues without risking collapsing genuinely
     distinct variations.
 
-    This table lets the coach declare instance-wide equivalences. Each row
-    says "whenever an exercise is logged as ``alias_name``, treat it as
+    This table lets the coach declare equivalences. Each row says
+    "whenever an exercise is logged as ``alias_name``, treat it as
     ``primary_name`` for PR tracking and variation grouping." The raw
     name stays on every ``exercise_entries`` / ``max_history`` row so no
     data is destroyed; the alias lookup happens at query time.
+
+    Scope is hybrid: ``athlete_id`` NULL means the merge applies to every
+    athlete in the instance; a set ``athlete_id`` means it applies only to
+    that athlete. The same raw name can be aliased once instance-wide and
+    again per-athlete; the athlete-specific row wins for that athlete.
     """
 
     __tablename__ = "exercise_aliases"
+    __table_args__ = (
+        UniqueConstraint(
+            "alias_name", "athlete_id", name="uq_exercise_alias_name_athlete"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     primary_name: Mapped[str] = mapped_column(String(300), nullable=False)
-    alias_name: Mapped[str] = mapped_column(String(300), nullable=False, unique=True)
+    alias_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    athlete_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("athletes.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     def __repr__(self) -> str:
