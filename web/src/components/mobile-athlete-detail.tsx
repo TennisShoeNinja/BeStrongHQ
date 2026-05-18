@@ -53,7 +53,7 @@ function formatRelativeDay(iso: string | null | undefined): string {
 }
 
 function formatLiftValue(lbs: number | null | undefined, unit: WeightUnit): string {
-  if (lbs == null || !Number.isFinite(lbs)) return "-";
+  if (lbs == null || !Number.isFinite(lbs)) return "—";
   const v = convertWeight(lbs, unit);
   return String(Math.round(v));
 }
