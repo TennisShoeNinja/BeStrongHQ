@@ -71,7 +71,7 @@ def import_file(
         db_path: Optional database path (defaults to ~/.bestrong/bestrong.db).
                  Ignored when ``db`` is supplied.
         program_number: Override the program number (if filename parsing fails).
-        title: The real title from Google Drive (e.g., "Ed's Program 35 -- (02/01/26 -- 02/22/26) -- Strength Block").
+        title: The real title from Google Drive (e.g., "Ed's Program 35 - (02/01/26 - 02/22/26) - Strength Block").
                When provided, this is used instead of the filename for metadata extraction.
         athlete_name: Override the athlete name (e.g., from the Google Drive folder name).
                       This takes precedence over filename-derived names.
@@ -352,7 +352,7 @@ def _build_program_display_name(
 ) -> str:
     """Build a display-friendly program name from parsed components.
 
-    Full format: "Name's Program ## -- (start - end) -- Theme"
+    Full format: "Name's Program ## - (start - end) - Theme"
     Falls back gracefully when parts are missing.
     """
     parts = []
@@ -368,7 +368,7 @@ def _build_program_display_name(
         parts.append(theme)
 
     if parts:
-        return " -- ".join(parts)
+        return " - ".join(parts)
 
 
     return theme or "Untitled Program"
