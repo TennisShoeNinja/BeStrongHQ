@@ -58,7 +58,6 @@ import {
   ArrowUpDown,
   Search,
   Info,
-  ExternalLink,
   MoreVertical,
   Archive,
   ArchiveRestore,
@@ -653,23 +652,6 @@ export default function AthleteDetailPage() {
           </div>
 
           <div className="flex items-center flex-shrink-0" style={{ gap: "var(--cloud-s2)" }}>
-            {athlete.latest_program_sheet_url && (
-              <button
-                type="button"
-                onClick={() =>
-                  window.open(
-                    athlete.latest_program_sheet_url!,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
-                }
-                className="cloud-btn cloud-btn-ghost"
-                title="Open Google Sheet in new tab"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open Sheet
-              </button>
-            )}
             <div id="coach-athlete-toolbar-slot" />
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -1538,6 +1520,7 @@ export default function AthleteDetailPage() {
           <CurrentCycleCard
             athlete={athlete}
             currentProgram={programs[0] ?? null}
+            programSheetUrl={athlete.latest_program_sheet_url ?? null}
             onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
           />
         </div>
