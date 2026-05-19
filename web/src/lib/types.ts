@@ -178,6 +178,7 @@ export interface NeedsReviewItem {
   avatar_class: string;
   title: string;
   occurred_at: string;
+  target_id?: number | null;
 }
 
 export interface TodayScheduleItem {
@@ -185,6 +186,10 @@ export interface TodayScheduleItem {
   title: string;
   athlete_count: number;
   kind: "group" | "individual";
+  athletes: Array<{
+    id: number;
+    name: string;
+  }>;
 }
 
 

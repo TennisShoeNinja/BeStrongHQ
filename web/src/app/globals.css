@@ -1698,6 +1698,21 @@ body {
     grid-template-columns: 36px 1fr auto;
     gap: var(--cloud-s3);
     align-items: center;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    width: 100%;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .cloud-mhome-rcard:hover {
+    background: var(--cloud-panel-hover);
+    border-color: var(--cloud-border-strong);
+  }
+  .cloud-mhome-rcard:focus-visible {
+    outline: none;
+    border-color: rgba(12, 92, 171, 0.5);
+    box-shadow: 0 0 0 3px rgba(12, 92, 171, 0.15);
   }
   .cloud-mhome-rcard::before {
     content: "";
@@ -1765,21 +1780,15 @@ body {
   .cloud-mhome-sched .row {
     position: relative;
     display: grid;
-    grid-template-columns: 56px 28px 1fr;
+    grid-template-columns: 28px 1fr;
     gap: 12px;
+    align-items: start;
     padding: var(--cloud-s3) 0;
     border-top: 1px solid var(--cloud-border);
-    align-items: center;
+    color: inherit;
   }
   .cloud-mhome-sched .row:first-of-type { border-top: 0; padding-top: var(--cloud-s1); }
   .cloud-mhome-sched .row:last-of-type  { padding-bottom: var(--cloud-s1); }
-  .cloud-mhome-sched .time {
-    font-size: 11px;
-    color: var(--cloud-text-muted);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    font-variant-numeric: tabular-nums;
-  }
   .cloud-mhome-sched .chip {
     width: 28px; height: 28px;
     border-radius: 8px;
@@ -1794,6 +1803,9 @@ body {
     fill: none;
     stroke-width: 1.8;
   }
+  .cloud-mhome-sched .summary {
+    min-width: 0;
+  }
   .cloud-mhome-sched .title {
     font-size: 14px;
     font-weight: 600;
@@ -1805,6 +1817,31 @@ body {
     color: var(--cloud-text-dim);
     margin-top: 2px;
     letter-spacing: 0.02em;
+  }
+  .cloud-mhome-sched .athletes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .cloud-mhome-sched .athletes a {
+    border: 1px solid var(--cloud-border);
+    border-radius: 999px;
+    color: var(--cloud-text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 8px 10px;
+    text-decoration: none;
+  }
+  .cloud-mhome-sched .athletes a:hover {
+    background: var(--cloud-panel-hover);
+    border-color: var(--cloud-border-strong);
+  }
+  .cloud-mhome-sched .athletes a:focus-visible {
+    outline: none;
+    border-color: rgba(12, 92, 171, 0.5);
+    box-shadow: 0 0 0 3px rgba(12, 92, 171, 0.15);
   }
 
   /* Review FAB */

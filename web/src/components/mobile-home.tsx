@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, User, ArrowRight, CheckCircle } from "lucide-react";
+import { User, ArrowRight, CheckCircle } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
-import { Spark } from "@/components/spark";
+import * as Types from "@/lib/types";
+import PRDetailModal from "@/components/PRDetailModal";
 
 function formatGreetingDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
@@ -34,14 +36,13 @@ const PILL_LABEL: Record<"pr" | "miss" | "load", string> = {
   load: "LOAD",
 };
 
-const EMPTY_SPARK = [0, 0, 0, 0, 0, 0, 0, 0];
-
 /**
  * Mobile home page (<md). Built to match `mockups/phone-dashboard.html`
  * in the BeStrongOps mobile-redesign branch.
  */
 export function MobileHome() {
   const { instance } = useAuth();
+  const [selectedPRItem, setSelectedPRItem] = useState<Types.NeedsReviewItem | null>(null);
   const { data: settings } = useQuery({
     queryKey: ["settings"],
     queryFn: () => apiClient.getSettings(),
@@ -54,10 +55,6 @@ export function MobileHome() {
     queryKey: ["todayStatus"],
     queryFn: () => apiClient.getTodayStatus(),
   });
-  const { data: weeklyStats, isPending: weeklyStatsPending } = useQuery({
-    queryKey: ["weeklyStats"],
-    queryFn: () => apiClient.getWeeklyStats(),
-  });
   const { data: needsReview = [] } = useQuery({
     queryKey: ["needsReview"],
     queryFn: () => apiClient.getNeedsReview(3),
@@ -66,9 +63,22 @@ export function MobileHome() {
     queryKey: ["todaySchedule"],
     queryFn: () => apiClient.getTodaySchedule(),
   });
+  const { data: queueCount = 0 } = useQuery({
+    queryKey: ["notifications", "count"],
+    queryFn: () => apiClient.getNotificationCount(),
+  });
+  const { data: selectedPRHistory = [] } = useQuery({
+    queryKey: ["maxHistory", selectedPRItem?.athlete_id],
+    queryFn: () => {
+      if (!selectedPRItem) return Promise.resolve([]);
+      return apiClient.getMaxHistory(selectedPRItem.athlete_id);
+    },
+    enabled: selectedPRItem !== null,
+  });
 
   const teamName = instance?.org_name || "BeStrong";
   const today = new Date();
+  const todayWeekday = today.getDay() === 0 ? 7 : today.getDay();
   const dateLabel = formatGreetingDate(today);
   const timeOfDay = getTimeOfDayLabel(today.getHours());
   const coachName = firstName(settings?.coach_display_name) || "Coach";
@@ -80,17 +90,43 @@ export function MobileHome() {
   const syncedToday = todayStatus?.synced_today ?? 0;
   const scheduledPct = rosterTotal > 0 ? (scheduledToday / rosterTotal) * 100 : 0;
 
-  const prsValue = weeklyStatsPending ? "—" : String(weeklyStats?.prs_this_week ?? 0);
-  const prsDelta = weeklyStats?.prs_delta ?? 0;
-  const prsSpark = weeklyStats?.prs_spark ?? EMPTY_SPARK;
-  const sessionsValue = weeklyStatsPending ? "—" : String(weeklyStats?.sessions_this_week ?? 0);
-  const sessionsSpark = weeklyStats?.sessions_spark ?? EMPTY_SPARK;
-  const flaggedValue = weeklyStatsPending ? "—" : String(weeklyStats?.flagged_now ?? 0);
-  const flaggedDelta = weeklyStats?.flagged_delta ?? 0;
-  const flaggedSpark = weeklyStats?.flagged_spark ?? EMPTY_SPARK;
-
-  const reviewCount = needsReview.length;
-  const sessionCount = todaySchedule.length;
+  const recentPRs = needsReview.filter((item) => item.kind === "pr");
+  const selectedPR = useMemo(() => {
+    if (!selectedPRItem?.target_id) return null;
+    return selectedPRHistory.find((entry) => entry.id === selectedPRItem.target_id) ?? null;
+  }, [selectedPRHistory, selectedPRItem]);
+  const todayRows = useMemo(() => {
+    return todaySchedule
+      .map((row) => {
+        const rowAthletes =
+          row.athletes?.length
+            ? row.athletes
+            : athletes
+                .filter((athlete) => {
+                  if (row.title === "Squat day") return athlete.primary_squat_day === todayWeekday;
+                  if (row.title === "Bench day") return athlete.primary_bench_day === todayWeekday;
+                  if (row.title === "Deadlift day") {
+                    return athlete.primary_deadlift_day === todayWeekday;
+                  }
+                  return false;
+                })
+                .map((athlete) => ({ id: athlete.id, name: athlete.name }));
+        return {
+          ...row,
+          athletes: rowAthletes.sort((a, b) => a.name.localeCompare(b.name)),
+        };
+      })
+      .filter((row) => row.athletes.length > 0);
+  }, [athletes, todaySchedule, todayWeekday]);
+  const todayAthleteCount = useMemo(() => {
+    const athleteIds = new Set<number>();
+    todayRows.forEach((row) => {
+      row.athletes.forEach((athlete) => {
+        athleteIds.add(athlete.id);
+      });
+    });
+    return athleteIds.size;
+  }, [todayRows]);
 
   return (
     <>
@@ -134,122 +170,83 @@ export function MobileHome() {
           </p>
         </div>
 
-        {/* Stat strip */}
-        <div className="cloud-mhome-strip">
-          <div className="cloud-mhome-stat">
-            <p className="label">PRs · 7d</p>
-            <p className="value">
-              {prsValue}
-              {prsDelta !== 0 && (
-                <span className={`delta ${prsDelta > 0 ? "up" : "down"}`}>
-                  {prsDelta > 0 ? "+" : ""}
-                  {prsDelta}
-                </span>
-              )}
-            </p>
-            <p className="sub">vs last week</p>
-            <Spark
-              className="spark"
-              points={prsSpark}
-              tone="success"
-              width={44}
-              height={14}
-            />
-          </div>
-          <div className="cloud-mhome-stat">
-            <p className="label">Sessions</p>
-            <p className="value">{sessionsValue}</p>
-            <p className="sub">past 7d</p>
-            <Spark
-              className="spark"
-              points={sessionsSpark}
-              tone="primary"
-              width={44}
-              height={14}
-            />
-          </div>
-          <div className="cloud-mhome-stat">
-            <p className="label">Flagged</p>
-            <p className="value">
-              {flaggedValue}
-              {flaggedDelta !== 0 && (
-                <span className={`delta ${flaggedDelta > 0 ? "down" : "up"}`}>
-                  {flaggedDelta > 0 ? "+" : ""}
-                  {flaggedDelta}
-                </span>
-              )}
-            </p>
-            <p className="sub">vs last week</p>
-            <Spark
-              className="spark"
-              points={flaggedSpark}
-              tone="danger"
-              width={44}
-              height={14}
-            />
-          </div>
-        </div>
-
-        {/* Needs review */}
-        <div className="cloud-mhome-section-h">
-          <p className="eyebrow">Needs review</p>
-          <Link href="/queue">
-            See all <ArrowRight />
-          </Link>
-        </div>
-        <div className="cloud-mhome-review">
-          {needsReview.map((item) => (
-            <div key={item.id} className="cloud-mhome-rcard">
-              <div className={`ava ${item.avatar_class}`}>{item.athlete_initials}</div>
-              <div>
-                <p className="who">{item.athlete_name}</p>
-                <p className="what">{item.title}</p>
-              </div>
-              <span className={`cloud-mhome-pill ${item.kind}`}>
-                {PILL_LABEL[item.kind]}
-              </span>
-            </div>
-          ))}
-        </div>
-
         {/* Today schedule */}
         {todaySchedule.length > 0 && (
           <>
             <div className="cloud-mhome-section-h">
               <p className="eyebrow">
-                Today <span className="meta">· {sessionCount} sessions</span>
+                Today <span className="meta">· {todayAthleteCount} athlete{todayAthleteCount === 1 ? "" : "s"}</span>
               </p>
               <Link href="/meets">
                 Full week <ArrowRight />
               </Link>
             </div>
             <div className="cloud-mhome-sched">
-              {todaySchedule.map((row, idx) => {
-                const Icon = row.kind === "individual" ? User : Users;
-                return (
-                  <div key={`${row.time_label}-${idx}`} className="row">
-                    <div className="time">{row.time_label}</div>
-                    <div className="chip">
-                      <Icon />
-                    </div>
-                    <div>
-                      <p className="title">{row.title}</p>
-                      <p className="meta">{row.athlete_count} athlete{row.athlete_count === 1 ? "" : "s"}</p>
+              {todayRows.map((row, idx) => (
+                <div key={`${row.title}-${idx}`} className="row">
+                  <div className="chip">
+                    <User />
+                  </div>
+                  <div className="summary">
+                    <p className="title">{row.title}</p>
+                    <div className="athletes">
+                      {row.athletes.map((athlete) => (
+                        <Link key={athlete.id} href={`/athletes/${athlete.id}`}>
+                          {athlete.name}
+                        </Link>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Recent PRs */}
+        {recentPRs.length > 0 && (
+          <>
+            <div className="cloud-mhome-section-h">
+              <p className="eyebrow">Recent PRs</p>
+            </div>
+            <div className="cloud-mhome-review">
+              {recentPRs.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="cloud-mhome-rcard"
+                  onClick={() => setSelectedPRItem(item)}
+                  aria-label={`Open ${item.athlete_name} PR details`}
+                >
+                  <div className={`ava ${item.avatar_class}`}>{item.athlete_initials}</div>
+                  <div>
+                    <p className="who">{item.athlete_name}</p>
+                    <p className="what">{item.title}</p>
+                  </div>
+                  <span className={`cloud-mhome-pill ${item.kind}`}>
+                    {PILL_LABEL[item.kind]}
+                  </span>
+                </button>
+              ))}
             </div>
           </>
         )}
       </div>
 
-      {/* Review FAB */}
-      <Link href="/queue" className="cloud-mhome-fab">
-        <CheckCircle />
-        Review
-        <span className="fab-badge">{reviewCount}</span>
-      </Link>
+      {queueCount > 0 && (
+        <Link href="/queue" className="cloud-mhome-fab">
+          <CheckCircle />
+          Work queue
+          <span className="fab-badge">{queueCount}</span>
+        </Link>
+      )}
+      <PRDetailModal
+        open={selectedPRItem !== null && selectedPR !== null}
+        onClose={() => setSelectedPRItem(null)}
+        pr={selectedPR}
+        allHistory={selectedPRHistory}
+        athleteName={selectedPRItem?.athlete_name ?? null}
+      />
     </>
   );
 }

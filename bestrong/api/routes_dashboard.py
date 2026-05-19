@@ -11,12 +11,10 @@ from sqlalchemy.orm import Session as OrmSession
 
 from ..models.orm import (
     Athlete,
-    ExerciseEntry,
     GDriveImport,
     MaxHistory,
     Notification,
     Program,
-    Session as TrainingSession,
 )
 from .deps import get_db
 
@@ -70,6 +68,12 @@ class NeedsReviewItem(BaseModel):
     avatar_class: str
     title: str
     occurred_at: str
+    target_id: int | None = None
+
+
+class TodayScheduleAthlete(BaseModel):
+    id: int
+    name: str
 
 
 class TodayScheduleItem(BaseModel):
@@ -77,6 +81,7 @@ class TodayScheduleItem(BaseModel):
     title: str
     athlete_count: int
     kind: str
+    athletes: list[TodayScheduleAthlete]
 
 
 @router.get("/today-status", response_model=TodayStatusResponse)
@@ -222,12 +227,7 @@ def needs_review(
     db: OrmSession = Depends(get_db),
 ):
     now = datetime.now()
-    today_iso = date.today().isoformat()
-    pr_cutoff = now - timedelta(days=14)
-    load_cutoff = now - timedelta(days=7)
-    miss_cutoff = now - timedelta(days=7)
-
-    items: list[tuple[datetime, NeedsReviewItem]] = []
+    pr_cutoff = now - timedelta(days=30)
 
     pr_rows = (
         db.query(MaxHistory, Athlete)
@@ -239,103 +239,26 @@ def needs_review(
         .limit(limit * 4)
         .all()
     )
+    items: list[NeedsReviewItem] = []
     for mh, athlete in pr_rows:
         weight_str = f"{int(mh.new_value)}" if float(mh.new_value).is_integer() else f"{mh.new_value:g}"
         reps_part = f" × {mh.reps}" if mh.reps else ""
         title = f"{mh.lift.capitalize()} {weight_str}lbs{reps_part} · new PR"
         items.append(
-            (
-                mh.recorded_at,
-                NeedsReviewItem(
-                    id=f"pr-{mh.id}",
-                    kind="pr",
-                    athlete_id=athlete.id,
-                    athlete_name=athlete.name,
-                    athlete_initials=_initials(athlete.name),
-                    avatar_class=_avatar_class(athlete.id),
-                    title=title,
-                    occurred_at=_iso_z(mh.recorded_at),
-                ),
+            NeedsReviewItem(
+                id=f"pr-{mh.id}",
+                kind="pr",
+                athlete_id=athlete.id,
+                athlete_name=athlete.name,
+                athlete_initials=_initials(athlete.name),
+                avatar_class=_avatar_class(athlete.id),
+                title=title,
+                occurred_at=_iso_z(mh.recorded_at),
+                target_id=mh.id,
             )
         )
 
-    latest_program_subq = (
-        db.query(
-            Program.athlete_id.label("athlete_id"),
-            func.max(Program.imported_at).label("latest_imported_at"),
-        )
-        .group_by(Program.athlete_id)
-        .subquery()
-    )
-    miss_rows = (
-        db.query(Athlete, latest_program_subq.c.latest_imported_at)
-        .join(latest_program_subq, latest_program_subq.c.athlete_id == Athlete.id)
-        .filter(Athlete.archived == False)  # noqa: E712
-        .filter(latest_program_subq.c.latest_imported_at < miss_cutoff)
-        .filter(
-            Athlete.id.in_(
-                db.query(Program.athlete_id).filter(Program.date_end >= today_iso)
-            )
-        )
-        .order_by(latest_program_subq.c.latest_imported_at.desc())
-        .limit(limit * 4)
-        .all()
-    )
-    for athlete, latest_imported_at in miss_rows:
-        days = max(1, (now - latest_imported_at).days)
-        items.append(
-            (
-                latest_imported_at,
-                NeedsReviewItem(
-                    id=f"miss-{athlete.id}",
-                    kind="miss",
-                    athlete_id=athlete.id,
-                    athlete_name=athlete.name,
-                    athlete_initials=_initials(athlete.name),
-                    avatar_class=_avatar_class(athlete.id),
-                    title=f"No sync in {days} days",
-                    occurred_at=_iso_z(latest_imported_at),
-                ),
-            )
-        )
-
-    load_rows = (
-        db.query(ExerciseEntry, Athlete, Program.imported_at)
-        .join(TrainingSession, TrainingSession.id == ExerciseEntry.session_id)
-        .join(Program, Program.id == TrainingSession.program_id)
-        .join(Athlete, Athlete.id == Program.athlete_id)
-        .filter(Athlete.archived == False)  # noqa: E712
-        .filter(Program.imported_at >= load_cutoff)
-        .filter(
-            or_(
-                ExerciseEntry.rpe_needs_review == True,  # noqa: E712
-                ExerciseEntry.actual_rpe >= 9.5,
-            )
-        )
-        .order_by(Program.imported_at.desc())
-        .limit(limit * 4)
-        .all()
-    )
-    for entry, athlete, imported_at in load_rows:
-        rpe_str = f"{entry.actual_rpe:g}" if entry.actual_rpe is not None else "?"
-        items.append(
-            (
-                imported_at,
-                NeedsReviewItem(
-                    id=f"load-{entry.id}",
-                    kind="load",
-                    athlete_id=athlete.id,
-                    athlete_name=athlete.name,
-                    athlete_initials=_initials(athlete.name),
-                    avatar_class=_avatar_class(athlete.id),
-                    title=f"RPE {rpe_str} on {entry.exercise_name}",
-                    occurred_at=_iso_z(imported_at),
-                ),
-            )
-        )
-
-    items.sort(key=lambda pair: pair[0], reverse=True)
-    return [item for _, item in items[:limit]]
+    return items[:limit]
 
 
 @router.get("/today-schedule", response_model=list[TodayScheduleItem])
@@ -343,57 +266,63 @@ def today_schedule(db: OrmSession = Depends(get_db)):
     today_weekday = datetime.now().date().isoweekday()
     active_athletes = Athlete.archived == False  # noqa: E712
 
-    squat_count = (
-        db.query(func.count(Athlete.id))
+    squat_athletes = (
+        db.query(Athlete)
         .filter(active_athletes)
         .filter(Athlete.primary_squat_day == today_weekday)
-        .scalar()
-        or 0
+        .order_by(Athlete.name.asc())
+        .all()
     )
-    bench_count = (
-        db.query(func.count(Athlete.id))
+    bench_athletes = (
+        db.query(Athlete)
         .filter(active_athletes)
         .filter(Athlete.primary_bench_day == today_weekday)
-        .scalar()
-        or 0
+        .order_by(Athlete.name.asc())
+        .all()
     )
-    deadlift_count = (
-        db.query(func.count(Athlete.id))
+    deadlift_athletes = (
+        db.query(Athlete)
         .filter(active_athletes)
         .filter(Athlete.primary_deadlift_day == today_weekday)
-        .scalar()
-        or 0
+        .order_by(Athlete.name.asc())
+        .all()
     )
 
-    if squat_count == 0 and bench_count == 0 and deadlift_count == 0:
+    if not squat_athletes and not bench_athletes and not deadlift_athletes:
         return []
 
+    def athlete_items(rows: list[Athlete]) -> list[TodayScheduleAthlete]:
+        return [TodayScheduleAthlete(id=row.id, name=row.name) for row in rows]
+
     buckets: list[TodayScheduleItem] = []
-    if squat_count > 0:
+    if squat_athletes:
         buckets.append(
             TodayScheduleItem(
-                time_label="Morning",
+                time_label="",
                 title="Squat day",
-                athlete_count=squat_count,
-                kind="group",
+                athlete_count=len(squat_athletes),
+                kind="individual" if len(squat_athletes) == 1 else "group",
+                athletes=athlete_items(squat_athletes),
             )
         )
-    if bench_count > 0:
+    if bench_athletes:
         buckets.append(
             TodayScheduleItem(
-                time_label="Midday",
+                time_label="",
                 title="Bench day",
-                athlete_count=bench_count,
-                kind="group",
+                athlete_count=len(bench_athletes),
+                kind="individual" if len(bench_athletes) == 1 else "group",
+                athletes=athlete_items(bench_athletes),
             )
         )
-    if deadlift_count > 0:
+    if deadlift_athletes:
         buckets.append(
             TodayScheduleItem(
-                time_label="Afternoon",
+                time_label="",
                 title="Deadlift day",
-                athlete_count=deadlift_count,
-                kind="group",
+                athlete_count=len(deadlift_athletes),
+                kind="individual" if len(deadlift_athletes) == 1 else "group",
+                athletes=athlete_items(deadlift_athletes),
             )
         )
     return buckets
