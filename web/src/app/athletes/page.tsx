@@ -246,7 +246,10 @@ function MobileRoster({
       ) : athletes.length === 0 ? (
         <EmptyState icon={Users} body="No athletes match your filters." compact />
       ) : (
-        <div className="cloud-mhome-review">
+        <div
+          className="cloud-mhome-review cloud-thin-scroll"
+          style={{ maxHeight: 420, overflowY: "auto", paddingRight: 4 }}
+        >
           {athletes.map((athlete) => (
             <Link
               key={athlete.id}
