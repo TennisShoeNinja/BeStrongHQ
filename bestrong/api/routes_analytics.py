@@ -21,6 +21,7 @@ from ..models.orm import (
 )
 from ..analytics.e1rm import calculate_e1rm, calculate_e1rm_epley, peak_e1rm
 from ..analytics.outliers import flag_outliers, OutlierInput
+from ..analytics.pr_events import PRSetInput, derive_pr_events
 from ..utils.feature_flags import tracks_rpe
 from ..analytics.volume_response import (
     aggregate_profile,
@@ -41,6 +42,7 @@ from .schemas import (
     FeaturedAthleteResponse,
     OutlierReferencePoint,
     PRRecord,
+    PREventResponse,
     RecentPR,
     SessionsStats,
     VolumeDataPoint,
@@ -145,6 +147,53 @@ def get_athlete_analytics(athlete_id: int, db: Session = Depends(get_db)):
         volume_over_time=volume_points,
         prs=sorted(pr_map.values(), key=lambda r: r.weight_lbs, reverse=True),
     )
+
+
+@router.get("/athletes/{athlete_id}/pr-events", response_model=list[PREventResponse])
+def get_athlete_pr_events(athlete_id: int, db: Session = Depends(get_db)):
+    """Block-level celebration PRs for an athlete."""
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    rows = (
+        db.query(ExerciseEntry, SessionModel, Program)
+        .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+        .join(Program, SessionModel.program_id == Program.id)
+        .filter(Program.athlete_id == athlete_id)
+        .filter(ExerciseEntry.failed == False)  # noqa: E712
+        .filter(ExerciseEntry.weight_lbs.isnot(None))
+        .filter(ExerciseEntry.weight_lbs > 0)
+        .filter(ExerciseEntry.reps.isnot(None))
+        .filter(ExerciseEntry.reps > 0)
+        .filter(ExerciseEntry.reps <= 8)
+        .all()
+    )
+
+    today = datetime.utcnow()
+    rows = [(ex, sess, prog) for ex, sess, prog in rows if not session_is_future(prog, sess, today)]
+
+    alias_map = load_alias_map(db, athlete_id)
+    events = derive_pr_events(
+        [
+            PRSetInput(
+                exercise_name=ex.exercise_name,
+                lift_category=ex.lift_category,
+                weight_lbs=ex.weight_lbs,
+                reps=ex.reps,
+                actual_rpe=ex.actual_rpe,
+                failed=ex.failed,
+                program_id=prog.id,
+                program_name=prog.program_name,
+                program_number=prog.program_number,
+                date_start=prog.date_start,
+                imported_at=prog.imported_at,
+            )
+            for ex, _sess, prog in rows
+        ],
+        alias_map=alias_map,
+    )
+    return [PREventResponse(**event.__dict__) for event in events]
 
 
 @router.get("/volume", response_model=list[VolumeDataPoint])

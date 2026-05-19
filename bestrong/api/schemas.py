@@ -424,6 +424,19 @@ class PRRecord(BaseModel):
     day_number: int
 
 
+class PREventResponse(BaseModel):
+    """A block-level PR event for a lift variation."""
+    variation: str
+    variation_canon: str
+    is_competition: bool
+    program_id: int
+    program_name: str | None = None
+    e1rm: float
+    prev_best_e1rm: float
+    delta: float
+    recorded_at: str | None = None
+
+
 class AthleteAnalytics(BaseModel):
     """Aggregated analytics for an athlete."""
     athlete_id: int
