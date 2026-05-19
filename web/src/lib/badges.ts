@@ -645,7 +645,7 @@ function appendPRHistoryBadges(
       earned.push({
         id: `pr-count-${tier}`,
         label: `${tier} PRs`,
-        description: `Logged ${tier} personal records across the competition lifts.`,
+        description: `Logged ${tier} celebration PRs across the competition lifts.`,
         tier: 'pr',
         count: 1,
         events: [prEventFor(competitionPRs[tier - 1])],
@@ -724,7 +724,7 @@ function appendPRHistoryBadges(
           id: 'triple-threat',
           label: 'Triple Threat',
           description:
-            'Hit a 1RM PR on squat, bench, and deadlift inside a 90-day window.',
+            'Logged squat, bench, and deadlift celebration PRs inside a 90-day window.',
           tier: 'pr',
           count: 1,
           events: [
@@ -751,7 +751,7 @@ function appendPRHistoryBadges(
     earned.push({
       id: 'big-jump',
       label: 'Big Jump',
-      description: 'Bumped a personal record by 20 lbs or more in a single jump.',
+      description: 'Raised a competition block peak by 20 lbs or more in a single jump.',
       tier: 'pr',
       count: jumps.length,
       events,

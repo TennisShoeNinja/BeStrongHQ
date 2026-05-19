@@ -1738,7 +1738,7 @@ export default function AthleteDetailPage() {
         <BlockReviewSummary athleteId={athleteId} context="profile" athleteName={athlete?.name ?? null} unit={unit} />
 
         {}
-        <PRHistoryTimeline athleteId={athleteId} unit={unit} athleteName={athlete?.name ?? null} />
+        <PRHistoryTimeline athleteId={athleteId} unit={unit} />
 
         {}
         <MeetHistoryCard
