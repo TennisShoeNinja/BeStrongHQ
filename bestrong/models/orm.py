@@ -111,6 +111,7 @@ class Athlete(Base):
     equipment: Mapped[str | None] = mapped_column(String(50), nullable=True)
     goal_bodyweight_lbs: Mapped[float | None] = mapped_column(Float, nullable=True)
     body_metrics_hidden: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
+    opl_not_applicable: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
     archived: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
 
 

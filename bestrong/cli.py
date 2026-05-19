@@ -386,6 +386,43 @@ def backfill_prs(
         session.close()
 
 
+@app.command("opl-autolink")
+def opl_autolink(
+    db: Path | None = typer.Option(None, help="Database path"),
+):
+    """Auto-link athletes with one clear OpenPowerlifting match."""
+    from .models.database import get_session, init_db
+    from .opl.autolink import run_opl_autolink
+
+    init_db(db)
+    session = get_session(db)
+    try:
+        summary = run_opl_autolink(session)
+    finally:
+        session.close()
+
+    linked = summary["linked"]
+    needs_review = summary["needs_review"]
+    no_match = summary["no_match"]
+
+    console.print(
+        "[bold green]OPL auto-link complete[/bold green]: "
+        f"{len(linked)} linked, {len(needs_review)} needs review, "
+        f"{len(no_match)} no match"
+    )
+
+    for title, rows in (
+        ("Linked", linked),
+        ("Needs review", needs_review),
+        ("No match", no_match),
+    ):
+        if not rows:
+            continue
+        console.print(f"\n[bold]{title}:[/bold]")
+        for row in rows:
+            console.print(f"  • {row['name']}")
+
+
 @app.command("get-athlete-emails")
 def get_athlete_emails(
     db: Path | None = typer.Option(None, help="Database path"),

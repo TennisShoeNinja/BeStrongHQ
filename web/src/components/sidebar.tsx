@@ -233,6 +233,14 @@ function SidebarContent({
                 <Calendar className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
                 <span>Google Calendar</span>
               </Link>
+              <Link
+                href="/integrations/openpowerlifting"
+                className="cloud-nav-item cloud-nav-item-sub"
+                data-active={isActive("/integrations/openpowerlifting") ? "true" : undefined}
+              >
+                <Trophy className="w-3.5 h-3.5 shrink-0 cloud-nav-icon" />
+                <span>OpenPowerlifting</span>
+              </Link>
               {features.includes("billing") && (
                 <Link
                   href="/integrations/stripe"

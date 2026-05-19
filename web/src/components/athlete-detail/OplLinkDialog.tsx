@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 
-// OPL link dialog — single entry point for the OpenPowerlifting integration.
+// OPL link dialog - single entry point for the OpenPowerlifting integration.
 // Coaches open it from the three-dot menu. Renders the search-and-pick flow
 // when no profile is linked, or the linked-state metadata + refresh/unlink
 // actions when one is. The actual meets land in meet_results on the server,
@@ -48,7 +48,8 @@ export function OplLinkDialog({
   // without an extra click. Adjusted during render (per React docs) instead
   // of in an effect to avoid cascading renders.
   const linkedSlug = statusQuery.data?.linked === true ? statusQuery.data.link?.slug : null;
-  const seedKey = open && !linkedSlug ? (athleteName ?? "").trim() : "";
+  const isNotApplicable = statusQuery.data?.not_applicable === true && !linkedSlug;
+  const seedKey = open && !linkedSlug && !isNotApplicable ? (athleteName ?? "").trim() : "";
   const [seededFor, setSeededFor] = useState("");
   if (seedKey && seedKey !== seededFor) {
     setSeededFor(seedKey);
@@ -59,11 +60,12 @@ export function OplLinkDialog({
   const searchQuery = useQuery({
     queryKey: ["opl", "search", searchSubmitted],
     queryFn: () => apiClient.searchOpenPowerlifting(searchSubmitted),
-    enabled: open && searchSubmitted.length >= 2,
+    enabled: open && !isNotApplicable && searchSubmitted.length >= 2,
   });
 
   const invalidateAthlete = () => {
     queryClient.invalidateQueries({ queryKey: ["opl", "status", athleteId] });
+    queryClient.invalidateQueries({ queryKey: ["opl-coverage"] });
     queryClient.invalidateQueries({ queryKey: ["meet-results", athleteId] });
     queryClient.invalidateQueries({ queryKey: ["competition-maxes", athleteId] });
     queryClient.invalidateQueries({ queryKey: ["athlete", athleteId] });
@@ -108,6 +110,26 @@ export function OplLinkDialog({
     },
   });
 
+  const notApplicableMutation = useMutation({
+    mutationFn: (value: boolean) =>
+      apiClient.setOplNotApplicable(athleteId, value),
+    onSuccess: (data) => {
+      setActionError(null);
+      queryClient.setQueryData(["opl", "status", athleteId], data);
+      invalidateAthlete();
+      if (data.not_applicable) {
+        onOpenChange(false);
+      }
+    },
+    onError: (e: unknown) => {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "Failed to update OpenPowerlifting status.";
+      setActionError(msg);
+    },
+  });
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
@@ -135,6 +157,7 @@ export function OplLinkDialog({
   const status = statusQuery.data;
   const linked = status?.linked === true && status.link;
   const link = status?.link;
+  const notApplicable = status?.not_applicable === true && !linked;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,6 +169,8 @@ export function OplLinkDialog({
           <DialogDescription className="cloud-text-muted" style={{ fontSize: 13, lineHeight: 1.45 }}>
             {linked
               ? "Linked. Refreshing pulls the latest meet history; unlinking removes the imported rows from this athlete's meet history."
+              : notApplicable
+                ? "This athlete is marked as not on OpenPowerlifting. Clear the mark if you want to search for a profile."
               : "Search OpenPowerlifting by name, then pick the right lifter. Their meet history will appear under Meet History on this profile."}
           </DialogDescription>
         </DialogHeader>
@@ -218,6 +243,29 @@ export function OplLinkDialog({
                 {unlinkMutation.isPending ? "Unlinking…" : "Unlink"}
               </button>
             </div>
+          </div>
+        ) : notApplicable ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="cloud-panel" style={{ padding: 14 }}>
+              <div className="cloud-text" style={{ fontSize: 14, fontWeight: 600 }}>
+                Marked as not on OpenPowerlifting
+              </div>
+              <p className="cloud-text-muted" style={{ fontSize: 12, lineHeight: 1.55, marginTop: 6 }}>
+                This athlete is out of the OPL linking queue. You can clear the mark and search again if that changes.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="cloud-btn cloud-btn-primary"
+              onClick={() => notApplicableMutation.mutate(false)}
+              disabled={notApplicableMutation.isPending}
+              style={{ alignSelf: "flex-start" }}
+            >
+              <Search style={{ width: 14, height: 14, marginRight: 6 }} />
+              {notApplicableMutation.isPending
+                ? "Clearing..."
+                : "This athlete is on OpenPowerlifting"}
+            </button>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -318,6 +366,35 @@ export function OplLinkDialog({
                 )}
               </div>
             )}
+
+            <div
+              className="cloud-panel"
+              style={{
+                padding: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div className="cloud-text" style={{ fontSize: 13, fontWeight: 600 }}>
+                  Not on OpenPowerlifting
+                </div>
+                <div className="cloud-text-muted" style={{ fontSize: 12, lineHeight: 1.45, marginTop: 2 }}>
+                  Mark this athlete as N/A so they stop showing up in OPL coverage.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="cloud-btn cloud-btn-ghost cloud-btn-sm"
+                disabled={notApplicableMutation.isPending || linkMutation.isPending}
+                onClick={() => notApplicableMutation.mutate(true)}
+              >
+                <X style={{ width: 12, height: 12, marginRight: 4 }} />
+                {notApplicableMutation.isPending ? "Marking..." : "Mark N/A"}
+              </button>
+            </div>
           </div>
         )}
 

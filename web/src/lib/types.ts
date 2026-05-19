@@ -956,6 +956,43 @@ export interface OplSearchResponse {
   candidates: OplCandidate[];
 }
 
+export interface OplCoverageAthlete {
+  athlete_id: number;
+  name: string;
+}
+
+export interface OplCoverageResponse {
+  linked: number;
+  needs_linking: number;
+  not_applicable: number;
+  total: number;
+  needs_linking_athletes: OplCoverageAthlete[];
+}
+
+export interface OplAutolinkLinked {
+  athlete_id: number;
+  name: string;
+  slug: string;
+  imported_attempts: number;
+}
+
+export interface OplAutolinkNeedsReview {
+  athlete_id: number;
+  name: string;
+  candidates: OplCandidate[];
+}
+
+export interface OplAutolinkNoMatch {
+  athlete_id: number;
+  name: string;
+}
+
+export interface OplAutolinkResponse {
+  linked: OplAutolinkLinked[];
+  needs_review: OplAutolinkNeedsReview[];
+  no_match: OplAutolinkNoMatch[];
+}
+
 export interface OplLinkInfo {
   slug: string;
   display_name: string | null;
@@ -971,6 +1008,7 @@ export interface OplLinkInfo {
 export interface OplStatusResponse {
   linked: boolean;
   link?: OplLinkInfo | null;
+  not_applicable: boolean;
 }
 
 export interface OplLinkResult {

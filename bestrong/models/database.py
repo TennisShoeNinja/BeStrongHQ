@@ -138,6 +138,7 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("tags", "VARCHAR(500)"),
         ("notion_page_id", "VARCHAR(100)"),
         ("archived", "INTEGER DEFAULT 0 NOT NULL"),
+        ("opl_not_applicable", "INTEGER DEFAULT 0 NOT NULL"),
         ("reminder_days_before", "INTEGER DEFAULT 1"),
         ("primary_squat_day", "INTEGER"),
         ("primary_bench_day", "INTEGER"),

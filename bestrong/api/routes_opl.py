@@ -1,4 +1,4 @@
-"""OpenPowerlifting integration endpoints — search, link, refresh, unlink.
+"""OpenPowerlifting integration endpoints: search, link, refresh, unlink.
 
 The OpenPowerlifting dataset is public domain, so no configuration
 gates the lookup. When auth is enabled, the standard auth middleware
@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..models.orm import Athlete, MeetResult, OplLink
 from ..opl import OplError, fetch_lifter_csv, search_lifters
+from ..opl.autolink import run_opl_autolink
 from ..opl.client import OPL_BASE
 from ..services.max_tracking import reconcile_competition_maxes, sync_competition_lane_prs
 from .deps import get_db
@@ -77,6 +78,7 @@ class OplLinkInfo(BaseModel):
 class OplStatusResponse(BaseModel):
     linked: bool
     link: OplLinkInfo | None = None
+    not_applicable: bool = False
 
 
 class OplLinkRequest(BaseModel):
@@ -84,10 +86,51 @@ class OplLinkRequest(BaseModel):
     display_name: str | None = None
 
 
+class OplNotApplicableRequest(BaseModel):
+    value: bool
+
+
 class OplLinkResult(BaseModel):
     linked: bool
     imported_attempts: int
     link: OplLinkInfo | None = None
+
+
+class OplAutolinkLinked(BaseModel):
+    athlete_id: int
+    name: str
+    slug: str
+    imported_attempts: int
+
+
+class OplAutolinkNeedsReview(BaseModel):
+    athlete_id: int
+    name: str
+    candidates: list[OplCandidate]
+
+
+class OplAutolinkNoMatch(BaseModel):
+    athlete_id: int
+    name: str
+
+
+class OplAutolinkResponse(BaseModel):
+    linked: list[OplAutolinkLinked]
+    needs_review: list[OplAutolinkNeedsReview]
+    no_match: list[OplAutolinkNoMatch]
+
+
+class OplCoverageAthlete(BaseModel):
+    athlete_id: int
+    name: str
+
+
+class OplCoverageResponse(BaseModel):
+    linked: int
+    needs_linking: int
+    not_applicable: int
+    total: int
+    needs_linking_athletes: list[OplCoverageAthlete]
 
 
 # --- Helpers ---
@@ -139,7 +182,7 @@ def _import_meets_to_meet_results(
 
     from ..scoring import gl_points
 
-    # Backfill athlete.sex from OPL data if it's missing locally — coaches
+    # Backfill athlete.sex from OPL data if it's missing locally. Coaches
     # rarely fill the sex field on profile creation but OPL always has it,
     # and we need it to compute IPF GL Points.
     if not athlete.sex:
@@ -148,6 +191,19 @@ def _import_meets_to_meet_results(
             if meet_sex:
                 athlete.sex = meet_sex
                 break
+    dated_meets = [meet for meet in meets if meet.get("meet_date")]
+    if dated_meets:
+        most_recent_meet = max(
+            dated_meets, key=lambda meet: str(meet.get("meet_date"))
+        )
+        if not athlete.division:
+            division = most_recent_meet.get("division")
+            if division:
+                athlete.division = division
+        if not athlete.weight_class:
+            weight_class_kg = most_recent_meet.get("weight_class_kg")
+            if weight_class_kg:
+                athlete.weight_class = f"{weight_class_kg} kg"
 
     written = 0
     for meet in meets:
@@ -223,6 +279,44 @@ def _ensure_athlete(db: Session, athlete_id: int) -> Athlete:
     return athlete
 
 
+def _status_response(db: Session, athlete: Athlete) -> OplStatusResponse:
+    link = db.query(OplLink).filter(OplLink.athlete_id == athlete.id).first()
+    return OplStatusResponse(
+        linked=link is not None,
+        link=_serialize_link(link) if link is not None else None,
+        not_applicable=bool(athlete.opl_not_applicable),
+    )
+
+
+def _perform_link(
+    db: Session,
+    athlete: Athlete,
+    slug: str,
+    display_name: str | None = None,
+) -> int:
+    meets = fetch_lifter_csv(slug)
+
+    link_row = db.query(OplLink).filter(OplLink.athlete_id == athlete.id).first()
+    if link_row is None:
+        link_row = OplLink(athlete_id=athlete.id, slug=slug)
+        db.add(link_row)
+    else:
+        link_row.slug = slug
+
+    requested_name = (display_name or "").strip()
+    if requested_name:
+        link_row.display_name = requested_name
+    elif not link_row.display_name:
+        link_row.display_name = slug
+
+    imported_attempts = _import_meets_to_meet_results(db, athlete, meets)
+    _refresh_athlete_maxes(db, athlete)
+
+    link_row.last_synced_at = datetime.utcnow()
+    link_row.last_sync_error = None
+    return imported_attempts
+
+
 # --- Endpoints ---
 
 
@@ -252,6 +346,45 @@ def search(q: str = "", db: Session = Depends(get_db)):
     )
 
 
+@router.get("/coverage", response_model=OplCoverageResponse)
+def coverage(db: Session = Depends(get_db)):
+    """Return DB-only OpenPowerlifting roster coverage for active athletes."""
+    linked = (
+        db.query(Athlete.id)
+        .join(OplLink, OplLink.athlete_id == Athlete.id)
+        .filter(Athlete.archived == 0)
+        .count()
+    )
+    not_applicable = (
+        db.query(Athlete.id)
+        .outerjoin(OplLink, OplLink.athlete_id == Athlete.id)
+        .filter(Athlete.archived == 0)
+        .filter(OplLink.id.is_(None))
+        .filter(Athlete.opl_not_applicable == 1)
+        .count()
+    )
+    needs_linking_rows = (
+        db.query(Athlete.id, Athlete.name)
+        .outerjoin(OplLink, OplLink.athlete_id == Athlete.id)
+        .filter(Athlete.archived == 0)
+        .filter(OplLink.id.is_(None))
+        .filter(Athlete.opl_not_applicable == 0)
+        .order_by(Athlete.name)
+        .all()
+    )
+    needs_linking = len(needs_linking_rows)
+    return OplCoverageResponse(
+        linked=linked,
+        needs_linking=needs_linking,
+        not_applicable=not_applicable,
+        total=linked + needs_linking + not_applicable,
+        needs_linking_athletes=[
+            OplCoverageAthlete(athlete_id=row.id, name=row.name)
+            for row in needs_linking_rows
+        ],
+    )
+
+
 @router.get(
     "/athletes/{athlete_id}/status", response_model=OplStatusResponse
 )
@@ -262,11 +395,35 @@ def get_status(athlete_id: int, db: Session = Depends(get_db)):
     existing list_meet_results endpoint, so this status payload only
     carries link metadata (slug, last sync, error if any).
     """
-    _ensure_athlete(db, athlete_id)
+    athlete = _ensure_athlete(db, athlete_id)
+    return _status_response(db, athlete)
+
+
+@router.put(
+    "/athletes/{athlete_id}/not-applicable",
+    response_model=OplStatusResponse,
+)
+def set_not_applicable(
+    athlete_id: int,
+    payload: OplNotApplicableRequest,
+    db: Session = Depends(get_db),
+):
+    athlete = _ensure_athlete(db, athlete_id)
     link = db.query(OplLink).filter(OplLink.athlete_id == athlete_id).first()
-    if link is None:
-        return OplStatusResponse(linked=False)
-    return OplStatusResponse(linked=True, link=_serialize_link(link))
+    if payload.value and link is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Unlink from OpenPowerlifting first",
+        )
+
+    athlete.opl_not_applicable = 1 if payload.value else 0
+    db.commit()
+    db.refresh(athlete)
+    return OplStatusResponse(
+        linked=link is not None,
+        link=_serialize_link(link) if link is not None else None,
+        not_applicable=bool(athlete.opl_not_applicable),
+    )
 
 
 @router.post("/athletes/{athlete_id}/link", response_model=OplLinkResult)
@@ -289,28 +446,16 @@ def link(
         raise HTTPException(status_code=400, detail="slug is required")
 
     try:
-        meets = fetch_lifter_csv(slug)
+        imported_attempts = _perform_link(
+            db,
+            athlete,
+            slug,
+            display_name=payload.display_name,
+        )
     except OplError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     link_row = db.query(OplLink).filter(OplLink.athlete_id == athlete_id).first()
-    if link_row is None:
-        link_row = OplLink(athlete_id=athlete_id, slug=slug)
-        db.add(link_row)
-    else:
-        link_row.slug = slug
-
-    requested_name = (payload.display_name or "").strip()
-    if requested_name:
-        link_row.display_name = requested_name
-    elif not link_row.display_name:
-        link_row.display_name = slug
-
-    imported_attempts = _import_meets_to_meet_results(db, athlete, meets)
-    _refresh_athlete_maxes(db, athlete)
-
-    link_row.last_synced_at = datetime.utcnow()
-    link_row.last_sync_error = None
 
     db.commit()
     db.refresh(link_row)
@@ -320,6 +465,12 @@ def link(
         imported_attempts=imported_attempts,
         link=_serialize_link(link_row),
     )
+
+
+@router.post("/autolink", response_model=OplAutolinkResponse)
+def autolink(db: Session = Depends(get_db)):
+    """Auto-link athletes that have one clear OpenPowerlifting match."""
+    return run_opl_autolink(db)
 
 
 @router.post("/athletes/{athlete_id}/refresh", response_model=OplLinkResult)

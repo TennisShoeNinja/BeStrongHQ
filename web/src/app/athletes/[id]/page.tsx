@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useMemo, useCallback, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useRef, useState, useMemo, useCallback, useSyncExternalStore } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
@@ -217,6 +217,27 @@ export default function AthleteDetailPage() {
   // (LogMeetResultsDialog further up in the file) is no longer rendered;
   // OpenPowerlifting is now the canonical source for meet history.
   const [isOplDialogOpen, setIsOplDialogOpen] = useState(false);
+  const hasAutoOpenedOplRef = useRef(false);
+  const oplStatusQuery = useQuery({
+    queryKey: ["opl", "status", athleteId],
+    queryFn: () => apiClient.getOpenPowerliftingStatus(athleteId),
+    enabled: !!athlete,
+  });
+  useEffect(() => {
+    const status = oplStatusQuery.data;
+    if (hasAutoOpenedOplRef.current || !status) return;
+    if (status.linked === false && status.not_applicable === false) {
+      hasAutoOpenedOplRef.current = true;
+      setIsOplDialogOpen(true);
+    }
+  }, [oplStatusQuery.data]);
+
+  const handleOplDialogOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
+      hasAutoOpenedOplRef.current = true;
+    }
+    setIsOplDialogOpen(nextOpen);
+  }, []);
   
   
   
@@ -797,7 +818,7 @@ export default function AthleteDetailPage() {
             history now. */}
         <OplLinkDialog
           open={isOplDialogOpen}
-          onOpenChange={setIsOplDialogOpen}
+          onOpenChange={handleOplDialogOpenChange}
           athleteId={athleteId}
           athleteName={athlete.name}
         />
@@ -1512,7 +1533,7 @@ export default function AthleteDetailPage() {
           athleteName={athlete?.name ?? null}
         />
 
-        {/* Current cycle hero — meet + block in one tinted-blue panel */}
+        {/* Current cycle hero - meet + block in one tinted-blue panel */}
         <div style={{ marginBottom: 16 }}>
           <p className="cloud-eyebrow" style={{ marginBottom: 8 }}>
             Current cycle

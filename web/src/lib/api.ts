@@ -1441,6 +1441,20 @@ class APIClient {
     return response.data;
   }
 
+  async getOplCoverage(): Promise<Types.OplCoverageResponse> {
+    const response = await this.client.get<Types.OplCoverageResponse>("/opl/coverage");
+    return response.data;
+  }
+
+  async runOplAutolink(): Promise<Types.OplAutolinkResponse> {
+    const response = await this.client.post<Types.OplAutolinkResponse>(
+      "/opl/autolink",
+      null,
+      { timeout: 600000 },
+    );
+    return response.data;
+  }
+
   async getOpenPowerliftingStatus(athleteId: number): Promise<Types.OplStatusResponse> {
     const response = await this.client.get<Types.OplStatusResponse>(
       `/opl/athletes/${athleteId}/status`,
@@ -1474,6 +1488,17 @@ class APIClient {
 
   async unlinkOpenPowerlifting(athleteId: number): Promise<void> {
     await this.client.delete(`/opl/athletes/${athleteId}/link`);
+  }
+
+  async setOplNotApplicable(
+    athleteId: number,
+    value: boolean,
+  ): Promise<Types.OplStatusResponse> {
+    const response = await this.client.put<Types.OplStatusResponse>(
+      `/opl/athletes/${athleteId}/not-applicable`,
+      { value },
+    );
+    return response.data;
   }
 
 
