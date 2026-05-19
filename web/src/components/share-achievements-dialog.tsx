@@ -42,7 +42,7 @@ export function ShareAchievementsDialog({
   });
   const teamName = brandingQuery.data?.team_name?.trim() || 'BeStrong';
 
-  const [meetResultsQuery, maxHistoryQuery] = useQueries({
+  const [meetResultsQuery, prEventsQuery] = useQueries({
     queries: [
       {
         queryKey: ['meet-results', athlete.id],
@@ -50,8 +50,8 @@ export function ShareAchievementsDialog({
         enabled: open,
       },
       {
-        queryKey: ['max-history', athlete.id],
-        queryFn: () => apiClient.getMaxHistory(athlete.id),
+        queryKey: ['pr-events', athlete.id],
+        queryFn: () => apiClient.getPREvents(athlete.id),
         enabled: open,
       },
     ],
@@ -61,9 +61,9 @@ export function ShareAchievementsDialog({
     () =>
       evaluateBadges({
         meetResults: meetResultsQuery.data ?? [],
-        maxHistory: maxHistoryQuery.data ?? [],
+        prEvents: prEventsQuery.data ?? [],
       }),
-    [meetResultsQuery.data, maxHistoryQuery.data],
+    [meetResultsQuery.data, prEventsQuery.data],
   );
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export function ShareAchievementsDialog({
   }
 
   const isLoading =
-    open && (meetResultsQuery.isLoading || maxHistoryQuery.isLoading);
+    open && (meetResultsQuery.isLoading || prEventsQuery.isLoading);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,4 +1,4 @@
-import type { MaxHistoryEntry, MeetResultEntry } from '@/lib/types';
+import type { MeetResultEntry, PREventEntry } from '@/lib/types';
 
 export interface BadgeEvent {
   meet_key: string;
@@ -140,7 +140,7 @@ function diffYears(fromIso: string, toIso: string): number {
 
 export interface BadgeEvaluatorInput {
   meetResults: MeetResultEntry[];
-  maxHistory?: MaxHistoryEntry[];
+  prEvents?: PREventEntry[];
 }
 
 export type ChainName =
@@ -185,16 +185,15 @@ export const BADGE_CHAINS: Record<ChainName, ChainMember[]> = {
     { id: 'dots-550', rank: 550 },
   ],
   'pr-count': [
-    { id: 'pr-count-5', rank: 5 },
+    { id: 'pr-count-3', rank: 3 },
     { id: 'pr-count-10', rank: 10 },
     { id: 'pr-count-25', rank: 25 },
     { id: 'pr-count-50', rank: 50 },
-    { id: 'pr-count-100', rank: 100 },
   ],
   'pr-streak': [
     { id: 'pr-streak-3', rank: 3 },
-    { id: 'pr-streak-6', rank: 6 },
-    { id: 'pr-streak-12', rank: 12 },
+    { id: 'pr-streak-5', rank: 5 },
+    { id: 'pr-streak-10', rank: 10 },
   ],
 };
 
@@ -218,14 +217,13 @@ const CHAIN_VISUAL_TIER: Record<string, number> = {
   'dots-450': 1,
   'dots-500': 2,
   'dots-550': 2,
-  'pr-count-5': 1,
+  'pr-count-3': 1,
   'pr-count-10': 1,
   'pr-count-25': 2,
   'pr-count-50': 2,
-  'pr-count-100': 3,
   'pr-streak-3': 1,
-  'pr-streak-6': 2,
-  'pr-streak-12': 3,
+  'pr-streak-5': 2,
+  'pr-streak-10': 3,
 };
 
 const EVENT_PRESTIGE: Record<string, number> = {
@@ -255,7 +253,7 @@ function chainEventLabel(chainName: ChainName, member: ChainMember): string {
   if (chainName === 'totals') return `${member.rank}kg`;
   if (chainName === 'dots') return `${member.rank} DOTS`;
   if (chainName === 'pr-count') return `${member.rank} PRs`;
-  return `${member.rank} months`;
+  return `${member.rank} blocks`;
 }
 
 function decorateChainEvent(
@@ -316,12 +314,12 @@ function collapseChains(earned: EarnedBadge[]): EarnedBadge[] {
 export function evaluateBadges(
   input: BadgeEvaluatorInput | MeetResultEntry[],
 ): EarnedBadge[] {
-  const { meetResults, maxHistory } = Array.isArray(input)
-    ? { meetResults: input, maxHistory: [] as MaxHistoryEntry[] }
-    : { meetResults: input.meetResults, maxHistory: input.maxHistory ?? [] };
+  const { meetResults, prEvents } = Array.isArray(input)
+    ? { meetResults: input, prEvents: [] as PREventEntry[] }
+    : { meetResults: input.meetResults, prEvents: input.prEvents ?? [] };
   const earned: EarnedBadge[] = [];
   appendMeetBadges(earned, meetResults);
-  appendPRHistoryBadges(earned, maxHistory);
+  appendPRHistoryBadges(earned, prEvents);
   return collapseChains(earned);
 }
 
@@ -349,7 +347,7 @@ export function computeLifetimeStats(
 }
 
 // Chains whose tier events share a single anchor date (e.g. career years
-// all stamped to the latest meet, pr-streak months all stamped to streak
+// all stamped to the latest meet, pr-streak blocks all stamped to streak
 // end) get excluded from the chronological strip because their dates aren't
 // meaningful per-tier and would otherwise dominate the "Recently" slots.
 const RECENT_STRIP_EXCLUDED_PREFIXES = ['career-', 'pr-streak-'];
@@ -610,124 +608,116 @@ function appendMeetBadges(earned: EarnedBadge[], rows: MeetResultEntry[]): void 
   }
 }
 
-const BIG_LIFTS = new Set(['squat', 'bench', 'deadlift', 'bench press']);
-
-function canonLift(entry: MaxHistoryEntry): string {
-  const raw = (entry.exercise_name || entry.lift || '').trim().toLowerCase();
-  if (raw === 'bench press') return 'bench';
-  return raw;
-}
-
-function isBigLift(entry: MaxHistoryEntry): boolean {
-  const raw = (entry.exercise_name || entry.lift || '').trim().toLowerCase();
-  return BIG_LIFTS.has(raw);
-}
-
-function isOneRepMax(entry: MaxHistoryEntry): boolean {
-  return entry.reps == null || entry.reps === 1;
-}
-
 function prEventFor(
-  entry: MaxHistoryEntry,
+  entry: PREventEntry,
   detail?: string | null,
 ): BadgeEvent {
-  const liftLabel =
-    (entry.exercise_name || entry.lift || 'Lift').replace(/\b\w/g, (c) =>
-      c.toUpperCase(),
-    );
   return {
-    meet_key: `mh:${entry.id}`,
-    meet_name: liftLabel,
+    meet_key: `pr:${entry.program_id}:${entry.variation_canon}`,
+    meet_name: entry.program_name || entry.variation,
     meet_date: entry.recorded_at?.slice(0, 10) ?? null,
     detail: detail ?? null,
   };
 }
 
-function monthKey(iso: string): string {
-  return iso.slice(0, 7);
+function competitionLift(entry: PREventEntry): 'squat' | 'bench' | 'deadlift' | null {
+  const name = `${entry.variation_canon} ${entry.variation}`.toLowerCase();
+  if (name.includes('squat')) return 'squat';
+  if (name.includes('bench')) return 'bench';
+  if (name.includes('deadlift')) return 'deadlift';
+  return null;
 }
 
 function appendPRHistoryBadges(
   earned: EarnedBadge[],
-  rows: MaxHistoryEntry[],
+  rows: PREventEntry[],
 ): void {
   if (rows.length === 0) return;
 
-  const genuinePRs = rows.filter(
-    (r) => r.old_value != null && r.new_value > r.old_value,
-  );
-  if (genuinePRs.length === 0) return;
-
-  const sorted = [...genuinePRs].sort((a, b) =>
+  const sorted = [...rows].sort((a, b) =>
     (a.recorded_at ?? '').localeCompare(b.recorded_at ?? ''),
   );
+  const competitionPRs = sorted.filter((r) => r.is_competition);
 
-  // Lifetime PR count tiers: only rows that beat a prior value are PR moments.
-  const prCountTiers = [5, 10, 25, 50, 100];
+  const prCountTiers = [3, 10, 25, 50];
   for (const tier of prCountTiers) {
-    if (sorted.length >= tier) {
+    if (competitionPRs.length >= tier) {
       earned.push({
         id: `pr-count-${tier}`,
         label: `${tier} PRs`,
-        description: `Logged ${tier} personal records across all lifts.`,
+        description: `Logged ${tier} personal records across the competition lifts.`,
         tier: 'pr',
         count: 1,
-        events: [prEventFor(sorted[tier - 1])],
+        events: [prEventFor(competitionPRs[tier - 1])],
       });
     }
   }
 
-  // PR streak: consecutive months with at least one PR. Picks the longest run.
   let bestRunLength = 0;
   let bestRunEndIndex = -1;
   let curRunLength = 0;
-  let curRunPrevMonth: string | null = null;
-  for (let i = 0; i < sorted.length; i++) {
-    const recorded = sorted[i].recorded_at;
-    if (!recorded) continue;
-    const mk = monthKey(recorded);
-    if (mk === curRunPrevMonth) continue; // same month: streak unchanged
-    if (curRunPrevMonth && isNextMonth(curRunPrevMonth, mk)) {
+  let curRunPrevProgramNumber: number | null = null;
+  const compPrograms = new Map<number, PREventEntry>();
+  for (const event of competitionPRs) {
+    if (event.program_number == null) continue;
+    if (!compPrograms.has(event.program_number)) {
+      compPrograms.set(event.program_number, event);
+    }
+  }
+  const programEvents = Array.from(compPrograms.values()).sort((a, b) =>
+    (a.program_number ?? 0) - (b.program_number ?? 0),
+  );
+  for (let i = 0; i < programEvents.length; i++) {
+    const programNumber = programEvents[i].program_number;
+    if (
+      curRunPrevProgramNumber != null &&
+      programNumber != null &&
+      programNumber === curRunPrevProgramNumber + 1
+    ) {
       curRunLength += 1;
     } else {
       curRunLength = 1;
     }
-    curRunPrevMonth = mk;
+    curRunPrevProgramNumber = programNumber;
     if (curRunLength > bestRunLength) {
       bestRunLength = curRunLength;
       bestRunEndIndex = i;
     }
   }
-  const streakTiers = [3, 6, 12];
+  const streakTiers = [3, 5, 10];
   for (const tier of streakTiers) {
     if (bestRunLength >= tier) {
       earned.push({
         id: `pr-streak-${tier}`,
-        label: `${tier}-Month PR Streak`,
-        description: `Logged a personal record in ${tier} consecutive months.`,
+        label: `${tier}-Block PR Streak`,
+        description: `Logged a competition PR in ${tier} consecutive blocks.`,
         tier: 'pr',
         count: 1,
         events: [
           prEventFor(
-            sorted[bestRunEndIndex >= 0 ? bestRunEndIndex : sorted.length - 1],
-            `${bestRunLength}-month streak`,
+            programEvents[bestRunEndIndex >= 0 ? bestRunEndIndex : programEvents.length - 1],
+            `${bestRunLength}-block streak`,
           ),
         ],
       });
     }
   }
 
-  // Triple Threat: first time S, B, and D each got a 1RM PR within a 90-day window.
-  const oneRMBig = sorted.filter((r) => isBigLift(r) && isOneRepMax(r));
-  for (let i = 0; i < oneRMBig.length; i++) {
+  const liftedCompPRs = competitionPRs
+    .map((event) => ({ event, lift: competitionLift(event) }))
+    .filter(
+      (item): item is { event: PREventEntry; lift: 'squat' | 'bench' | 'deadlift' } =>
+        item.lift != null,
+    );
+  for (let i = 0; i < liftedCompPRs.length; i++) {
     const lifts = new Set<string>();
     let lastIdx = -1;
-    for (let j = i; j < oneRMBig.length; j++) {
-      const a = oneRMBig[i].recorded_at;
-      const b = oneRMBig[j].recorded_at;
+    for (let j = i; j < liftedCompPRs.length; j++) {
+      const a = liftedCompPRs[i].event.recorded_at;
+      const b = liftedCompPRs[j].event.recorded_at;
       if (!a || !b) continue;
       if (diffDays(a, b) > 90) break;
-      lifts.add(canonLift(oneRMBig[j]));
+      lifts.add(liftedCompPRs[j].lift);
       lastIdx = j;
       if (lifts.size === 3) {
         earned.push({
@@ -739,27 +729,23 @@ function appendPRHistoryBadges(
           count: 1,
           events: [
             prEventFor(
-              oneRMBig[lastIdx],
-              `S+B+D PRs within 90 days, closing on ${oneRMBig[lastIdx].recorded_at?.slice(0, 10) ?? ''}`,
+              liftedCompPRs[lastIdx].event,
+              `S+B+D PRs within 90 days, closing on ${liftedCompPRs[lastIdx].event.recorded_at?.slice(0, 10) ?? ''}`,
             ),
           ],
         });
-        i = oneRMBig.length; // break outer
+        i = liftedCompPRs.length;
         break;
       }
     }
   }
 
-  // Big Jump: single PR that increased old to new by at least 20 lbs.
-  const jumps = sorted.filter(
-    (r) =>
-      r.old_value != null && r.old_value > 0 && r.new_value - r.old_value >= 20,
-  );
+  const jumps = competitionPRs.filter((r) => r.delta >= 20);
   if (jumps.length > 0) {
     const events = jumps.slice(-5).map((r) =>
       prEventFor(
         r,
-        `+${Math.round(r.new_value - (r.old_value ?? 0))} lbs (${Math.round(r.old_value ?? 0)} → ${Math.round(r.new_value)})`,
+        `+${Math.round(r.delta)} lbs (${Math.round(r.prev_best_e1rm)} to ${Math.round(r.e1rm)})`,
       ),
     );
     earned.push({
@@ -771,15 +757,6 @@ function appendPRHistoryBadges(
       events,
     });
   }
-}
-
-function isNextMonth(prevYM: string, currYM: string): boolean {
-  const [py, pm] = prevYM.split('-').map(Number);
-  const [cy, cm] = currYM.split('-').map(Number);
-  if (!py || !pm || !cy || !cm) return false;
-  if (cy === py && cm === pm + 1) return true;
-  if (cy === py + 1 && pm === 12 && cm === 1) return true;
-  return false;
 }
 
 function diffDays(fromIso: string, toIso: string): number {

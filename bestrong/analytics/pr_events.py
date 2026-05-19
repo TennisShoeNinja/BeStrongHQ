@@ -37,6 +37,7 @@ class PREvent:
     is_competition: bool
     program_id: int
     program_name: str | None
+    program_number: int | None
     e1rm: float
     prev_best_e1rm: float
     delta: float
@@ -141,6 +142,7 @@ def derive_pr_events(
                         ),
                         program_id=peak.program_id,
                         program_name=peak.program_name,
+                        program_number=peak.program_number,
                         e1rm=round(peak.e1rm, 1),
                         prev_best_e1rm=round(running_best, 1),
                         delta=round(peak.e1rm - running_best, 1),

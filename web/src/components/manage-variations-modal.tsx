@@ -58,6 +58,7 @@ export function ManageVariationsModal({
       queryClient.invalidateQueries({ queryKey: ["e1rm"] });
       queryClient.invalidateQueries({ queryKey: ["prs"] });
       queryClient.invalidateQueries({ queryKey: ["max-history"] });
+      queryClient.invalidateQueries({ queryKey: ["pr-events"] });
       setSelected(new Set());
       setPrimary("");
       setError(null);
@@ -75,6 +76,7 @@ export function ManageVariationsModal({
       queryClient.invalidateQueries({ queryKey: ["e1rm"] });
       queryClient.invalidateQueries({ queryKey: ["prs"] });
       queryClient.invalidateQueries({ queryKey: ["max-history"] });
+      queryClient.invalidateQueries({ queryKey: ["pr-events"] });
     },
   });
 

@@ -12,7 +12,7 @@ interface AthleteBadgesProps {
 }
 
 export function AthleteBadges({ athleteId }: AthleteBadgesProps) {
-  const [meetResultsQuery, maxHistoryQuery] = useQueries({
+  const [meetResultsQuery, prEventsQuery] = useQueries({
     queries: [
       {
         queryKey: ['meet-results', athleteId],
@@ -20,8 +20,8 @@ export function AthleteBadges({ athleteId }: AthleteBadgesProps) {
         enabled: !!athleteId,
       },
       {
-        queryKey: ['max-history', athleteId],
-        queryFn: () => apiClient.getMaxHistory(athleteId),
+        queryKey: ['pr-events', athleteId],
+        queryFn: () => apiClient.getPREvents(athleteId),
         enabled: !!athleteId,
       },
     ],
@@ -31,16 +31,16 @@ export function AthleteBadges({ athleteId }: AthleteBadgesProps) {
     () =>
       evaluateBadges({
         meetResults: meetResultsQuery.data ?? [],
-        maxHistory: maxHistoryQuery.data ?? [],
+        prEvents: prEventsQuery.data ?? [],
       }),
-    [meetResultsQuery.data, maxHistoryQuery.data],
+    [meetResultsQuery.data, prEventsQuery.data],
   );
   const athleteStats = useMemo(
     () => computeLifetimeStats(meetResultsQuery.data ?? []),
     [meetResultsQuery.data],
   );
 
-  const isLoading = meetResultsQuery.isLoading || maxHistoryQuery.isLoading;
+  const isLoading = meetResultsQuery.isLoading || prEventsQuery.isLoading;
   if (isLoading || badges.length === 0) return null;
 
   return (

@@ -74,6 +74,7 @@ def test_in_block_multi_improvement_collapses_to_one_pr():
     assert len(events) == 1
     event = events[0]
     assert event.program_id == 2
+    assert event.program_number == 2
     assert event.e1rm == 352.0
     assert event.prev_best_e1rm == 330.0
     assert event.delta == 22.0
@@ -207,6 +208,7 @@ def test_pr_events_route_returns_events(db_session):
     assert len(events) == 1
     assert events[0].variation_canon == "competition squat"
     assert events[0].is_competition is True
+    assert events[0].program_number == 2
     assert events[0].recorded_at == "2026-02-01"
 
 

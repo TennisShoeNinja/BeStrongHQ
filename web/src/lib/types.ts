@@ -634,6 +634,19 @@ export interface MaxHistoryEntry {
   exercise_name?: string | null;
 }
 
+export interface PREventEntry {
+  variation: string;
+  variation_canon: string;
+  is_competition: boolean;
+  program_id: number;
+  program_name: string | null;
+  program_number: number | null;
+  e1rm: number;
+  prev_best_e1rm: number;
+  delta: number;
+  recorded_at: string | null;
+}
+
 
 export interface MeetAttemptInput {
   lift: string;

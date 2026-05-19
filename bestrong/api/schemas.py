@@ -431,6 +431,7 @@ class PREventResponse(BaseModel):
     is_competition: bool
     program_id: int
     program_name: str | None = None
+    program_number: int | None = None
     e1rm: float
     prev_best_e1rm: float
     delta: float

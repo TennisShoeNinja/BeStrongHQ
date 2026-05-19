@@ -1306,6 +1306,13 @@ class APIClient {
     return response.data;
   }
 
+  async getPREvents(athleteId: number): Promise<Types.PREventEntry[]> {
+    const response = await this.client.get<Types.PREventEntry[]>(
+      `/analytics/athletes/${athleteId}/pr-events`
+    );
+    return response.data;
+  }
+
   
   async deduplicatePrograms(): Promise<{
     deleted_count: number;
