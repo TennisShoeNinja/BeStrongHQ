@@ -409,14 +409,7 @@ function AthletesPageInner() {
 
   const lastDriveSync = driveAuthStatus?.last_successful_sync_at ?? null;
 
-  
-  const featuredAthlete = useMemo(() => {
-    return (
-      activeAthletes.find((a) => a.squat_max_lbs) || activeAthletes[0] || null
-    );
-  }, [activeAthletes]);
 
-  
   const formatDate = (dateStr: string | undefined | null) => {
     if (!dateStr) return "—";
     try {
@@ -1124,7 +1117,7 @@ function AthletesPageInner() {
           </div>
 
           {}
-          <FeaturedChartPanel athlete={featuredAthlete} />
+          <FeaturedChartPanel />
         </div>
 
         {}
@@ -1222,96 +1215,60 @@ function StatCard({
 }
 
 
-function FeaturedChartPanel({
-  athlete,
-}: {
-  athlete: Types.AthleteListResponse | null;
-}) {
+function FeaturedChartPanel() {
   const { instanceSettings } = useAuth();
   const tracksRpe = instanceSettings.tracks_rpe;
-  const { data: trends, isLoading } = useQuery({
-    queryKey: ["e1rm-trends-featured", athlete?.id],
-    queryFn: () =>
-      apiClient.getE1RMTrends(athlete!.id, {
-        liftCategory: "squat",
-        primaryOnly: true,
-      }),
-    enabled: !!athlete?.id,
+  const { data: featured, isLoading } = useQuery({
+    queryKey: ["featured-athlete"],
+    queryFn: () => apiClient.getFeaturedAthlete(),
     staleTime: 60000,
   });
 
-  if (!athlete) {
+  if (isLoading || !featured) {
     return (
       <div className="cloud-panel flex flex-col">
         <div className="cloud-panel-head">
           <div>
             <h2>Featured athlete</h2>
-            <p>Select an athlete to feature here</p>
+            <p>
+              {isLoading
+                ? "Loading…"
+                : "Progression appears once athletes log a block"}
+            </p>
           </div>
         </div>
         <div
           className="flex-1 grid place-items-center cloud-text-muted"
           style={{ padding: "var(--cloud-s6)", fontSize: 13 }}
         >
-          No athletes yet.
+          {isLoading ? "Loading chart…" : "No block progression yet."}
         </div>
       </div>
     );
   }
 
-  const points = (trends || []).filter((p) => typeof p.e1rm === "number");
-  const chartData = points.map((p, i) => ({
-    idx: i,
+  const chartData = featured.points.map((p) => ({
+    idx: p.idx,
     e1rm: p.e1rm,
     week: p.week_number,
-    rpe: p.actual_rpe,
-    programId: p.program_id,
   }));
-
-  
-  
-  
-  const currentProgramId = athlete.latest_program_id ?? null;
-  const blockPoints = currentProgramId
-    ? points.filter((p) => p.program_id === currentProgramId)
-    : [];
-
-  const currentE1rm = points.length > 0 ? points[points.length - 1].e1rm : null;
-  const blockStartE1rm =
-    blockPoints.length > 0 ? blockPoints[0].e1rm : null;
-  const blockLatestE1rm =
-    blockPoints.length > 0 ? blockPoints[blockPoints.length - 1].e1rm : null;
-  const blockDelta =
-    typeof blockStartE1rm === "number" && typeof blockLatestE1rm === "number"
-      ? Math.round(blockLatestE1rm - blockStartE1rm)
-      : null;
-
-  const rpeValues = blockPoints
-    .map((p) => p.actual_rpe)
-    .filter((r): r is number => typeof r === "number");
+  const currentE1rm = Math.round(featured.current_e1rm);
+  const blockDelta = Math.round(featured.block_delta);
   const rpeAvg =
-    rpeValues.length > 0
-      ? (rpeValues.reduce((s, v) => s + v, 0) / rpeValues.length).toFixed(1)
-      : null;
+    featured.rpe_avg != null ? featured.rpe_avg.toFixed(1) : null;
 
   return (
     <div className="cloud-panel flex flex-col">
       <div className="cloud-panel-head">
         <div className="min-w-0">
-          <h2 className="truncate">
-            {athlete.name} · Squat
-          </h2>
-          <p>
-            {points.length > 0
-              ? `${points.length} sessions · e1RM`
-              : "No e1RM data yet"}
-          </p>
+          <h2 className="truncate">{featured.athlete_name} · Squat</h2>
+          <p>{`${featured.points.length} sessions this block · e1RM`}</p>
         </div>
         <div className="flex items-center" style={{ gap: "var(--cloud-s2)" }}>
-          {athlete.latest_block_type && (
-            <span className={getBlockBadgeClass(athlete.latest_block_type)}>
+          {featured.block_type && (
+            <span className={getBlockBadgeClass(featured.block_type)}>
               <span className="cloud-badge-dot" />
-              {athlete.latest_block_type}
+              {featured.block_type}
             </span>
           )}
           <span className="cloud-badge cloud-badge-primary">Featured</span>
@@ -1321,12 +1278,8 @@ function FeaturedChartPanel({
         <div>
           <div className="cloud-chart-stat-label">Current e1RM</div>
           <div className="cloud-chart-stat-value">
-            {currentE1rm !== null && currentE1rm !== undefined
-              ? Math.round(currentE1rm as number)
-              : "—"}
-            {currentE1rm !== null && currentE1rm !== undefined && (
-              <span className="cloud-text-dim" style={{ fontSize: 12, fontWeight: 400 }}> lb</span>
-            )}
+            {currentE1rm}
+            <span className="cloud-text-dim" style={{ fontSize: 12, fontWeight: 400 }}> lb</span>
           </div>
         </div>
         <div>
@@ -1335,14 +1288,12 @@ function FeaturedChartPanel({
             className="cloud-chart-stat-value"
             style={{
               color:
-                blockDelta !== null
-                  ? blockDelta >= 0
-                    ? "var(--cloud-success-text)"
-                    : "var(--cloud-danger-text)"
-                  : undefined,
+                blockDelta >= 0
+                  ? "var(--cloud-success-text)"
+                  : "var(--cloud-danger-text)",
             }}
           >
-            {blockDelta !== null ? `${blockDelta >= 0 ? "+" : ""}${blockDelta}` : "—"}
+            {`${blockDelta >= 0 ? "+" : ""}${blockDelta}`}
           </div>
         </div>
         {tracksRpe && (
@@ -1353,11 +1304,7 @@ function FeaturedChartPanel({
         )}
       </div>
       <div style={{ padding: "var(--cloud-s3) var(--cloud-s4) var(--cloud-s4)", height: 240 }}>
-        {isLoading ? (
-          <div className="h-full grid place-items-center cloud-text-muted" style={{ fontSize: 13 }}>
-            Loading chart…
-          </div>
-        ) : chartData.length < 2 ? (
+        {chartData.length < 2 ? (
           <div className="h-full grid place-items-center cloud-text-muted" style={{ fontSize: 13 }}>
             Not enough data for a chart yet.
           </div>

@@ -91,6 +91,23 @@ def test_update_athlete(client):
     assert resp.json()["goal"] == "Hit 1400 total"
 
 
+def test_featured_athlete(client):
+    """The roster's featured-athlete card picks a real athlete and returns a
+    block-scoped squat e1RM series for the sparkline."""
+    resp = client.get("/api/analytics/featured-athlete")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data is not None
+    assert data["athlete_name"] == "Ed Coan"
+    assert data["lift_category"] == "squat"
+    # The series is scoped to the current block; the chart needs >= 2 points.
+    assert len(data["points"]) >= 2
+    assert data["current_e1rm"] > 0
+    assert isinstance(data["block_delta"], (int, float))
+    # idx is sequential so the sparkline x-axis stays ordered.
+    assert [p["idx"] for p in data["points"]] == list(range(len(data["points"])))
+
+
 def test_list_programs(client):
     resp = client.get("/api/programs")
     assert resp.status_code == 200

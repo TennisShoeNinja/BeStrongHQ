@@ -388,6 +388,23 @@ export interface E1RMDataPoint {
   outlier_reference_points?: OutlierReferencePoint[];
 }
 
+export interface FeaturedAthletePoint {
+  idx: number;
+  e1rm: number;
+  week_number: number;
+}
+
+export interface FeaturedAthleteResponse {
+  athlete_id: number;
+  athlete_name: string;
+  lift_category: string;
+  block_type: string | null;
+  current_e1rm: number;
+  block_delta: number;
+  rpe_avg: number | null;
+  points: FeaturedAthletePoint[];
+}
+
 export interface OutlierReferencePoint {
   exercise_name: string;
   weight_lbs: number;
