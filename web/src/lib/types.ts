@@ -178,6 +178,7 @@ export interface NeedsReviewItem {
   avatar_class: string;
   title: string;
   occurred_at: string;
+  target_id?: number | null;
 }
 
 export interface TodayScheduleItem {
@@ -185,6 +186,10 @@ export interface TodayScheduleItem {
   title: string;
   athlete_count: number;
   kind: "group" | "individual";
+  athletes: Array<{
+    id: number;
+    name: string;
+  }>;
 }
 
 
@@ -428,6 +433,8 @@ export interface ExerciseAliasEntry {
   id: number;
   primary_name: string;
   alias_name: string;
+  // null = instance-wide merge (every athlete); set = scoped to one athlete.
+  athlete_id: number | null;
 }
 
 export interface ExerciseAliasGroup {

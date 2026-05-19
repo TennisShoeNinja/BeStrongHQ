@@ -189,7 +189,7 @@ class TestNeedsReview:
         finally:
             client.close()
 
-    def test_pr_and_miss_mixed(self, tmp_path):
+    def test_recent_prs_use_thirty_day_window(self, tmp_path):
         client, factory = _client_with_db(tmp_path)
         today = date.today()
         now = datetime.now()
@@ -208,7 +208,7 @@ class TestNeedsReview:
                     old_value=300.0,
                     new_value=320.0,
                     reps=3,
-                    recorded_at=now - timedelta(hours=2),
+                    recorded_at=now - timedelta(days=20),
                 )
             )
 
@@ -229,17 +229,14 @@ class TestNeedsReview:
             assert resp.status_code == 200, resp.text
             data = resp.json()
 
-            assert len(data) == 2
+            assert len(data) == 1
             assert data[0]["kind"] == "pr"
             assert data[0]["athlete_name"] == "Sara K"
             assert data[0]["athlete_initials"] == "SK"
             assert data[0]["avatar_class"].startswith("cloud-av-")
             assert "320" in data[0]["title"]
             assert data[0]["occurred_at"].endswith("Z")
-
-            assert data[1]["kind"] == "miss"
-            assert data[1]["athlete_name"] == "Diego R"
-            assert "No sync" in data[1]["title"]
+            assert data[0]["target_id"] is not None
         finally:
             client.close()
 
@@ -281,6 +278,12 @@ class TestTodaySchedule:
             bench_bucket = next(row for row in data if row["title"] == "Bench day")
             assert squat_bucket["athlete_count"] == 2
             assert squat_bucket["kind"] == "group"
+            assert [athlete["name"] for athlete in squat_bucket["athletes"]] == [
+                "Squatter One",
+                "Squatter Two",
+            ]
             assert bench_bucket["athlete_count"] == 1
+            assert bench_bucket["kind"] == "individual"
+            assert bench_bucket["athletes"][0]["name"] == "Bencher"
         finally:
             client.close()

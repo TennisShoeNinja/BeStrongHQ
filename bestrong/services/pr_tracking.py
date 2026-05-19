@@ -270,7 +270,7 @@ def log_prs_for_program(
     db.flush()
 
 
-    alias_map = load_alias_map(db)
+    alias_map = load_alias_map(db, athlete_id)
 
     lift_ath = _current_lift_ath(db, athlete_id)
     rep_prs = _current_rep_prs(db, athlete_id, alias_map)

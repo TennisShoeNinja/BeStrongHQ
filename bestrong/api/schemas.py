@@ -792,11 +792,16 @@ class MaxHistoryEntry(BaseModel):
 
 
 class ExerciseAliasEntry(BaseModel):
-    """Single alias row - one variant mapped to its primary name."""
+    """Single alias row: one variant mapped to its primary name.
+
+    ``athlete_id`` is null for an instance-wide merge (applies to every
+    athlete) or set when the merge is scoped to one athlete.
+    """
     model_config = ConfigDict(from_attributes=True)
     id: int
     primary_name: str
     alias_name: str
+    athlete_id: int | None = None
 
 
 class ExerciseAliasGroup(BaseModel):
@@ -810,12 +815,18 @@ class ExerciseAliasGroup(BaseModel):
 class CreateExerciseAliasRequest(BaseModel):
     """Create one or more alias rows under a single primary name.
 
-    Posting the same primary_name multiple times is fine - new aliases
+    Posting the same primary_name multiple times is fine; new aliases
     are appended to the existing group. Aliases that already point at a
-    different primary will be moved.
+    different primary (within the same scope) will be moved.
+
+    ``athlete_id`` sets the scope: null creates an instance-wide merge
+    that applies to every athlete; a value scopes the merge to that one
+    athlete. An instance-wide and an athlete-specific merge can coexist
+    for the same raw name.
     """
     primary_name: str
     aliases: list[str]
+    athlete_id: int | None = None
 
 
 class MeetAttemptInput(BaseModel):

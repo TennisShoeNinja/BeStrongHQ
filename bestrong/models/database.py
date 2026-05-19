@@ -300,8 +300,10 @@ _TABLE_CREATES: dict[str, str] = {
         CREATE TABLE exercise_aliases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             primary_name VARCHAR(300) NOT NULL,
-            alias_name VARCHAR(300) NOT NULL UNIQUE,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            alias_name VARCHAR(300) NOT NULL,
+            athlete_id INTEGER REFERENCES athletes(id),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_exercise_alias_name_athlete UNIQUE (alias_name, athlete_id)
         )
     """,
     "raw_programs": """
@@ -484,6 +486,37 @@ def _ensure_table(conn, table: str, create_sql: str) -> None:
         conn.execute(text(create_sql))
 
 
+def _drop_legacy_exercise_aliases(conn) -> None:
+    """Drop a pre-athlete-scoping exercise_aliases table so it rebuilds.
+
+    The table gained an ``athlete_id`` column so merges can be scoped to a
+    single athlete instead of the whole instance. SQLite cannot add the
+    column and swap the UNIQUE constraint in one ALTER, and existing
+    instance-wide merges are intentionally cleared as part of this change,
+    so the simplest correct path is to drop the old table and let
+    ``_ensure_table`` recreate it from the current schema.
+
+    Idempotent: a table that already has ``athlete_id`` (or no table at
+    all) is left untouched, so this is safe on every startup.
+    """
+    from sqlalchemy import text
+
+    exists = conn.execute(
+        text(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='exercise_aliases'"
+        )
+    ).fetchone()
+    if not exists:
+        return
+    cols = {
+        row[1]
+        for row in conn.execute(text("PRAGMA table_info(exercise_aliases)"))
+    }
+    if "athlete_id" not in cols:
+        conn.execute(text("DROP TABLE exercise_aliases"))
+
+
 def _ensure_version_table(conn) -> None:
     """Create the migration version tracker if it does not exist."""
     from sqlalchemy import text
@@ -610,6 +643,8 @@ def migrate_db(db_path: Path | str | None = None) -> None:
         extend(column_migrations)
 
     with engine.connect() as conn:
+
+        _drop_legacy_exercise_aliases(conn)
 
         for table, create_sql in _TABLE_CREATES.items():
             _ensure_table(conn, table, create_sql)

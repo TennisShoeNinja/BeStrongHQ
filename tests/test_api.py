@@ -501,3 +501,57 @@ def test_exercise_aliases_reject_chain(client):
     assert "primary" in r.json()["detail"].lower()
 
     client.delete(f"/api/exercise-aliases/{alias_id}")
+
+
+def test_exercise_aliases_per_athlete_scope(client):
+    """Merges are hybrid-scoped: instance-wide vs scoped to one athlete."""
+
+    a1 = client.post("/api/athletes", json={"name": "Scope Athlete One"}).json()["id"]
+    a2 = client.post("/api/athletes", json={"name": "Scope Athlete Two"}).json()["id"]
+
+    # Instance-wide merge: no athlete_id, visible to every athlete.
+    r = client.post(
+        "/api/exercise-aliases",
+        json={"primary_name": "Competition Squat", "aliases": ["Comp Squat"]},
+    )
+    assert r.status_code == 201
+    assert r.json()["aliases"][0]["athlete_id"] is None
+
+    # Per-athlete merge: scoped to athlete one only.
+    r = client.post(
+        "/api/exercise-aliases",
+        json={
+            "primary_name": "Competition Squat",
+            "aliases": ["High Bar Squat"],
+            "athlete_id": a1,
+        },
+    )
+    assert r.status_code == 201
+    # The group shows every alias visible to this athlete under the
+    # primary: the new per-athlete row plus the instance-wide one.
+    scope_by_name = {e["alias_name"]: e["athlete_id"] for e in r.json()["aliases"]}
+    assert scope_by_name == {"High Bar Squat": a1, "Comp Squat": None}
+
+    # Athlete one sees the instance-wide merge and their own.
+    a1_aliases = {
+        e["alias_name"]
+        for g in client.get(f"/api/exercise-aliases?athlete_id={a1}").json()
+        for e in g["aliases"]
+    }
+    assert a1_aliases == {"Comp Squat", "High Bar Squat"}
+
+    # Athlete two sees only the instance-wide merge.
+    a2_aliases = {
+        e["alias_name"]
+        for g in client.get(f"/api/exercise-aliases?athlete_id={a2}").json()
+        for e in g["aliases"]
+    }
+    assert a2_aliases == {"Comp Squat"}
+
+    # With no athlete_id, only instance-wide merges come back.
+    plain_aliases = {
+        e["alias_name"]
+        for g in client.get("/api/exercise-aliases").json()
+        for e in g["aliases"]
+    }
+    assert plain_aliases == {"Comp Squat"}

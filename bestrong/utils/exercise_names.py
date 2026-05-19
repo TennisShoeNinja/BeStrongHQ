@@ -131,20 +131,45 @@ def canonicalize_with_aliases(
     return canonicalize_exercise_name(name)
 
 
-def load_alias_map(db) -> dict[str, str]:
+def load_alias_map(db, athlete_id: int | None = None) -> dict[str, str]:
     """Read the alias table once per request into a lookup dict.
 
     Keys are both the raw alias spellings AND their canonical form, so
     the caller doesn't have to retry with canonicalization. Values are
     the primary names (raw) as the coach wrote them.
+
+    Merges are hybrid-scoped. Rows with a null ``athlete_id`` apply to
+    every athlete; rows with an ``athlete_id`` apply only to that athlete.
+    When ``athlete_id`` is passed, the returned map is the instance-wide
+    merges overlaid with that athlete's own merges (the athlete-specific
+    primary wins on conflict). When it is omitted, only the instance-wide
+    merges are returned.
     """
 
+    from sqlalchemy import or_
 
     from ..models.orm import ExerciseAlias
 
-    rows = db.query(ExerciseAlias.alias_name, ExerciseAlias.primary_name).all()
+    q = db.query(
+        ExerciseAlias.alias_name,
+        ExerciseAlias.primary_name,
+        ExerciseAlias.athlete_id,
+    )
+    if athlete_id is None:
+        q = q.filter(ExerciseAlias.athlete_id.is_(None))
+    else:
+        q = q.filter(
+            or_(
+                ExerciseAlias.athlete_id.is_(None),
+                ExerciseAlias.athlete_id == athlete_id,
+            )
+        )
+
+    # Apply instance-wide rows first, then athlete-specific rows, so a
+    # per-athlete merge overrides an instance-wide one for the same name.
+    rows = sorted(q.all(), key=lambda r: r[2] is not None)
     out: dict[str, str] = {}
-    for alias_name, primary_name in rows:
+    for alias_name, primary_name, _scope in rows:
         out[alias_name] = primary_name
         out[canonicalize_exercise_name(alias_name)] = primary_name
     return out
