@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, ArrowRight } from "lucide-react";
+import { Trophy, ArrowRight, ExternalLink } from "lucide-react";
 import type * as Types from "@/lib/types";
 
 function formatBlockDate(d: string | null | undefined): string | null {
@@ -44,7 +44,7 @@ interface Props {
   athlete: Types.AthleteResponse;
   currentProgram?: Types.ProgramListResponse | null;
   onOpenMeet?: (meetId: number) => void;
-  onOpenProgram?: (programId: number) => void;
+  programSheetUrl?: string | null;
 }
 
 /**
@@ -60,7 +60,7 @@ export function CurrentCycleCard({
   athlete,
   currentProgram,
   onOpenMeet,
-  onOpenProgram,
+  programSheetUrl,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const meetUpcoming = !!athlete.meet_date && athlete.meet_date >= today;
@@ -234,10 +234,12 @@ export function CurrentCycleCard({
       {hasProgram && currentProgram && (
         <button
           type="button"
-          onClick={() =>
-            currentProgram.id && onOpenProgram?.(currentProgram.id)
-          }
-          disabled={!onOpenProgram}
+          onClick={() => {
+            if (programSheetUrl) {
+              window.open(programSheetUrl, "_blank", "noopener,noreferrer");
+            }
+          }}
+          disabled={!programSheetUrl}
           style={{
             position: "relative",
             display: "block",
@@ -248,8 +250,9 @@ export function CurrentCycleCard({
             textAlign: "left",
             color: "inherit",
             font: "inherit",
-            cursor: onOpenProgram ? "pointer" : "default",
+            cursor: programSheetUrl ? "pointer" : "default",
           }}
+          title={programSheetUrl ? "Open Google Sheet in new tab" : undefined}
         >
           <div
             style={{
@@ -270,6 +273,8 @@ export function CurrentCycleCard({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                flex: 1,
+                minWidth: 0,
               }}
             >
               {currentProgram.program_number && (
@@ -279,18 +284,44 @@ export function CurrentCycleCard({
               )}
               {blockName}
             </p>
-            {weekLabel && (
+            {(weekLabel || programSheetUrl) && (
               <span
                 style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--cloud-primary-text)",
-                  fontWeight: 600,
-                  fontVariantNumeric: "tabular-nums",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
                   flexShrink: 0,
                 }}
               >
-                {weekLabel}
+                {weekLabel && (
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--cloud-primary-text)",
+                      fontWeight: 600,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {weekLabel}
+                  </span>
+                )}
+                {programSheetUrl && (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      color: "var(--cloud-text-dim)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      letterSpacing: "0.01em",
+                    }}
+                  >
+                    <ExternalLink style={{ width: 12, height: 12 }} />
+                    Open Sheet
+                  </span>
+                )}
               </span>
             )}
           </div>
