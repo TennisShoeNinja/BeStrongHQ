@@ -530,6 +530,33 @@ class E1RMDataPoint(BaseModel):
     outlier_reference_points: list[OutlierReferencePoint] = []
 
 
+class FeaturedAthletePoint(BaseModel):
+    """One e1RM point in the featured athlete's current-block progression."""
+    idx: int
+    e1rm: float
+    week_number: int
+
+
+class FeaturedAthleteResponse(BaseModel):
+    """The roster page's rotating "featured athlete" card.
+
+    The server ranks active athletes by squat e1RM gain within their
+    current block (best minus first), keeps the top few who gained a
+    meaningful amount, and rotates daily through that pool so the card
+    always shows real, recent progression without going stale. ``points``
+    is already scoped to the chosen athlete's latest program, so the
+    sparkline stays legible instead of plotting their whole history.
+    """
+    athlete_id: int
+    athlete_name: str
+    lift_category: str
+    block_type: str | None = None
+    current_e1rm: float
+    block_delta: float
+    rpe_avg: float | None = None
+    points: list[FeaturedAthletePoint] = []
+
+
 class DataQualityIssue(BaseModel):
     """A single plot-eligible top set that deserves coach attention.
 

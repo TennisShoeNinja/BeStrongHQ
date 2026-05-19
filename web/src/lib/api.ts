@@ -494,7 +494,15 @@ class APIClient {
     return response.data;
   }
 
-  
+
+  async getFeaturedAthlete(): Promise<Types.FeaturedAthleteResponse | null> {
+    const response = await this.client.get<Types.FeaturedAthleteResponse | null>(
+      "/analytics/featured-athlete",
+    );
+    return response.data;
+  }
+
+
   async getDataQuality(athleteId: number): Promise<Types.DataQualityResponse> {
     const response = await this.client.get<Types.DataQualityResponse>(
       `/analytics/athletes/${athleteId}/data-quality`,

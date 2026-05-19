@@ -37,6 +37,8 @@ from .schemas import (
     DataQualityResponse,
     E1RMDataPoint,
     EstimatedMaxForLift,
+    FeaturedAthletePoint,
+    FeaturedAthleteResponse,
     OutlierReferencePoint,
     PRRecord,
     RecentPR,
@@ -417,6 +419,153 @@ def get_e1rm_trends(
             ]
 
     return results
+
+
+_FEATURED_LIFT = "squat"
+_FEATURED_MIN_DELTA_LBS = 10.0
+_FEATURED_POOL_SIZE = 5
+
+
+@router.get("/featured-athlete", response_model=FeaturedAthleteResponse | None)
+def get_featured_athlete(db: Session = Depends(get_db)):
+    """Pick the roster page's rotating "featured athlete" card.
+
+    Ranks active athletes by squat e1RM gain within their current block
+    (best minus first, so a deload week or a dropped rep scheme can't make
+    real progress look flat), keeps the top few who gained at least
+    ``_FEATURED_MIN_DELTA_LBS``, and rotates daily through that pool so the
+    card always shows real, recent progression without going stale. Falls
+    back to the strongest current squat when nobody clears the bar yet.
+    """
+    from sqlalchemy import func
+
+    athletes = (
+        db.query(Athlete)
+        .filter(Athlete.archived == False)  # noqa: E712
+        .order_by(Athlete.name)
+        .all()
+    )
+    athletes_by_id = {a.id: a for a in athletes}
+    if not athletes_by_id:
+        return None
+
+    # Latest program per athlete in one window-function query (no N+1).
+    latest_programs = (
+        db.query(
+            Program.id.label("program_id"),
+            func.row_number()
+            .over(
+                partition_by=Program.athlete_id,
+                order_by=(Program.program_number.desc(), Program.id.desc()),
+            )
+            .label("rank"),
+        )
+        .filter(Program.athlete_id.in_(list(athletes_by_id)))
+        .subquery()
+    )
+    programs = (
+        db.query(Program)
+        .join(latest_programs, Program.id == latest_programs.c.program_id)
+        .filter(latest_programs.c.rank == 1)
+        .all()
+    )
+    if not programs:
+        return None
+    programs_by_id = {p.id: p for p in programs}
+    programs_by_athlete = {p.athlete_id: p for p in programs}
+
+    # All squat top sets for those current blocks, in one query.
+    rows = (
+        db.query(ExerciseEntry, SessionModel)
+        .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+        .filter(SessionModel.program_id.in_(list(programs_by_id)))
+        .filter(ExerciseEntry.lift_category == _FEATURED_LIFT)
+        .filter(ExerciseEntry.is_accessory == False)  # noqa: E712
+        .filter(ExerciseEntry.failed == False)  # noqa: E712
+        .filter(ExerciseEntry.set_type == "top_set")
+        .filter(ExerciseEntry.weight_lbs.isnot(None))
+        .filter(ExerciseEntry.reps.isnot(None))
+        .order_by(
+            SessionModel.program_id,
+            SessionModel.week_number,
+            SessionModel.day_number,
+            SessionModel.id,
+            ExerciseEntry.id,
+        )
+        .all()
+    )
+
+    today = datetime.utcnow()
+    # athlete_id -> ordered list of (e1rm, week_number, actual_rpe)
+    series: dict[int, list[tuple[float, int, float | None]]] = {}
+    for ex, sess in rows:
+        program = programs_by_id.get(sess.program_id)
+        if program is None or session_is_future(program, sess, today):
+            continue
+        athlete = athletes_by_id.get(program.athlete_id)
+        if athlete is None:
+            continue
+        # Restrict to the primary squat day when one is configured (program
+        # override wins over the athlete default); a no-op when neither is set.
+        primary_day = program.primary_squat_day
+        if primary_day is None:
+            primary_day = athlete.primary_squat_day
+        if primary_day is not None and sess.day_number != primary_day:
+            continue
+        e1rm, _method = peak_e1rm(ex.weight_lbs, ex.reps, ex.actual_rpe)
+        if e1rm is None:
+            continue
+        series.setdefault(program.athlete_id, []).append(
+            (e1rm, sess.week_number, ex.actual_rpe)
+        )
+
+    candidates = []
+    for athlete_id, pts in series.items():
+        if len(pts) < 2:
+            continue
+        e1rms = [p[0] for p in pts]
+        rpes = [p[2] for p in pts if isinstance(p[2], (int, float))]
+        candidates.append(
+            {
+                "athlete_id": athlete_id,
+                "delta": round(max(e1rms) - e1rms[0], 1),
+                "current_e1rm": round(e1rms[-1], 1),
+                "rpe_avg": round(sum(rpes) / len(rpes), 1) if rpes else None,
+                "points": pts,
+            }
+        )
+    if not candidates:
+        return None
+
+    pool = sorted(
+        (c for c in candidates if c["delta"] >= _FEATURED_MIN_DELTA_LBS),
+        key=lambda c: c["delta"],
+        reverse=True,
+    )[:_FEATURED_POOL_SIZE]
+
+    if pool:
+        # Deterministic daily rotation: stable all day, fresh each morning.
+        chosen = pool[today.timetuple().tm_yday % len(pool)]
+    else:
+        # Early in a block nobody has gained yet, so feature the strongest
+        # squat to keep the card from sitting empty or showing a negative delta.
+        chosen = max(candidates, key=lambda c: c["current_e1rm"])
+
+    athlete = athletes_by_id[chosen["athlete_id"]]
+    program = programs_by_athlete.get(athlete.id)
+    return FeaturedAthleteResponse(
+        athlete_id=athlete.id,
+        athlete_name=athlete.name,
+        lift_category=_FEATURED_LIFT,
+        block_type=program.block_type if program else None,
+        current_e1rm=chosen["current_e1rm"],
+        block_delta=chosen["delta"],
+        rpe_avg=chosen["rpe_avg"],
+        points=[
+            FeaturedAthletePoint(idx=i, e1rm=round(e1rm, 1), week_number=week)
+            for i, (e1rm, week, _rpe) in enumerate(chosen["points"])
+        ],
+    )
 
 
 @router.get(
