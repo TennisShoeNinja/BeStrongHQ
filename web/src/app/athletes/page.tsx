@@ -217,6 +217,82 @@ function daysUntil(dateStr: string | null | undefined): number | null {
   return Math.ceil((target.getTime() - now.getTime()) / 86_400_000);
 }
 
+function MobileRoster({
+  athletes,
+  isLoading,
+}: {
+  athletes: FilteredAthlete[];
+  isLoading: boolean;
+}) {
+  return (
+    <div className="md:hidden">
+      <div className="cloud-mhome-section-h">
+        <p className="eyebrow">Roster</p>
+      </div>
+      {isLoading ? (
+        <div className="cloud-mhome-review">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse"
+              style={{
+                height: 66,
+                borderRadius: "var(--cloud-r-md)",
+                background: "var(--cloud-panel-hover)",
+              }}
+            />
+          ))}
+        </div>
+      ) : athletes.length === 0 ? (
+        <EmptyState icon={Users} body="No athletes match your filters." compact />
+      ) : (
+        <div className="cloud-mhome-review">
+          {athletes.map((athlete) => (
+            <Link
+              key={athlete.id}
+              href={`/athletes/${athlete.id}`}
+              className="cloud-mhome-rcard"
+              style={{ textDecoration: "none" }}
+            >
+              <span className={`ava ${getAvatarColor(athlete.id)}`}>
+                {getInitials(athlete.name)}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <p
+                  className="who"
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {athlete.name}
+                </p>
+                <p className="what">
+                  {[athlete.weight_class, athlete.sex]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </p>
+              </div>
+              {athlete.latest_block_type ? (
+                <span className={getBlockBadgeClass(athlete.latest_block_type)}>
+                  <span className="cloud-badge-dot" />
+                  {athlete.latest_block_type}
+                </span>
+              ) : (
+                <span className="cloud-text-dim" style={{ fontSize: 12 }}>
+                  —
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function AthletesPageInner() {
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view") as ViewType | null;
@@ -734,7 +810,9 @@ function AthletesPageInner() {
         {}
         <div className="cloud-grid-2">
           {}
-          <div className="cloud-panel">
+          <MobileRoster athletes={filteredAndSortedAthletes} isLoading={isLoading} />
+          {}
+          <div className="cloud-panel hidden md:block">
             <div className="cloud-panel-head" style={{ flexWrap: "wrap", gap: "var(--cloud-s3)" }}>
               <div>
                 <h2>Roster</h2>
