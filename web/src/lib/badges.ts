@@ -653,11 +653,16 @@ function appendPRHistoryBadges(
 ): void {
   if (rows.length === 0) return;
 
-  const sorted = [...rows].sort((a, b) =>
+  const genuinePRs = rows.filter(
+    (r) => r.old_value != null && r.new_value > r.old_value,
+  );
+  if (genuinePRs.length === 0) return;
+
+  const sorted = [...genuinePRs].sort((a, b) =>
     (a.recorded_at ?? '').localeCompare(b.recorded_at ?? ''),
   );
 
-  // Lifetime PR count tiers: every MaxHistory row is a PR moment.
+  // Lifetime PR count tiers: only rows that beat a prior value are PR moments.
   const prCountTiers = [5, 10, 25, 50, 100];
   for (const tier of prCountTiers) {
     if (sorted.length >= tier) {
