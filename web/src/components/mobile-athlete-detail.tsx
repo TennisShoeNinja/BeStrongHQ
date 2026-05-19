@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Flame } from "lucide-react";
@@ -15,6 +16,13 @@ import {
 } from "@/lib/units";
 import { CurrentCycleCard } from "@/components/current-cycle-card";
 import { EmptyState } from "@/components/empty-state";
+import { MobileLiftCards } from "@/components/mobile-lift-cards";
+import { MobileLiftBlockView } from "@/components/mobile-lift-block-view";
+import { MobileBodyweightCard } from "@/components/mobile-bodyweight-card";
+import { MobileBodyweightView } from "@/components/mobile-bodyweight-view";
+import { MobileMeetCard } from "@/components/mobile-meet-card";
+import { MobileMeetView } from "@/components/mobile-meet-view";
+import { LIFTS, type LiftKey } from "@/lib/progression";
 import type * as Types from "@/lib/types";
 
 interface Props {
@@ -66,6 +74,9 @@ function prettyLiftName(lift: string): string {
 
 export function MobileAthleteDetail({ athlete, programs }: Props) {
   const router = useRouter();
+  const [drillLift, setDrillLift] = useState<LiftKey | null>(null);
+  const [showBodyweight, setShowBodyweight] = useState(false);
+  const [showMeets, setShowMeets] = useState(false);
   const { instance } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
 
@@ -102,11 +113,38 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
   if (athlete.division) metaBits.push(athlete.division);
   if (athlete.membership_no != null) metaBits.push(`OPL #${athlete.membership_no}`);
 
-  const lifts: Array<{ label: string; lbs: number | null | undefined }> = [
-    { label: "Squat", lbs: athlete.squat_max_lbs },
-    { label: "Bench", lbs: athlete.bench_max_lbs },
-    { label: "Deadlift", lbs: athlete.deadlift_max_lbs },
-  ];
+  if (drillLift) {
+    return (
+      <MobileLiftBlockView
+        athlete={athlete}
+        programs={programs}
+        unit={unit}
+        lift={drillLift}
+        liftLabel={LIFTS.find((l) => l.key === drillLift)?.label ?? drillLift}
+        onBack={() => setDrillLift(null)}
+      />
+    );
+  }
+
+  if (showBodyweight) {
+    return (
+      <MobileBodyweightView
+        athlete={athlete}
+        unit={unit}
+        onBack={() => setShowBodyweight(false)}
+      />
+    );
+  }
+
+  if (showMeets) {
+    return (
+      <MobileMeetView
+        athlete={athlete}
+        unit={unit}
+        onBack={() => setShowMeets(false)}
+      />
+    );
+  }
 
   return (
     <div>
@@ -286,68 +324,32 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
           )}
         </div>
 
-        {/* Estimated 1RM strip */}
+        {/* Progression */}
         <div className="cloud-mhome-section-h">
-          <p className="eyebrow">Estimated 1RM</p>
+          <p className="eyebrow">Progression</p>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: "var(--cloud-s2)",
-            marginBottom: "var(--cloud-s5)",
-          }}
-        >
-          {lifts.map((lift) => (
-            <div
-              key={lift.label}
-              style={{
-                position: "relative",
-                background: "var(--cloud-panel)",
-                border: "1px solid var(--cloud-border)",
-                borderRadius: "var(--cloud-r-md)",
-                padding: "14px 12px 12px",
-                overflow: "hidden",
-              }}
-            >
-              <p
-                style={{
-                  fontSize: 10,
-                  fontWeight: 500,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "var(--cloud-text-dim)",
-                  margin: "0 0 6px",
-                }}
-              >
-                {lift.label}
-              </p>
-              <p
-                style={{
-                  fontSize: 22,
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1,
-                  margin: 0,
-                  color: "var(--cloud-text)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {formatLiftValue(lift.lbs, unit)}
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "var(--cloud-text-dim)",
-                    fontWeight: 500,
-                    marginLeft: 2,
-                  }}
-                >
-                  {unitLabel(unit)}
-                </span>
-              </p>
-              {/* TODO: wire trailing sparkline from MaxHistory once weekly aggregation lands */}
-            </div>
-          ))}
+        <div style={{ marginBottom: "var(--cloud-s5)" }}>
+          <MobileLiftCards
+            athlete={athlete}
+            programs={programs}
+            unit={unit}
+            onSelectLift={setDrillLift}
+          />
+        </div>
+
+        <div style={{ marginBottom: "var(--cloud-s3)" }}>
+          <MobileBodyweightCard
+            athlete={athlete}
+            unit={unit}
+            onOpen={() => setShowBodyweight(true)}
+          />
+        </div>
+        <div style={{ marginBottom: "var(--cloud-s5)" }}>
+          <MobileMeetCard
+            athlete={athlete}
+            unit={unit}
+            onOpen={() => setShowMeets(true)}
+          />
         </div>
       </div>
     </div>
