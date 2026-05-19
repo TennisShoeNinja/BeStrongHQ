@@ -1507,16 +1507,106 @@ body {
     margin: 0;
     color: var(--cloud-text);
   }
-  .cloud-mhome-avatar {
+  /* Header spyglass — collapsed icon button */
+  .cloud-mhome-search-btn {
     width: 40px; height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--cloud-primary), var(--cloud-primary-hover));
-    display: grid; place-items: center;
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--cloud-text);
-    border: 1px solid var(--cloud-border-strong);
     flex: none;
+    display: grid; place-items: center;
+    border-radius: var(--cloud-r-sm);
+    background: var(--cloud-panel);
+    border: 1px solid var(--cloud-border);
+    color: var(--cloud-text-muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .cloud-mhome-search-btn:active {
+    background: var(--cloud-surface-raised);
+    border-color: var(--cloud-border-strong);
+    color: var(--cloud-text);
+  }
+  .cloud-mhome-search-btn svg {
+    width: 18px; height: 18px;
+    stroke-width: 1.8;
+  }
+
+  /* Header spyglass — expanded search overlay */
+  .cloud-mhome-search-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 49;
+  }
+  .cloud-mhome-search-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--cloud-s2);
+    padding: var(--cloud-s3) var(--cloud-s4);
+    padding-top: calc(var(--cloud-s3) + env(safe-area-inset-top));
+    background: rgba(9, 9, 11, 0.96);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--cloud-border);
+  }
+  .cloud-mhome-search-bar .icon {
+    width: 16px; height: 16px;
+    flex: none;
+    color: var(--cloud-text-muted);
+  }
+  .cloud-mhome-search-bar input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--cloud-text);
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .cloud-mhome-search-bar input::placeholder {
+    color: var(--cloud-text-muted);
+  }
+  .cloud-mhome-search-bar .close {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    flex: none;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: var(--cloud-text-muted);
+    cursor: pointer;
+  }
+  .cloud-mhome-search-bar .close svg {
+    width: 16px; height: 16px;
+  }
+  .cloud-mhome-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    margin-top: 1px;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-radius: 0 0 var(--cloud-r-sm) var(--cloud-r-sm);
+    box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.6);
+  }
+  .cloud-mhome-search-results .empty {
+    margin: 0;
+    padding: var(--cloud-s3) var(--cloud-s4);
+    font-size: 13px;
+    color: var(--cloud-text-muted);
+  }
+  .cloud-mhome-search-results .group {
+    margin: 0;
+    padding: 10px var(--cloud-s4) 6px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--cloud-text-dim);
+    background: rgba(0, 0, 0, 0.15);
   }
 
   /* Hero: training today */

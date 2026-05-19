@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { User, ArrowRight, CheckCircle } from "lucide-react";
+import { User, ArrowRight, CheckCircle, Search, Trophy, X } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
@@ -82,7 +82,6 @@ export function MobileHome() {
   const dateLabel = formatGreetingDate(today);
   const timeOfDay = getTimeOfDayLabel(today.getHours());
   const coachName = firstName(settings?.coach_display_name) || "Coach";
-  const initials = coachName.slice(0, 2).toUpperCase();
 
   const rosterTotal = todayStatus?.roster_total ?? athletes.length;
   const scheduledToday = todayStatus?.scheduled_today ?? 0;
@@ -144,7 +143,7 @@ export function MobileHome() {
               <span className="cloud-text-grad-blue">{coachName}</span>.
             </h1>
           </div>
-          <div className="cloud-mhome-avatar">{initials}</div>
+          <HomeSearch />
         </header>
 
         {/* Hero: training today */}
@@ -247,6 +246,134 @@ export function MobileHome() {
         allHistory={selectedPRHistory}
         athleteName={selectedPRItem?.athlete_name ?? null}
       />
+    </>
+  );
+}
+
+/**
+ * Spyglass in the mobile home header. Collapsed it is an icon button; tapping
+ * it expands into a fixed top search bar with live athlete/meet results,
+ * mirroring the desktop topbar's expand-on-tap pattern.
+ */
+function HomeSearch() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [value, setValue] = useState("");
+  const [debounced, setDebounced] = useState("");
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebounced(value), 250);
+    return () => clearTimeout(handle);
+  }, [value]);
+
+  const { data: results } = useQuery({
+    queryKey: ["search", debounced],
+    queryFn: () => apiClient.search(debounced, 6),
+    enabled: debounced.trim().length > 0,
+    staleTime: 10_000,
+  });
+
+  const close = () => {
+    setExpanded(false);
+    setValue("");
+    setDebounced("");
+  };
+
+  const hasResults =
+    !!results && (results.athletes.length > 0 || results.meets.length > 0);
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        className="cloud-mhome-search-btn"
+        aria-label="Search"
+        onClick={() => {
+          setExpanded(true);
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }}
+      >
+        <Search />
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <div className="cloud-mhome-search-scrim" onClick={close} aria-hidden />
+      <div className="cloud-mhome-search-bar">
+        <Search className="icon" aria-hidden />
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Search athletes, meets…"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          aria-label="Search"
+        />
+        <button
+          type="button"
+          className="close"
+          aria-label="Close search"
+          onClick={close}
+        >
+          <X />
+        </button>
+        {debounced.trim() && (
+          <div className="cloud-mhome-search-results cloud-panel-raised">
+            {!results ? (
+              <p className="empty">Searching…</p>
+            ) : !hasResults ? (
+              <p className="empty">No matches for &ldquo;{debounced}&rdquo;</p>
+            ) : (
+              <>
+                {results.athletes.length > 0 && (
+                  <div>
+                    <p className="group">Athletes</p>
+                    {results.athletes.map((a) => (
+                      <Link
+                        key={`ath-${a.id}`}
+                        href={`/athletes/${a.id}`}
+                        onClick={close}
+                        className="cloud-search-hit"
+                      >
+                        <User className="w-3.5 h-3.5 cloud-text-muted" />
+                        <span className="cloud-text">{a.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {results.meets.length > 0 && (
+                  <div>
+                    <p className="group">Meets</p>
+                    {results.meets.map((m) => (
+                      <Link
+                        key={`meet-${m.id}`}
+                        href={`/meets/${m.id}`}
+                        onClick={close}
+                        className="cloud-search-hit"
+                      >
+                        <Trophy className="w-3.5 h-3.5 cloud-text-muted" />
+                        <span className="cloud-text flex-1 truncate">
+                          {m.name}
+                        </span>
+                        {m.meet_date && (
+                          <span
+                            className="cloud-text-dim"
+                            style={{ fontSize: 11 }}
+                          >
+                            {m.meet_date}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }
