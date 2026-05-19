@@ -166,7 +166,7 @@ export function TodaySessionCard({ entry }: Props) {
                   fontWeight: 500,
                 }}
               >
-                + {accessoryCount} accessories
+                + {accessoryCount} {accessoryCount === 1 ? "accessory" : "accessories"}
               </p>
             )}
           </div>
