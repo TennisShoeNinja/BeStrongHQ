@@ -220,7 +220,7 @@ const CHAIN_VISUAL_TIER: Record<string, number> = {
   'pr-count-3': 1,
   'pr-count-10': 1,
   'pr-count-25': 2,
-  'pr-count-50': 2,
+  'pr-count-50': 3,
   'pr-streak-3': 1,
   'pr-streak-5': 2,
   'pr-streak-10': 3,
