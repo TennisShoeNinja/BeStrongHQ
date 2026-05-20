@@ -23,20 +23,36 @@ export const MAX_VISIBLE = 5;
 
 const ENTRIES: WhatsNewEntry[] = [
   {
-    id: "2026-05-work-queue",
-    date: "2026-05-05",
-    title: "The Work Queue: programs come to you",
-    body: "Set a due date on an athlete and their programs surface in the queue automatically when they need attention. Or add an athlete manually from the queue to start working through theirs now.",
-    cta: { label: "Open the queue", href: "/queue" },
-  },
-  {
-    id: "2026-05-opl-integration",
-    date: "2026-05-01",
-    title: "OpenPowerlifting meet results in the PR lane",
-    body: "Open an athlete's three-dot menu to search OpenPowerlifting for their lifter profile. Their meet history then feeds the same PR lane as training, so prior bests reflect what they hit on the platform.",
+    id: "2026-05-celebration-prs",
+    date: "2026-05-19",
+    title: "Celebration PRs",
+    body: "A training single that ties an existing competition PR now reads as Comp Match instead of a confusing +0, and per-exercise variations merge per athlete so debut entries no longer seed a bogus PR.",
     cta: { label: "Pick an athlete", href: "/athletes" },
   },
+  {
+    id: "2026-05-opl-integrations-page",
+    date: "2026-05-19",
+    title: "OpenPowerlifting integrations page",
+    body: "A new page under Integrations shows OPL link status for every athlete on one screen, with one-click auto-link by name when the match is unambiguous.",
+    cta: { label: "Open the page", href: "/integrations/openpowerlifting" },
+  },
+  {
+    id: "2026-05-achievement-badges-share",
+    date: "2026-05-13",
+    title: "Achievement badges and a Share menu",
+    body: "Career PR milestones surface as medallions at the top of each athlete page. A new Share icon next to the three-dot menu exports a Profile card, Recent PR sticker, Competition History card, or Achievements card.",
+    cta: { label: "Pick an athlete", href: "/athletes" },
+  },
+  {
+    id: "2026-05-brand-pull-reskin",
+    date: "2026-05-13",
+    title: "Brand-pull reskin",
+    body: "Every page rebuilt in the BeStrong HQ visual language. Home, athletes, meets, inbox, queue, configuration. The product now looks like the marketing site.",
+    cta: { label: "Take a look", href: "/" },
+  },
 ];
+
+export const FULL_CHANGELOG_URL = "https://bestronghq.com/changelog";
 
 export const WHATS_NEW_ENTRIES: WhatsNewEntry[] = ENTRIES.slice(0, MAX_VISIBLE);
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import {
+  FULL_CHANGELOG_URL,
   WHATS_NEW_ENTRIES,
   getLatestEntryId,
   hasUnseenEntries,
@@ -97,6 +98,25 @@ export function WhatsNewButton() {
                 </li>
               ))}
             </ul>
+            <div
+              className="mt-4 pt-3 flex justify-end"
+              style={{ borderTop: "1px solid var(--cloud-border, rgba(255,255,255,0.08))" }}
+            >
+              <a
+                href={FULL_CHANGELOG_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="hover:underline"
+                style={{
+                  color: "var(--cloud-primary-text)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                See all updates →
+              </a>
+            </div>
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>

@@ -3,6 +3,59 @@
 What's new in BeStrong HQ. Versions follow [semver](https://semver.org/) with a
 `-beta` suffix while we're still in beta.
 
+## [2.1.0 Public Beta], 2026-05-19
+
+A month of work landed in two waves: a full visual rebuild (2.0.0,
+internal release on 2026-05-13), and a follow-up wave of PR-system and
+integration polish (2.1.0). Released together so the changelog matches
+what coaches running BeStrong HQ today actually see.
+
+### Added
+
+- **Achievement badges and Share menu on the athlete profile.** Career
+  PR milestones surface as medallions at the top of each athlete page,
+  with steel / bronze / gold tier frames plus special motifs for big
+  jumps, comebacks, DOTS thresholds, meet chains, and career duration.
+  A new Share icon next to the three-dot menu exports a Profile card, a
+  Recent PR sticker (transparent mode + copy-to-clipboard), a
+  Competition History card, or an Achievements card, all on-brand.
+- **OpenPowerlifting integrations page.** New page under Integrations
+  shows OPL link status for every athlete on one screen, with one-click
+  auto-link by name when the match is unambiguous. Continues the OPL
+  work from 1.2.5 and 1.3.0.
+
+### Changed
+
+- **Whole-app brand-pull reskin.** Every page rebuilt in the BeStrong HQ
+  visual language: home, login, athletes table, athlete detail, meets
+  index and detail, inbox, queue, configuration, topbar, sidebar.
+  UPPERCASE blue section labels, gradient name treatments, shared
+  `StatTile` and `EmptyState` components, glowing sidebar. The product
+  now looks like the marketing site.
+- **Celebration PRs.** Reworks how the app decides what's worth
+  celebrating. Per-exercise variations merged per athlete, debut entries
+  no longer seed a bogus PR, and a training single that ties an
+  existing competition PR now reads as **Comp Match** instead of a
+  confusing `+0`. Competition results feed the same per-exercise PR
+  lane as training (meet save, OPL hook, backfill).
+
+### Fixed
+
+- **Cached competition maxes** now floor to made 1-rep evidence at
+  import time and reconcile against current evidence on every load
+  (with meet recency capped at two years), so a retracted or backdated
+  import can't leave a phantom value the data no longer supports.
+- **Failed data migrations** now retry on next startup instead of being
+  marked applied. Each migration runs inside a savepoint; an exception
+  logs and rolls back without poisoning the migrations table.
+
+### Security
+
+- Six open CodeQL alerts closed: workflow permissions, stack trace
+  exposure, redirect encoding, taint flow in OAuth and CSV import error
+  paths, OAuth error redirects collapsed to a constant string.
+- `SECURITY.md` added with disclosure policy.
+
 ## [1.3.0 Public Beta], 2026-05-04
 
 ### Added
