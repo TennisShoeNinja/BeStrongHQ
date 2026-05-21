@@ -20,6 +20,7 @@ import {
   Search,
   Plus,
   X,
+  CalendarClock,
 } from 'lucide-react';
 import Link from 'next/link';
 import apiClient from '@/lib/api';
@@ -106,6 +107,42 @@ function formatTimer(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+// Compact meet countdown in house style: "6wk" when 2+ weeks out, "5d" when
+// inside two weeks, "Today"/"1d" near the line, "Past" once it's gone by.
+// Derived entirely from server-computed weeks_out / days_out on the athlete.
+function formatMeetCountdown(
+  weeksOut: number | null | undefined,
+  daysOut: number | null | undefined,
+): string | null {
+  if (daysOut == null && weeksOut == null) return null;
+  if (daysOut != null) {
+    if (daysOut < 0) return 'Past';
+    if (daysOut === 0) return 'Today';
+    if (daysOut < 14) return `${daysOut}d`;
+  }
+  if (weeksOut != null) {
+    if (weeksOut < 0) return 'Past';
+    return `${weeksOut}wk`;
+  }
+  return null;
+}
+
+// Tint the countdown the same way the meets page does: red inside 4 weeks,
+// amber inside 8, otherwise calm primary. Past meets read dim.
+function meetCountdownColor(
+  weeksOut: number | null | undefined,
+  daysOut: number | null | undefined,
+): string {
+  if (daysOut != null && daysOut < 0) return 'var(--cloud-text-dim)';
+  if (weeksOut != null && weeksOut < 0) return 'var(--cloud-text-dim)';
+  if (weeksOut != null) {
+    if (weeksOut <= 4) return 'var(--cloud-danger-text)';
+    if (weeksOut <= 8) return 'var(--cloud-warning-text)';
+  }
+  if (daysOut != null && daysOut <= 28) return 'var(--cloud-danger-text)';
+  return 'var(--cloud-primary-text)';
 }
 
 function formatDuration(totalSeconds: number): string {
@@ -278,8 +315,15 @@ export default function WorkQueuePage() {
       return a.due_date.localeCompare(b.due_date);
     });
 
-  
+
   const queuedAthleteIds = new Set(queue.map((n: Types.NotificationResponse) => n.athlete_id));
+
+  // Athlete lookup for meet context (#22). `allAthletes` is already loaded for
+  // the add-search; it carries server-computed next_meet_name / weeks_out /
+  // days_out, so we surface the countdown without a second request.
+  const athleteById = new Map<number, Types.AthleteListResponse>(
+    allAthletes.map((a: Types.AthleteListResponse) => [a.id, a]),
+  );
 
   
   const searchResults = addSearch.trim().length >= 1
@@ -313,7 +357,15 @@ export default function WorkQueuePage() {
     enabled: !!current,
   });
 
-  
+  // Meet context for the focused athlete (#22). Prefer the freshly-fetched
+  // single-athlete record; fall back to the roster list entry while it loads.
+  const currentMeet: Types.AthleteBase | undefined =
+    currentAthlete ?? (current ? athleteById.get(current.athlete_id) : undefined);
+  const currentMeetCountdown = currentMeet
+    ? formatMeetCountdown(currentMeet.weeks_out, currentMeet.days_out)
+    : null;
+
+
   const startTimer = useCallback((athleteId?: number, notificationId?: number) => {
     if (timerRef.current) return;
 
@@ -585,6 +637,16 @@ export default function WorkQueuePage() {
     setCurrentIndex((prev) => Math.min(prev + 1, queue.length - 1));
   };
 
+  // Jump straight to an athlete from the left list (#24). Same teardown as the
+  // skip/back controls so a half-started timer or open date picker don't carry
+  // over to the newly-focused athlete.
+  const selectAthlete = (index: number) => {
+    if (index === currentIndex) return;
+    resetTimer();
+    setConfirmingDate(false);
+    setCurrentIndex(index);
+  };
+
   
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return 'No date set';
@@ -628,7 +690,7 @@ export default function WorkQueuePage() {
     <div style={{ padding: 'var(--cloud-s5)' }}>
       <div
         className="flex flex-col mx-auto"
-        style={{ gap: 'var(--cloud-s4)', maxWidth: 720 }}
+        style={{ gap: 'var(--cloud-s4)', maxWidth: 1280 }}
       >
         {}
         <div className="flex items-start justify-between" style={{ gap: 'var(--cloud-s3)' }}>
@@ -738,7 +800,7 @@ export default function WorkQueuePage() {
         </div>
 
         {}
-        <div className="relative" ref={addSearchRef}>
+        <div className="relative" ref={addSearchRef} style={{ maxWidth: 440 }}>
           <div
             className="flex items-center"
             style={{
@@ -862,6 +924,7 @@ export default function WorkQueuePage() {
               borderRadius: 10,
               background: 'var(--cloud-surface-raised)',
               border: '1px solid var(--cloud-border)',
+              maxWidth: 440,
             }}
           >
             <span className="cloud-text-muted" style={{ fontSize: 13 }}>
@@ -977,32 +1040,197 @@ export default function WorkQueuePage() {
 
         {}
         {!isLoading && queue.length > 0 && current && (
-          <div className="flex flex-col" style={{ gap: 'var(--cloud-s4)' }}>
+          <div className="queue-layout">
+            {/* Left rail: the full queue as a clickable list (#24). Desktop-only;
+                on mobile the single-card carousel below carries the experience. */}
+            <aside className="hidden md:block">
+              <div
+                className="cloud-panel cloud-thin-scroll"
+                style={{
+                  position: 'sticky',
+                  top: 'var(--cloud-s5)',
+                  padding: 8,
+                  maxHeight: 'calc(100vh - var(--cloud-s5) * 2)',
+                  overflowY: 'auto',
+                }}
+              >
+                <div
+                  style={{
+                    ...MICRO_LABEL,
+                    padding: '6px 8px 8px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span>In queue</span>
+                  <span
+                    className="tabular-nums"
+                    style={{ color: 'var(--cloud-text-dim)' }}
+                  >
+                    {queue.length}
+                  </span>
+                </div>
+                <div className="flex flex-col" style={{ gap: 2 }}>
+                  {queue.map((n: Types.NotificationResponse, index: number) => {
+                    const athlete = athleteById.get(n.athlete_id);
+                    const isActive = index === currentIndex;
+                    const rowDueStatus = getDateStatus(n.due_date);
+                    const rowDueColor =
+                      rowDueStatus === 'overdue'
+                        ? 'var(--cloud-danger-text)'
+                        : rowDueStatus === 'due_soon'
+                          ? 'var(--cloud-warning-text)'
+                          : 'var(--cloud-text-dim)';
+                    const countdown = athlete
+                      ? formatMeetCountdown(athlete.weeks_out, athlete.days_out)
+                      : null;
+                    return (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => selectAthlete(index)}
+                        aria-current={isActive ? 'true' : undefined}
+                        className="w-full flex items-center transition-colors"
+                        style={{
+                          gap: 8,
+                          padding: '9px 10px',
+                          borderRadius: 8,
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          border: '1px solid',
+                          borderColor: isActive
+                            ? 'rgba(12, 92, 171, 0.4)'
+                            : 'transparent',
+                          background: isActive
+                            ? 'rgba(12, 92, 171, 0.12)'
+                            : 'transparent',
+                          color: 'var(--cloud-text)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive)
+                            e.currentTarget.style.background =
+                              'var(--cloud-panel-hover)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive)
+                            e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 4,
+                            height: 4,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            background: rowDueColor,
+                          }}
+                        />
+                        <span
+                          className="flex-1 min-w-0"
+                          style={{
+                            fontSize: 13,
+                            fontWeight: isActive ? 600 : 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {n.athlete_name || 'Unknown'}
+                        </span>
+                        {n.notification_type === 'manual_queue' && (
+                          <span
+                            aria-label="Manually queued"
+                            title="Manually queued"
+                            style={{
+                              width: 5,
+                              height: 5,
+                              borderRadius: '50%',
+                              flexShrink: 0,
+                              background: 'var(--cloud-primary-text)',
+                            }}
+                          />
+                        )}
+                        {countdown && (
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              flexShrink: 0,
+                              color: meetCountdownColor(
+                                athlete?.weeks_out,
+                                athlete?.days_out,
+                              ),
+                            }}
+                          >
+                            {countdown}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </aside>
+
+            {/* Right column: the focused athlete + progress + stats. */}
+            <div className="flex flex-col min-w-0" style={{ gap: 'var(--cloud-s4)' }}>
             {}
             <div className="cloud-panel" style={{ padding: 28 }}>
               {}
               <div className="flex items-start justify-between" style={{ gap: 12, marginBottom: 6 }}>
                 <div style={MICRO_LABEL}>Athlete</div>
-                {current.notification_type === 'manual_queue' && (
-                  <div className="flex items-center" style={{ gap: 6 }}>
-                    <span
-                      className="cloud-badge cloud-badge-primary"
-                      style={{ fontSize: 10 }}
+                <div className="flex items-center" style={{ gap: 6 }}>
+                  {/* Meet countdown chip (#22): instant triage signal for an
+                      athlete prepping a meet. Tinted by proximity. */}
+                  {currentMeetCountdown && (
+                    <Link
+                      href={
+                        currentMeet?.next_meet_id != null
+                          ? `/meets/${currentMeet.next_meet_id}`
+                          : '/meets'
+                      }
+                      className="cloud-badge transition-opacity hover:opacity-80"
+                      style={{
+                        fontSize: 10,
+                        color: meetCountdownColor(
+                          currentMeet?.weeks_out,
+                          currentMeet?.days_out,
+                        ),
+                        borderColor: 'var(--cloud-border)',
+                      }}
+                      title={
+                        currentMeet?.next_meet_name
+                          ? `${currentMeet.next_meet_name} · ${currentMeetCountdown} out`
+                          : `${currentMeetCountdown} out`
+                      }
                     >
-                      <span className="cloud-badge-dot" />
-                      Manual
-                    </span>
-                    <button
-                      onClick={() => removeManualMutation.mutate(current.id)}
-                      disabled={removeManualMutation.isPending}
-                      className="cloud-btn cloud-btn-ghost cloud-btn-sm"
-                      title="Remove from queue"
-                    >
-                      <Undo2 style={{ width: 12, height: 12 }} />
-                      Remove
-                    </button>
-                  </div>
-                )}
+                      <CalendarClock style={{ width: 11, height: 11 }} />
+                      {currentMeetCountdown} out
+                    </Link>
+                  )}
+                  {current.notification_type === 'manual_queue' && (
+                    <>
+                      <span
+                        className="cloud-badge cloud-badge-primary"
+                        style={{ fontSize: 10 }}
+                      >
+                        <span className="cloud-badge-dot" />
+                        Manual
+                      </span>
+                      <button
+                        onClick={() => removeManualMutation.mutate(current.id)}
+                        disabled={removeManualMutation.isPending}
+                        className="cloud-btn cloud-btn-ghost cloud-btn-sm"
+                        title="Remove from queue"
+                      >
+                        <Undo2 style={{ width: 12, height: 12 }} />
+                        Remove
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <h2
                 className="cloud-text font-semibold"
@@ -1024,22 +1252,78 @@ export default function WorkQueuePage() {
               />
 
               {}
-              <div style={MICRO_LABEL}>Program due</div>
               <div
-                className="font-semibold"
-                style={{
-                  fontSize: 22,
-                  marginTop: 4,
-                  letterSpacing: '-0.015em',
-                  color:
-                    current.notification_type === 'manual_queue'
-                      ? 'var(--cloud-text)'
-                      : dateColor,
-                }}
+                className="flex flex-wrap"
+                style={{ gap: 'var(--cloud-s5)', rowGap: 'var(--cloud-s3)' }}
               >
-                {current.notification_type === 'manual_queue'
-                  ? formatDate(currentAthlete?.program_due)
-                  : formatDate(current.due_date)}
+                <div>
+                  <div style={MICRO_LABEL}>Program due</div>
+                  <div
+                    className="font-semibold"
+                    style={{
+                      fontSize: 22,
+                      marginTop: 4,
+                      letterSpacing: '-0.015em',
+                      color:
+                        current.notification_type === 'manual_queue'
+                          ? 'var(--cloud-text)'
+                          : dateColor,
+                    }}
+                  >
+                    {current.notification_type === 'manual_queue'
+                      ? formatDate(currentAthlete?.program_due)
+                      : formatDate(current.due_date)}
+                  </div>
+                </div>
+
+                {/* Competition context (#22): meet name + how far out, derived
+                    from the athlete's server-computed countdown. */}
+                {currentMeet?.next_meet_name && currentMeetCountdown && (
+                  <div className="min-w-0">
+                    <div style={MICRO_LABEL}>Next meet</div>
+                    <div
+                      className="font-semibold flex items-baseline"
+                      style={{
+                        fontSize: 22,
+                        marginTop: 4,
+                        gap: 8,
+                        letterSpacing: '-0.015em',
+                      }}
+                    >
+                      <Link
+                        href={
+                          currentMeet.next_meet_id != null
+                            ? `/meets/${currentMeet.next_meet_id}`
+                            : '/meets'
+                        }
+                        className="cloud-text transition-opacity hover:opacity-80"
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 260,
+                        }}
+                        title={currentMeet.next_meet_name}
+                      >
+                        {currentMeet.next_meet_name}
+                      </Link>
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          flexShrink: 0,
+                          color: meetCountdownColor(
+                            currentMeet.weeks_out,
+                            currentMeet.days_out,
+                          ),
+                        }}
+                      >
+                        {currentMeetCountdown} out
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {}
@@ -1377,6 +1661,7 @@ export default function WorkQueuePage() {
                   )}
                 </div>
               )}
+            </div>
             </div>
           </div>
         )}

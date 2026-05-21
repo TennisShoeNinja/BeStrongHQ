@@ -805,6 +805,21 @@ body {
     }
   }
 
+  /* Work queue: single column on mobile (carousel only), athlete rail + focused
+     detail at md+. The detail column is capped so the reading width stays sane
+     while the freed real estate goes to the rail. */
+  .queue-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--cloud-s4);
+  }
+  @media (min-width: 768px) {
+    .queue-layout {
+      grid-template-columns: 260px minmax(0, 760px);
+      align-items: start;
+    }
+  }
+
   
   .cloud-feed-item {
     display: flex;
