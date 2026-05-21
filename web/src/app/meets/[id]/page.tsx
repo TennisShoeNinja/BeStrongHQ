@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect, type CSSProperties } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
@@ -136,6 +136,7 @@ function StatTile({
 export default function MeetDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { instance } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
@@ -148,10 +149,29 @@ export default function MeetDetailPage() {
     null
   );
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Types.MeetUpdate>({});
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<Set<number>>(
     new Set()
   );
+
+  // The creation form redirects here with ?assign_error=<n> when the meet was
+  // created but one or more athlete assignments failed. Surface it explicitly
+  // so the coach knows to finish assigning here, then drop the query param.
+  useEffect(() => {
+    const failed = parseInt(searchParams.get("assign_error") ?? "", 10);
+    if (!Number.isNaN(failed) && failed > 0) {
+      const noun = searchParams.get("assign_noun") || "athletes";
+      setErrorMessage(
+        `Meet created, but ${failed} ${noun} couldn't be assigned. Assign them below.`
+      );
+      router.replace(`/meets/${meetId}`);
+      const timer = setTimeout(() => setErrorMessage(null), 8000);
+      return () => clearTimeout(timer);
+    }
+    // meetId is stable for this route; searchParams drives this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const {
     data: meet,
@@ -419,6 +439,30 @@ export default function MeetDetailPage() {
           >
             <Check style={{ width: 14, height: 14 }} />
             {successMessage}
+          </div>
+        )}
+
+        {}
+        {errorMessage && (
+          <div
+            className="flex items-center"
+            style={{
+              position: "fixed",
+              top: 80,
+              right: 16,
+              zIndex: 40,
+              padding: "10px 14px",
+              borderRadius: 8,
+              backgroundColor: "rgba(239, 68, 68, 0.12)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              color: "#fca5a5",
+              fontSize: 13,
+              gap: 8,
+              maxWidth: 360,
+            }}
+          >
+            <AlertCircle style={{ width: 14, height: 14, flexShrink: 0 }} />
+            {errorMessage}
           </div>
         )}
 

@@ -2,12 +2,13 @@
 
 import { useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { ChevronLeft, Users } from 'lucide-react'
 import Link from 'next/link'
 
 import apiClient from '@/lib/api'
 import * as Types from '@/lib/types'
+import { EmptyState } from '@/components/empty-state'
 
 const FIELD_LABEL: CSSProperties = {
   display: 'block',
@@ -40,11 +41,45 @@ export default function NewMeetPage() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [selectedAthleteIds, setSelectedAthleteIds] = useState<Set<number>>(
+    new Set()
+  )
 
+  const {
+    data: athletes = [],
+    isLoading: athletesLoading,
+    isError: athletesError,
+  } = useQuery({
+    queryKey: ['athletes-list'],
+    queryFn: () => apiClient.listAthletes(false),
+  })
+
+  // Create the meet, then assign any selected athletes through the same
+  // assign endpoint the detail page uses. If the meet is created but one or
+  // more assignments fail, we keep the meet and still navigate to it so the
+  // coach can finish on the detail page rather than losing their work.
   const createMeetMutation = useMutation({
-    mutationFn: (data: Types.MeetCreate) => apiClient.createMeet(data),
-    onSuccess: (result) => {
-      router.push(`/meets/${result.id}`)
+    mutationFn: async (data: Types.MeetCreate) => {
+      const meet = await apiClient.createMeet(data)
+      const ids = Array.from(selectedAthleteIds)
+      const results = await Promise.allSettled(
+        ids.map((id) => apiClient.assignAthleteToMeet(meet.id, id))
+      )
+      const failedCount = results.filter(
+        (r) => r.status === 'rejected'
+      ).length
+      return { meet, attempted: ids.length, failedCount }
+    },
+    onSuccess: ({ meet, failedCount }) => {
+      if (failedCount > 0) {
+        // Surface the partial failure, then still route to the new meet.
+        const noun = failedCount === 1 ? 'athlete' : 'athletes'
+        router.push(
+          `/meets/${meet.id}?assign_error=${failedCount}&assign_noun=${noun}`
+        )
+      } else {
+        router.push(`/meets/${meet.id}`)
+      }
     },
     onError: (error) => {
       console.error('Error creating meet:', error)
@@ -69,6 +104,18 @@ export default function NewMeetPage() {
     }
   }
 
+  const toggleAthlete = (id: number) => {
+    setSelectedAthleteIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
     if (!formData.name.trim()) {
@@ -85,6 +132,15 @@ export default function NewMeetPage() {
     }
     createMeetMutation.mutate(formData)
   }
+
+  const selectedCount = selectedAthleteIds.size
+  const submitLabel = createMeetMutation.isPending
+    ? 'Creating…'
+    : selectedCount > 0
+    ? `Create meet with ${selectedCount} athlete${
+        selectedCount > 1 ? 's' : ''
+      }`
+    : 'Create meet'
 
   return (
     <div className="min-h-screen">
@@ -129,7 +185,7 @@ export default function NewMeetPage() {
             className="cloud-text-muted"
             style={{ fontSize: 13, marginTop: 6 }}
           >
-            Create a competition and assign athletes afterwards
+            Create a competition and assign athletes now or later
           </p>
         </div>
 
@@ -279,6 +335,117 @@ export default function NewMeetPage() {
               </div>
 
               {}
+              <div>
+                <label
+                  className="cloud-text"
+                  style={{ ...FIELD_LABEL, marginBottom: 8 }}
+                >
+                  Competing athletes{' '}
+                  <span
+                    className="cloud-text-muted"
+                    style={{ fontSize: 11, fontWeight: 400 }}
+                  >
+                    (optional)
+                  </span>
+                </label>
+
+                {athletesLoading ? (
+                  <div
+                    className="cloud-text-muted"
+                    style={{
+                      fontSize: 13,
+                      padding: '8px 12px',
+                    }}
+                  >
+                    Loading athletes…
+                  </div>
+                ) : athletesError ? (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 8,
+                      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.28)',
+                      color: '#fca5a5',
+                      fontSize: 13,
+                    }}
+                  >
+                    Couldn&rsquo;t load athletes. You can still create the meet
+                    and assign athletes afterwards.
+                  </div>
+                ) : athletes.length === 0 ? (
+                  <EmptyState
+                    icon={Users}
+                    iconTone="muted"
+                    body="No athletes yet. You can assign athletes after the meet is created."
+                    compact
+                  />
+                ) : (
+                  <div
+                    className="cloud-thin-scroll"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                      maxHeight: 240,
+                      overflowY: 'auto',
+                      borderRadius: 8,
+                      border: '1px solid var(--cloud-border)',
+                      backgroundColor: 'var(--cloud-surface-raised)',
+                      padding: 4,
+                    }}
+                  >
+                    {athletes.map((athlete) => {
+                      const checked = selectedAthleteIds.has(athlete.id)
+                      return (
+                        <label
+                          key={athlete.id}
+                          className="flex items-center"
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            backgroundColor: checked
+                              ? 'rgba(12, 92, 171, 0.12)'
+                              : 'transparent',
+                            gap: 12,
+                            transition: 'background-color 120ms ease',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAthlete(athlete.id)}
+                            style={{
+                              accentColor: 'var(--cloud-primary)',
+                              width: 14,
+                              height: 14,
+                            }}
+                          />
+                          <span
+                            className="cloud-text"
+                            style={{ fontSize: 13 }}
+                          >
+                            {athlete.name}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {selectedCount > 0 && (
+                  <p
+                    className="cloud-text-muted"
+                    style={{ fontSize: 11, marginTop: 8 }}
+                  >
+                    {selectedCount} athlete{selectedCount > 1 ? 's' : ''}{' '}
+                    selected
+                  </p>
+                )}
+              </div>
+
+              {}
               <div
                 className="flex"
                 style={{
@@ -291,9 +458,7 @@ export default function NewMeetPage() {
                   disabled={createMeetMutation.isPending}
                   className="cloud-btn cloud-btn-primary"
                 >
-                  {createMeetMutation.isPending
-                    ? 'Creating…'
-                    : 'Create meet'}
+                  {submitLabel}
                 </button>
                 <Link href="/meets" style={{ textDecoration: 'none' }}>
                   <button
