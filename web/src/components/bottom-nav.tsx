@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import {
   Home,
@@ -16,6 +16,7 @@ import {
   HardDrive,
   Settings,
   LogOut,
+  RefreshCw,
 } from "lucide-react";
 import {
   Sheet,
@@ -77,6 +78,34 @@ export function BottomNav() {
 
   const showBilling = features.includes("billing");
 
+  const queryClient = useQueryClient();
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncMutation = useMutation({
+    mutationFn: () => apiClient.sync(),
+    onMutate: () => setSyncError(null),
+    onSuccess: () => {
+      // Refresh everything the coach is currently looking at.
+      queryClient.invalidateQueries();
+    },
+    onError: (err: unknown) => {
+      const e = err as {
+        response?: { data?: { detail?: string }; status?: number };
+        code?: string;
+      };
+      if (e.response?.data?.detail) {
+        setSyncError(`Sync failed: ${e.response.data.detail}`);
+      } else if (e.code === "ECONNABORTED") {
+        setSyncError(
+          "Sync timed out. It may still be running; check back in a minute.",
+        );
+      } else {
+        setSyncError(
+          `Sync failed${e.response?.status ? ` (status ${e.response.status})` : ""}.`,
+        );
+      }
+    },
+  });
+
   return (
     <>
       <nav className="cloud-bottom-nav md:hidden" aria-label="Primary">
@@ -111,12 +140,36 @@ export function BottomNav() {
         </button>
       </nav>
 
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+      <Sheet
+        open={moreOpen}
+        onOpenChange={(open) => {
+          setMoreOpen(open);
+          if (!open && !syncMutation.isPending) {
+            syncMutation.reset();
+            setSyncError(null);
+          }
+        }}
+      >
         <SheetContent side="bottom">
           <SheetHeader>
             <SheetTitle>More</SheetTitle>
           </SheetHeader>
           <div className="cloud-more-grid">
+            <button
+              type="button"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              aria-busy={syncMutation.isPending}
+              className="cloud-more-item"
+            >
+              <RefreshCw
+                className={
+                  "cloud-more-icon" +
+                  (syncMutation.isPending ? " animate-spin" : "")
+                }
+              />
+              <span>{syncMutation.isPending ? "Syncing…" : "Sync Now"}</span>
+            </button>
             <Link
               href="/inbox"
               onClick={() => setMoreOpen(false)}
@@ -165,6 +218,19 @@ export function BottomNav() {
               </Link>
             )}
           </div>
+
+          {(syncMutation.isSuccess || syncError) && (
+            <p
+              role="status"
+              style={{
+                margin: "var(--cloud-s2) 0 0",
+                fontSize: 12,
+                color: syncError ? "#fca5a5" : "var(--cloud-text-dim)",
+              }}
+            >
+              {syncError ?? "Sync complete. Your data has been refreshed."}
+            </p>
+          )}
 
           {user && (
             <div className="cloud-more-account">
