@@ -1949,43 +1949,4 @@ body {
     box-shadow: 0 0 0 3px rgba(12, 92, 171, 0.15);
   }
 
-  /* Review FAB */
-  .cloud-mhome-fab {
-    position: fixed;
-    right: var(--cloud-s4);
-    bottom: calc(96px + env(safe-area-inset-bottom));
-    background: var(--cloud-primary);
-    color: var(--cloud-text);
-    border-radius: 999px;
-    padding: 13px var(--cloud-s4) 13px var(--cloud-s3);
-    font-weight: 600;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.15) inset,
-      0 1px 2px rgba(0, 0, 0, 0.30),
-      0 0 0 1px rgba(12, 92, 171, 0.40),
-      0 0 24px -6px rgba(12, 92, 171, 0.60);
-    text-decoration: none;
-    z-index: 35;
-    letter-spacing: -0.005em;
-  }
-  .cloud-mhome-fab:hover { background: var(--cloud-primary-hover); }
-  .cloud-mhome-fab svg {
-    width: 16px; height: 16px;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 1.8;
-  }
-  .cloud-mhome-fab .fab-badge {
-    background: rgba(0, 0, 0, 0.35);
-    color: var(--cloud-text);
-    border-radius: 999px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
 }

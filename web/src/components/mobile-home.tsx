@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { User, ArrowRight, CheckCircle, Search, Trophy, X } from "lucide-react";
+import { User, ArrowRight, Search, Trophy, X } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
 import * as Types from "@/lib/types";
@@ -62,10 +62,6 @@ export function MobileHome() {
   const { data: todaySchedule = [] } = useQuery({
     queryKey: ["todaySchedule"],
     queryFn: () => apiClient.getTodaySchedule(),
-  });
-  const { data: queueCount = 0 } = useQuery({
-    queryKey: ["notifications", "count"],
-    queryFn: () => apiClient.getNotificationCount(),
   });
   const { data: selectedPRHistory = [] } = useQuery({
     queryKey: ["maxHistory", selectedPRItem?.athlete_id],
@@ -248,13 +244,6 @@ export function MobileHome() {
         )}
       </div>
 
-      {queueCount > 0 && (
-        <Link href="/queue" className="cloud-mhome-fab">
-          <CheckCircle />
-          Work queue
-          <span className="fab-badge">{queueCount}</span>
-        </Link>
-      )}
       <PRDetailModal
         open={selectedPRItem !== null && selectedPR !== null}
         onClose={() => setSelectedPRItem(null)}
