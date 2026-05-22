@@ -121,6 +121,14 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
   if (athlete.division) metaBits.push(athlete.division);
   if (athlete.membership_no != null) metaBits.push(`OPL #${athlete.membership_no}`);
 
+  const maxTiles = [
+    { label: "Squat", value: athlete.squat_max_lbs },
+    { label: "Bench", value: athlete.bench_max_lbs },
+    { label: "Deadlift", value: athlete.deadlift_max_lbs },
+    { label: "Total", value: athlete.total_lbs },
+  ] as const;
+  const hasAnyMax = maxTiles.some((m) => m.value != null);
+
   if (drillLift) {
     return (
       <MobileLiftBlockView
@@ -222,6 +230,64 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
             )}
           </div>
         </div>
+
+        {/* Current maxes */}
+        {hasAnyMax && (
+          <>
+            <div className="cloud-mhome-section-h">
+              <p className="eyebrow">Current maxes</p>
+              <span
+                className="meta"
+                style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}
+              >
+                {unitLabel(unit)}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: "var(--cloud-s2)",
+                marginBottom: "var(--cloud-s5)",
+              }}
+            >
+              {maxTiles.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="cloud-panel"
+                  style={{
+                    padding: "var(--cloud-s3)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "var(--cloud-text-dim)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    {stat.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 19,
+                      fontWeight: 600,
+                      lineHeight: 1.1,
+                      color: "var(--cloud-text)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {formatLiftValue(stat.value, unit)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Current cycle */}
         <div className="cloud-mhome-section-h">
