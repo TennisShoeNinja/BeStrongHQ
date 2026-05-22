@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import * as Types from "@/lib/types";
@@ -16,6 +16,18 @@ const LIFT_TINT: Record<CompLift, { text: string; bg: string; border: string }> 
   squat: { text: "#fb923c", bg: "rgba(251, 146, 60, 0.18)", border: "rgba(251, 146, 60, 0.45)" },
   bench: { text: "#22d3ee", bg: "rgba(34, 211, 238, 0.16)", border: "rgba(34, 211, 238, 0.45)" },
   deadlift: { text: "#a78bfa", bg: "rgba(167, 139, 250, 0.16)", border: "rgba(167, 139, 250, 0.45)" },
+};
+
+const SELECT_STYLE: CSSProperties = {
+  background: "var(--cloud-panel)",
+  border: "1px solid var(--cloud-border)",
+  borderRadius: 8,
+  color: "var(--cloud-text)",
+  colorScheme: "dark",
+  fontFamily: "inherit",
+  fontSize: 12,
+  fontWeight: 600,
+  padding: "6px 10px",
 };
 
 function formatDate(iso: string): string {
@@ -148,10 +160,7 @@ export function PRHistoryTimeline({
         }}
       >
         <div>
-          <p className="cloud-eyebrow-sm" style={{ margin: 0, lineHeight: 1.3 }}>
-            Celebration PRs
-          </p>
-          <h2 style={{ marginTop: 2 }}>PR History</h2>
+          <h2>PR History</h2>
         </div>
         <div
           aria-label={`${totalDisplay} lifetime PRs`}
@@ -188,7 +197,7 @@ export function PRHistoryTimeline({
           display: "flex",
           flexWrap: "wrap",
           gap: "var(--cloud-s3)",
-          padding: "0 var(--cloud-s4) var(--cloud-s3)",
+          padding: "var(--cloud-s3) var(--cloud-s4)",
         }}
       >
         <div style={{ display: "flex", gap: 6 }}>
@@ -223,56 +232,41 @@ export function PRHistoryTimeline({
           })}
         </div>
 
-        {view.availableReps.length > 0 && (
-          <div className="cloud-segmented" role="group" aria-label="Reps">
-            <button
-              type="button"
-              className="cloud-segmented-item"
-              aria-selected={view.effectiveReps == null}
-              onClick={() => setSelectedReps(null)}
+        <div style={{ alignItems: "center", display: "flex", gap: 8, marginLeft: "auto" }}>
+          {view.availableReps.length > 0 && (
+            <select
+              value={view.effectiveReps == null ? "" : String(view.effectiveReps)}
+              onChange={(e) =>
+                setSelectedReps(e.target.value === "" ? null : Number(e.target.value))
+              }
+              aria-label="Reps"
+              style={SELECT_STYLE}
             >
-              All reps
-            </button>
-            {view.availableReps.map((r) => (
-              <button
-                key={r}
-                type="button"
-                className="cloud-segmented-item"
-                aria-selected={view.effectiveReps === r}
-                onClick={() => setSelectedReps(r)}
-              >
-                {r}RM
-              </button>
-            ))}
-          </div>
-        )}
+              <option value="">All reps</option>
+              {view.availableReps.map((r) => (
+                <option key={r} value={String(r)}>
+                  {r}RM
+                </option>
+              ))}
+            </select>
+          )}
 
-        {view.availableVariations.length > 1 && (
-          <select
-            value={view.effectiveVariation}
-            onChange={(e) => setSelectedVariation(e.target.value)}
-            aria-label="Variation"
-            style={{
-              background: "var(--cloud-panel)",
-              border: "1px solid var(--cloud-border)",
-              borderRadius: 8,
-              color: "var(--cloud-text)",
-              colorScheme: "dark",
-              fontFamily: "inherit",
-              fontSize: 12,
-              fontWeight: 600,
-              marginLeft: "auto",
-              padding: "6px 10px",
-            }}
-          >
-            <option value="">All variations</option>
-            {view.availableVariations.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        )}
+          {view.availableVariations.length > 1 && (
+            <select
+              value={view.effectiveVariation}
+              onChange={(e) => setSelectedVariation(e.target.value)}
+              aria-label="Variation"
+              style={SELECT_STYLE}
+            >
+              <option value="">All variations</option>
+              {view.availableVariations.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
