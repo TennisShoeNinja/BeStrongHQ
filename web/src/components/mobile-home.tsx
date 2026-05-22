@@ -210,22 +210,38 @@ export function MobileHome() {
             </div>
             <div className="cloud-mhome-review">
               {recentPRs.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className="cloud-mhome-rcard"
                   onClick={() => setSelectedPRItem(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedPRItem(item);
+                    }
+                  }}
                   aria-label={`Open ${item.athlete_name} PR details`}
                 >
                   <div className={`ava ${item.avatar_class}`}>{item.athlete_initials}</div>
                   <div>
-                    <p className="who">{item.athlete_name}</p>
+                    <p className="who">
+                      <Link
+                        href={`/athletes/${item.athlete_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        style={{ color: "inherit", textDecoration: "none" }}
+                      >
+                        {item.athlete_name}
+                      </Link>
+                    </p>
                     <p className="what">{item.title}</p>
                   </div>
                   <span className={`cloud-mhome-pill ${item.kind}`}>
                     {PILL_LABEL[item.kind]}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
           </>
