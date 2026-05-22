@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Trophy, ExternalLink, X } from "lucide-react";
 import * as Types from "@/lib/types";
 import {
@@ -18,7 +19,8 @@ interface PRDetailModalProps {
   
   allHistory: Types.MaxHistoryEntry[];
   athleteName?: string | null;
-  
+  athleteId?: number | null;
+
   programSheetUrls?: Record<number, string | null | undefined>;
   
   programIndex?: Array<{ id: number; program_number: number | null; program_name: string | null }>;
@@ -64,6 +66,7 @@ export default function PRDetailModal({
   pr,
   allHistory,
   athleteName,
+  athleteId,
   programSheetUrls,
   programIndex,
   unit = "lbs",
@@ -191,14 +194,25 @@ export default function PRDetailModal({
               <span style={{ color: "var(--cloud-text)" }}>{exerciseTitle}</span>
             </h3>
             {athleteName && (
-              <p
-                style={{
-                  fontSize: 12,
-                  color: "var(--cloud-text-muted)",
-                  margin: "2px 0 0",
-                }}
-              >
-                {athleteName}
+              <p style={{ fontSize: 12, margin: "2px 0 0" }}>
+                {athleteId != null ? (
+                  <Link
+                    href={`/athletes/${athleteId}`}
+                    onClick={onClose}
+                    style={{
+                      color: "var(--cloud-text-muted)",
+                      textDecoration: "underline",
+                      textDecorationColor: "var(--cloud-border-strong)",
+                      textUnderlineOffset: 2,
+                    }}
+                  >
+                    {athleteName}
+                  </Link>
+                ) : (
+                  <span style={{ color: "var(--cloud-text-muted)" }}>
+                    {athleteName}
+                  </span>
+                )}
               </p>
             )}
           </div>
