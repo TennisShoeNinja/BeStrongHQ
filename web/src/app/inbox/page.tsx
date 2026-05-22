@@ -462,10 +462,8 @@ export default function InboxPage() {
   return (
     <div className="min-h-screen">
       <div
-        className="mx-auto"
         style={{
-          maxWidth: 640,
-          padding: "var(--cloud-s5)",
+          padding: "var(--cloud-s5) var(--cloud-s6)",
           display: "flex",
           flexDirection: "column",
           gap: "var(--cloud-s4)",
