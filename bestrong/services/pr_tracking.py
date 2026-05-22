@@ -41,6 +41,7 @@ from ..utils.exercise_names import (
     canonicalize_exercise_name,
     canonicalize_with_aliases,
     load_alias_map,
+    name_indicates_accessory,
 )
 
 logger = logging.getLogger(__name__)
@@ -299,6 +300,17 @@ def log_prs_for_program(
 
     today = datetime.utcnow()
     rows = [(ex, sess) for ex, sess in rows if not session_is_future(program, sess, today)]
+
+
+    # Accessory lifts that a coach color-coded (or an adapter mis-tagged) as a
+    # competition lift must not enter the comp PR lanes or the training total.
+    # A blue-highlighted "Dumbbell RDL" carrying lift_category="deadlift" is
+    # still an accessory; drop it here regardless of its category tag so RDL
+    # loads never skew the deadlift progression or inflate a declared max.
+    rows = [
+        (ex, sess) for ex, sess in rows
+        if not name_indicates_accessory(ex.exercise_name)
+    ]
 
 
     rep_best: dict[tuple[int, str, str, int], tuple[SessionModel, float, str]] = {}

@@ -190,3 +190,78 @@ def most_common_raw_name(names: list[str]) -> str:
     if not order:
         return ""
     return max(order, key=lambda n: (counts[n], -order.index(n)))
+
+
+# Tokens that mark a lift as an accessory regardless of how it was
+# classified upstream. The color-based ``bestrong`` parser reads a row's
+# competition lift from its cell fill, so a coach who paints an accessory
+# the same shade as a comp lift (a blue "Dumbbell RDL" on the deadlift
+# color) would otherwise promote that accessory into the squat/bench/
+# deadlift bucket. These names are always accessories, so any classifier
+# (the parser's color demotion, PR logging's comp-lane guard) can fall
+# back to this list to keep accessories out of the competition lifts.
+# Substring match on the lowercased name; order-independent.
+_ACCESSORY_NAME_PATTERNS: tuple[str, ...] = (
+    # Hip-hinge / posterior-chain accessories that read as "deadlift"
+    "rdl",
+    "r.d.l",
+    "romanian",
+    "stiff leg",
+    "stiff-leg",
+    "stiff legged",
+    "sldl",
+    "good morning",
+    "ghr",
+    "glute ham",
+    "hyperextension",
+    "reverse hyper",
+    # Squat-pattern accessories
+    "hack squat",
+    "belt squat",
+    "bulgarian",
+    "goblet",
+    "lunge",
+    "leg press",
+    "leg extension",
+    "leg curl",
+    "hip thrust",
+    "hip-thrust",
+    # Bench / upper-body accessories
+    "tricep",
+    "pec deck",
+    "pec fly",
+    "cable fly",
+    "cable flies",
+    "pushdown",
+    "push down",
+    "skull crusher",
+    "lateral raise",
+    "lat raise",
+    "overhead press",
+    "ohp",
+    "military press",
+    "push up",
+    "push-up",
+    "pushup",
+    "incline bench",
+    "incline press",
+    "decline bench",
+    "db bench",
+    "dumbbell bench",
+    "chest press",
+)
+
+
+def name_indicates_accessory(exercise_name: str | None) -> bool:
+    """True when the exercise name contains a token that marks it as an
+    accessory, overriding any compound classification (cell color or
+    otherwise).
+
+    Used by the color-based parser to demote a miscolored variant back to
+    accessory, and by PR logging to keep accessory lifts out of the
+    competition PR lanes even if a row was mis-tagged upstream.
+    """
+    if not exercise_name:
+        return False
+    name_lower = exercise_name.lower()
+    return any(pat in name_lower for pat in _ACCESSORY_NAME_PATTERNS)

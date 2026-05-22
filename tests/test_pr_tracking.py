@@ -390,5 +390,47 @@ def test_pause_variant_does_not_trigger_comp_match(session):
         .all()
     )
     assert match_rows == [], (
-        "A pause-bench tie of the comp PR is not a comp match — different exercise"
+        "A pause-bench tie of the comp PR is not a comp match (different exercise)"
     )
+
+
+def test_accessory_named_entry_never_enters_comp_lane(session):
+    """An accessory mis-tagged as a competition lift is kept out of PRs.
+
+    Color-based parsing can promote a blue-highlighted "Dumbbell RDL" into
+    lift_category="deadlift". Even with that bad tag, the RDL must not log a
+    deadlift PR (it would skew the deadlift progression and could inflate the
+    declared max), while a genuine deadlift in the same program still does.
+    """
+    athlete = Athlete(name="RDL Athlete")
+    session.add(athlete)
+    session.flush()
+
+    p = _make_program(session, athlete.id, program_number=1, date_start="2025-01-01")
+    # Mis-tagged accessory: heavier than the real deadlift, single rep.
+    _make_top_set(
+        session, p, week=1, day=1, weight=500.0, reps=1,
+        exercise="Dumbbell RDL", lift_category="deadlift",
+    )
+    # Genuine competition deadlift on the same program.
+    _make_top_set(
+        session, p, week=1, day=2, weight=405.0, reps=1,
+        exercise="Competition Deadlift", lift_category="deadlift",
+    )
+    session.commit()
+
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p.id, source="import")
+    session.flush()
+
+    dl_rows = (
+        session.query(MaxHistory)
+        .filter(MaxHistory.athlete_id == athlete.id)
+        .filter(MaxHistory.lift == "deadlift")
+        .all()
+    )
+    names = {r.exercise_name for r in dl_rows}
+    assert "Dumbbell RDL" not in names, "RDL must not log a deadlift PR"
+    assert names == {"Competition Deadlift"}
+    # The RDL's 500 lb single must not become the declared deadlift max.
+    session.refresh(athlete)
+    assert athlete.deadlift_max_lbs == 405.0

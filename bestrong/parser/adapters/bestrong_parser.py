@@ -15,6 +15,7 @@ from typing import Any
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
+from ...utils.exercise_names import name_indicates_accessory
 from ..rpe_cell import parse_rpe_cell
 from . import (
     AthleteInfo,
@@ -64,64 +65,10 @@ def classify_lift(exercise_name: str) -> str:
     return "accessory"
 
 
-_ACCESSORY_NAME_PATTERNS: tuple[str, ...] = (
-
-
-    "rdl",
-    "r.d.l",
-    "romanian",
-    "stiff leg",
-    "stiff-leg",
-    "stiff legged",
-    "sldl",
-    "good morning",
-    "ghr",
-    "glute ham",
-    "hyperextension",
-    "reverse hyper",
-
-    "hack squat",
-    "belt squat",
-    "bulgarian",
-    "goblet",
-    "lunge",
-    "leg press",
-    "leg extension",
-    "leg curl",
-    "hip thrust",
-    "hip-thrust",
-
-    "tricep",
-    "pec deck",
-    "pec fly",
-    "cable fly",
-    "cable flies",
-    "pushdown",
-    "push down",
-    "skull crusher",
-    "lateral raise",
-    "lat raise",
-    "overhead press",
-    "ohp",
-    "military press",
-    "push up",
-    "push-up",
-    "pushup",
-    "incline bench",
-    "incline press",
-    "decline bench",
-    "db bench",
-    "dumbbell bench",
-    "chest press",
-)
-
-
-def name_indicates_accessory(exercise_name: str) -> bool:
-    """True when the exercise name contains a token that overrides a
-    compound-color classification — used to demote color-miscoded
-    variants back to accessory."""
-    name_lower = exercise_name.lower()
-    return any(pat in name_lower for pat in _ACCESSORY_NAME_PATTERNS)
+# ``name_indicates_accessory`` and its token list moved to
+# ``bestrong.utils.exercise_names`` so PR logging can share the same
+# accessory vocabulary; imported above and re-exported here for callers
+# (and tests) that reference it on this module.
 
 
 _COLOR_MAP: dict[str, tuple[int, int, int]] = {
