@@ -687,10 +687,10 @@ export default function WorkQueuePage() {
   }
 
   return (
-    <div style={{ padding: 'var(--cloud-s5)' }}>
+    <div style={{ padding: 'var(--cloud-s5) var(--cloud-s6)' }}>
       <div
         className="flex flex-col"
-        style={{ gap: 'var(--cloud-s4)', maxWidth: 1440 }}
+        style={{ gap: 'var(--cloud-s4)' }}
       >
         {}
         <div className="flex items-start justify-between" style={{ gap: 'var(--cloud-s3)' }}>
