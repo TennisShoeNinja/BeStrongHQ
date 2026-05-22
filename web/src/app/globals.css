@@ -806,8 +806,8 @@ body {
   }
 
   /* Work queue: single column on mobile (carousel only), athlete rail + focused
-     detail at md+. The detail column is capped so the reading width stays sane
-     while the freed real estate goes to the rail. */
+     detail at md+. The detail column fills the space left of the rail; the page
+     maxWidth (1280) is what bounds it, so it uses the screen without sprawling. */
   .queue-layout {
     display: grid;
     grid-template-columns: 1fr;
@@ -815,7 +815,7 @@ body {
   }
   @media (min-width: 768px) {
     .queue-layout {
-      grid-template-columns: 260px minmax(0, 760px);
+      grid-template-columns: 260px minmax(0, 1fr);
       align-items: start;
     }
   }
