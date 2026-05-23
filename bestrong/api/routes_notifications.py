@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..models.orm import Athlete, Notification
+from ..models.orm import (
+    Athlete,
+    ExerciseEntry,
+    Notification,
+    Program,
+    Session as SessionModel,
+)
 from .deps import get_db
 from .schemas import ManualQueueRequest, NotificationResponse
 
@@ -113,6 +119,61 @@ def _generate_program_due_reminders(db: Session) -> None:
     db.commit()
 
 
+def _generate_rpe_review_flags(db: Session) -> None:
+    """Open an inbox flag for any athlete with a set logged at an out-of-range RPE.
+
+    The parser marks a set ``rpe_needs_review`` when its RPE lands above 10
+    (or below 1). We can't tell whether the lifter ground out a true single or
+    fat-fingered a weight into the RPE column, so those sets are quarantined
+    from max math until a coach confirms or corrects them. This surfaces them:
+    one open notification per athlete, recreated if archived while flagged sets
+    remain, mirroring ``_generate_program_due_reminders``.
+    """
+    flagged = (
+        db.query(
+            Athlete.id,
+            func.count(ExerciseEntry.id).label("cnt"),
+        )
+        .join(Program, Program.athlete_id == Athlete.id)
+        .join(SessionModel, SessionModel.program_id == Program.id)
+        .join(ExerciseEntry, ExerciseEntry.session_id == SessionModel.id)
+        .filter(Athlete.archived == False)  # noqa: E712
+        .filter(ExerciseEntry.rpe_needs_review == True)  # noqa: E712
+        .group_by(Athlete.id)
+        .all()
+    )
+
+    for athlete_id, count in flagged:
+        existing = (
+            db.query(Notification)
+            .filter(
+                Notification.athlete_id == athlete_id,
+                Notification.notification_type == "rpe_review",
+                Notification.archived == False,  # noqa: E712
+            )
+            .first()
+        )
+        if existing:
+            continue
+
+        plural = "s" if count != 1 else ""
+        db.add(
+            Notification(
+                athlete_id=athlete_id,
+                notification_type="rpe_review",
+                title="RPE needs review",
+                message=(
+                    f"{count} set{plural} logged above RPE 10. Confirm the lift "
+                    "was made, or correct the entry. Until then it won't count "
+                    "toward a max."
+                ),
+                due_date=None,
+            )
+        )
+
+    db.commit()
+
+
 def _enrich_notification(notif: Notification) -> NotificationResponse:
     """Convert a Notification ORM object to a response with athlete name."""
     resp = NotificationResponse.model_validate(notif)
@@ -128,6 +189,7 @@ def list_notifications(
 ):
     """List notifications (inbox). Auto-generates reminders on each call."""
     _generate_program_due_reminders(db)
+    _generate_rpe_review_flags(db)
 
     query = db.query(Notification)
     if not include_archived:

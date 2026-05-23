@@ -307,6 +307,9 @@ export default function WorkQueuePage() {
   
   const queue = notifications
     .filter((n: Types.NotificationResponse) => !n.archived)
+    // RPE-review flags live in the inbox only; the queue is the program
+    // completion workflow and has no "done +1 week" action for them.
+    .filter((n: Types.NotificationResponse) => n.notification_type !== "rpe_review")
     .sort((a: Types.NotificationResponse, b: Types.NotificationResponse) => {
       
       if (!a.due_date && !b.due_date) return 0;

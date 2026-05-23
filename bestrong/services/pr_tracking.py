@@ -290,6 +290,12 @@ def log_prs_for_program(
         .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
         .filter(SessionModel.program_id == program_id)
         .filter(ExerciseEntry.failed == False)  # noqa: E712
+        # An RPE logged above 10 (or below 1) can't be trusted as a made
+        # max. The lifter may have ground out a true single, or fat-fingered
+        # a weight into the RPE column. The parser flags these
+        # (rpe_needs_review) and stashes the raw value for coach review, so
+        # they must never silently set a PR or bump a declared max.
+        .filter(ExerciseEntry.rpe_needs_review == False)  # noqa: E712
         .filter(ExerciseEntry.weight_lbs.isnot(None))
         .filter(ExerciseEntry.reps.isnot(None))
         .filter(ExerciseEntry.reps >= 1)

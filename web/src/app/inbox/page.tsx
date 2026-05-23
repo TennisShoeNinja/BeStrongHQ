@@ -104,6 +104,7 @@ function NotificationCard({
 }) {
   const router = useRouter();
   const isUnread = !notification.read && !notification.archived;
+  const isReview = notification.notification_type === "rpe_review";
 
   const handleClick = () => {
     if (isUnread) {
@@ -178,14 +179,25 @@ function NotificationCard({
             : "1px solid var(--cloud-border)",
         }}
       >
-        <Clock
-          style={{
-            width: 14,
-            height: 14,
-            color: isUnread ? "var(--cloud-primary-text)" : "var(--cloud-text-muted)",
-            strokeWidth: 1.8,
-          }}
-        />
+        {isReview ? (
+          <AlertCircle
+            style={{
+              width: 14,
+              height: 14,
+              color: "var(--cloud-warning-text)",
+              strokeWidth: 1.8,
+            }}
+          />
+        ) : (
+          <Clock
+            style={{
+              width: 14,
+              height: 14,
+              color: isUnread ? "var(--cloud-primary-text)" : "var(--cloud-text-muted)",
+              strokeWidth: 1.8,
+            }}
+          />
+        )}
       </div>
 
       {}
@@ -197,7 +209,7 @@ function NotificationCard({
             color: isUnread ? "var(--cloud-text)" : "var(--cloud-text-muted)",
           }}
         >
-          Reminder in{" "}
+          {isReview ? "Needs review in" : "Reminder in"}{" "}
           <span style={{ color: "var(--cloud-primary-text)", fontWeight: 600 }}>
             {notification.athlete_name || "Unknown"}
           </span>
@@ -208,7 +220,9 @@ function NotificationCard({
           style={{ fontSize: 11, marginTop: 2, gap: 6 }}
         >
           <FileText style={{ width: 11, height: 11, flexShrink: 0 }} />
-          {notification.notification_type === "program_due"
+          {isReview
+            ? notification.message
+            : notification.notification_type === "program_due"
             ? "Program Due"
             : notification.title}
         </p>
@@ -233,20 +247,24 @@ function NotificationCard({
           className="flex items-center flex-wrap"
           style={{ gap: 6, marginTop: 12 }}
         >
-          <button
-            onClick={(e) => handleComplete(e, "week")}
-            disabled={isCompleting}
-            className="cloud-btn cloud-btn-primary cloud-btn-sm"
-          >
-            Done +1 week
-          </button>
-          <button
-            onClick={(e) => handleComplete(e, "month")}
-            disabled={isCompleting}
-            className="cloud-btn cloud-btn-ghost cloud-btn-sm"
-          >
-            Done +1 month
-          </button>
+          {!isReview && (
+            <>
+              <button
+                onClick={(e) => handleComplete(e, "week")}
+                disabled={isCompleting}
+                className="cloud-btn cloud-btn-primary cloud-btn-sm"
+              >
+                Done +1 week
+              </button>
+              <button
+                onClick={(e) => handleComplete(e, "month")}
+                disabled={isCompleting}
+                className="cloud-btn cloud-btn-ghost cloud-btn-sm"
+              >
+                Done +1 month
+              </button>
+            </>
+          )}
           <Link
             href={`/athletes/${notification.athlete_id}`}
             onClick={(e) => e.stopPropagation()}

@@ -386,6 +386,236 @@ def backfill_prs(
         session.close()
 
 
+@app.command("repair-flagged-maxes")
+def repair_flagged_maxes(
+    db: Path | None = typer.Option(None, help="Database path"),
+    apply: bool = typer.Option(
+        False, "--apply", help="Apply fixes. Default is a dry-run report only."
+    ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip the confirmation prompt when applying."
+    ),
+):
+    """Find (and with --apply, fix) cached maxes inflated by an over-max RPE single.
+
+    A single logged at an RPE above 10 is flagged for review by the parser
+    (rpe_needs_review) and is no longer trusted as a made max. This finds any
+    athlete whose declared squat / bench / deadlift max is still backed by such
+    a flagged single, then for each one clears the auto-generated PRs, rebuilds
+    them from the corrected entries (flagged sets now excluded), and recomputes
+    the cached competition maxes down to real evidence. Manual entries, meet
+    results, and unaffected athletes are left untouched. Dry-run by default.
+    """
+    from datetime import datetime
+
+    from sqlalchemy import func as sa_func, or_ as sa_or
+
+    from .models.database import get_session, init_db
+    from .models.orm import (
+        Athlete,
+        ExerciseEntry,
+        MaxHistory,
+        MeetResult,
+        Program,
+        Session as SessionModel,
+    )
+    from .services.max_tracking import (
+        COMPETITION_LIFTS,
+        MAX_FIELD_BY_LIFT,
+        _meet_recency_cutoff,
+        reconcile_competition_maxes,
+    )
+    from .services.pr_tracking import log_prs_for_program
+
+    AUTO_SOURCES = ("import", "resync", "comp_match")
+
+    init_db(db)
+    session = get_session(db)
+
+    def best_nonflagged_evidence(athlete_id: int, lift: str) -> float | None:
+        """Heaviest trustworthy made single on file: best made meet attempt
+        within the recency window, or best non-failed, non-flagged 1-rep top
+        set. Used only to preview the post-repair max in the dry-run report."""
+        cutoff = _meet_recency_cutoff()
+        best_meet = (
+            session.query(sa_func.max(MeetResult.weight_lbs))
+            .filter(
+                MeetResult.athlete_id == athlete_id,
+                MeetResult.lift == lift,
+                MeetResult.made.is_(True),
+                sa_or(MeetResult.meet_date.is_(None), MeetResult.meet_date >= cutoff),
+            )
+            .scalar()
+        )
+        best_training = (
+            session.query(sa_func.max(ExerciseEntry.weight_lbs))
+            .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+            .join(Program, SessionModel.program_id == Program.id)
+            .filter(
+                Program.athlete_id == athlete_id,
+                ExerciseEntry.lift_category == lift,
+                ExerciseEntry.set_type == "top_set",
+                ExerciseEntry.is_accessory.is_(False),
+                ExerciseEntry.failed.is_(False),
+                ExerciseEntry.rpe_needs_review.is_(False),
+                ExerciseEntry.reps == 1,
+            )
+            .scalar()
+        )
+        cands = [v for v in (best_meet, best_training) if v is not None]
+        return max(cands) if cands else None
+
+    try:
+        flagged_rows = (
+            session.query(Athlete, ExerciseEntry, Program, SessionModel)
+            .join(Program, Program.athlete_id == Athlete.id)
+            .join(SessionModel, SessionModel.program_id == Program.id)
+            .join(ExerciseEntry, ExerciseEntry.session_id == SessionModel.id)
+            .filter(ExerciseEntry.rpe_needs_review.is_(True))
+            .filter(ExerciseEntry.lift_category.in_(COMPETITION_LIFTS))
+            .filter(ExerciseEntry.weight_lbs.isnot(None))
+            .filter(ExerciseEntry.reps == 1)
+            .all()
+        )
+
+        # athlete_id -> {"athlete": Athlete, "lifts": {lift -> info}}, keeping
+        # the heaviest flagged single per lift that sits at or above the
+        # current declared max (the one that plausibly set it).
+        affected: dict[int, dict] = {}
+        for ath, ex, prog, sess in flagged_rows:
+            declared = getattr(ath, MAX_FIELD_BY_LIFT[ex.lift_category], None)
+            if declared is None or ex.weight_lbs < declared:
+                continue
+            bucket = affected.setdefault(ath.id, {"athlete": ath, "lifts": {}})
+            prev = bucket["lifts"].get(ex.lift_category)
+            if prev is None or ex.weight_lbs > prev["weight"]:
+                bucket["lifts"][ex.lift_category] = {
+                    "weight": ex.weight_lbs,
+                    "declared": declared,
+                    "raw_rpe": ex.rpe_raw_value,
+                    "where": f"{prog.program_name or f'Program {prog.program_number}'} "
+                    f"W{sess.week_number}D{sess.day_number}",
+                }
+
+        if not affected:
+            console.print(
+                "[green]No cached maxes are backed by a flagged over-max RPE single.[/green]"
+            )
+            return
+
+        report = Table(title="Maxes backed by a flagged over-max RPE single")
+        report.add_column("Athlete")
+        report.add_column("Lift")
+        report.add_column("Declared", justify="right")
+        report.add_column("Flagged", justify="right")
+        report.add_column("Raw RPE")
+        report.add_column("Projected", justify="right")
+        report.add_column("Logged in")
+        for aid, bucket in sorted(
+            affected.items(), key=lambda kv: kv[1]["athlete"].name.lower()
+        ):
+            ath = bucket["athlete"]
+            for lift in COMPETITION_LIFTS:
+                info = bucket["lifts"].get(lift)
+                if info is None:
+                    continue
+                projected = best_nonflagged_evidence(aid, lift)
+                report.add_row(
+                    ath.name,
+                    lift.capitalize(),
+                    f"{info['declared']:g}",
+                    f"{info['weight']:g}",
+                    info["raw_rpe"] or "?",
+                    f"{projected:g}" if projected is not None else "(no evidence)",
+                    info["where"],
+                )
+        console.print(report)
+
+        if not apply:
+            console.print(
+                f"\n[yellow]Dry run.[/yellow] {len(affected)} athlete(s) affected. "
+                "Re-run with --apply to rebuild PRs and recompute these maxes."
+            )
+            return
+
+        if not yes and not typer.confirm(
+            f"Rebuild PRs and recompute maxes for {len(affected)} athlete(s)?"
+        ):
+            raise typer.Abort()
+
+        def prog_sort_key(p: Program) -> tuple:
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+                try:
+                    if p.date_start:
+                        return (datetime.strptime(p.date_start.strip(), fmt), p.imported_at)
+                except ValueError:
+                    continue
+            return (p.imported_at, p.imported_at)
+
+        results = []
+        for aid, bucket in affected.items():
+            ath = bucket["athlete"]
+            before = {
+                "squat": ath.squat_max_lbs,
+                "bench": ath.bench_max_lbs,
+                "deadlift": ath.deadlift_max_lbs,
+                "total": ath.total_lbs,
+            }
+            # Drop this athlete's auto-generated PRs (manual / meet / opl kept),
+            # then rebuild them so the now-excluded flagged single disappears.
+            session.query(MaxHistory).filter(
+                MaxHistory.athlete_id == aid,
+                MaxHistory.source.in_(AUTO_SOURCES),
+            ).delete(synchronize_session=False)
+            programs = sorted(
+                session.query(Program).filter(Program.athlete_id == aid).all(),
+                key=prog_sort_key,
+            )
+            for prog in programs:
+                log_prs_for_program(session, athlete_id=aid, program_id=prog.id, source="import")
+            # The session factory runs autoflush=False, so the rebuilt PR rows
+            # are still pending. Flush them before reconcile reads max_history,
+            # or it recomputes against stale evidence and skips the demotion.
+            session.flush()
+            # log_prs only ever raises a cached max; this recompute is what
+            # demotes it back down to current evidence.
+            reconcile_competition_maxes(
+                session, ath, source="repair", note="flagged-rpe cleanup"
+            )
+            results.append(
+                (
+                    ath,
+                    before,
+                    {
+                        "squat": ath.squat_max_lbs,
+                        "bench": ath.bench_max_lbs,
+                        "deadlift": ath.deadlift_max_lbs,
+                        "total": ath.total_lbs,
+                    },
+                )
+            )
+        session.commit()
+
+        out = Table(title="Maxes recomputed")
+        out.add_column("Athlete")
+        for label in ("Squat", "Bench", "Deadlift", "Total"):
+            out.add_column(label, justify="right")
+        for ath, before, after in sorted(results, key=lambda r: r[0].name.lower()):
+            cells = [ath.name]
+            for lift in ("squat", "bench", "deadlift", "total"):
+                b, a = before[lift], after[lift]
+                bs = f"{b:g}" if b is not None else "-"
+                as_ = f"{a:g}" if a is not None else "-"
+                cells.append(f"{bs} -> {as_}" if b != a else as_)
+            out.add_row(*cells)
+        console.print(out)
+        console.print(
+            f"\n[bold green]Repair complete[/bold green]: {len(results)} athlete(s) updated."
+        )
+    finally:
+        session.close()
+
+
 @app.command("opl-autolink")
 def opl_autolink(
     db: Path | None = typer.Option(None, help="Database path"),

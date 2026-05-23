@@ -205,6 +205,10 @@ def floor_declared_maxes_to_history(
                 ExerciseEntry.set_type == "top_set",
                 ExerciseEntry.is_accessory.is_(False),
                 ExerciseEntry.failed.is_(False),
+                # Over-max / out-of-range RPE entries are flagged for coach
+                # review and can't be trusted as a made single, so exclude
+                # them here too: they must never floor a cached max.
+                ExerciseEntry.rpe_needs_review.is_(False),
                 ExerciseEntry.weight_lbs.isnot(None),
                 ExerciseEntry.reps == 1,
             )

@@ -754,6 +754,12 @@ def get_estimated_max(
         .filter(Program.athlete_id == athlete_id)
         .filter(ExerciseEntry.is_accessory == False)  # noqa: E712
         .filter(ExerciseEntry.failed == False)  # noqa: E712
+        # Exclude over-max / out-of-range RPE sets flagged for review. For
+        # RPE-tracking tenants the actual_rpe IS NOT NULL filter below already
+        # drops them (a flagged set has no parsed RPE), but non-RPE tenants
+        # fall back to Epley on every top set, where a flagged single would
+        # otherwise inflate the "consider bumping the training max" badge.
+        .filter(ExerciseEntry.rpe_needs_review == False)  # noqa: E712
         .filter(ExerciseEntry.set_type == "top_set")
         .filter(ExerciseEntry.lift_category.in_(_COMPETITION_LIFTS))
         .filter(ExerciseEntry.weight_lbs.isnot(None))
