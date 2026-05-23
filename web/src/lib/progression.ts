@@ -92,6 +92,20 @@ export interface ProgressionChartSeries {
   color: string;
 }
 
+export type ProgressionLineValueMode = "raw" | "rollingAverage" | "runningMax";
+
+export interface ProgressionOutlierMarker {
+  label: string;
+  series: ProgressionChartSeries;
+  value: number;
+  meta: SeriesPointMeta;
+}
+
+export interface PreparedProgressionRows {
+  rows: ChartRow[];
+  outlierMarkers: ProgressionOutlierMarker[];
+}
+
 export function compareSeriesLabel(series: CompareSeries): string {
   const lift = LIFTS.find((l) => l.key === series.lift)?.label ?? series.lift;
   const reps =
@@ -274,7 +288,7 @@ function emptyLiftPeaks(): Record<LiftKey, { e1rm: number; delta: number | null 
 }
 
 /** Offset a program/week/day-indexed point to a calendar timestamp. */
-function pointTimestamp(
+export function pointTimestamp(
   p: E1RMDataPoint,
   startByProgram: Map<number, number>,
 ): number | null {
@@ -285,11 +299,28 @@ function pointTimestamp(
   return start + offsetDays * 86400000;
 }
 
-function programStartTimestamps(programs: ProgramListResponse[]): Map<number, number> {
+export function programStartTimestamps(programs: ProgramListResponse[]): Map<number, number> {
   const startByProgram = new Map<number, number>();
-  for (const prog of programs) {
+  const sorted = [...programs].sort((a, b) => {
+    const aNumber = a.program_number ?? a.id ?? Number.MAX_SAFE_INTEGER;
+    const bNumber = b.program_number ?? b.id ?? Number.MAX_SAFE_INTEGER;
+    if (aNumber !== bNumber) return aNumber - bNumber;
+    return (a.id ?? 0) - (b.id ?? 0);
+  });
+  let previousStart: number | null = null;
+
+  for (const prog of sorted) {
+    if (prog.id == null) continue;
     const d = parseLocalDate(prog.date_start);
-    if (prog.id != null && d) startByProgram.set(prog.id, d.getTime());
+    if (d) {
+      previousStart = d.getTime();
+      startByProgram.set(prog.id, previousStart);
+      continue;
+    }
+    if (previousStart != null) {
+      previousStart += 7 * 86400000;
+      startByProgram.set(prog.id, previousStart);
+    }
   }
   return startByProgram;
 }
@@ -312,9 +343,12 @@ function programSortFields(
   programNumber: number | null | undefined,
   weekNumber: number | null | undefined,
 ) {
+  const parsedStart = parseLocalDate(program?.date_start)?.getTime();
+  const fallbackProgramNumber =
+    programNumber ?? program?.program_number ?? program?.id ?? Number.MAX_SAFE_INTEGER;
   return {
-    dateStart: parseLocalDate(program?.date_start)?.getTime() ?? 0,
-    programNumber: programNumber ?? program?.program_number ?? Number.MAX_SAFE_INTEGER,
+    dateStart: parsedStart ?? null,
+    programNumber: fallbackProgramNumber,
     weekNumber: weekNumber ?? Number.MAX_SAFE_INTEGER,
   };
 }
@@ -323,8 +357,12 @@ function compareBucketOrder(
   a: ReturnType<typeof programSortFields>,
   b: ReturnType<typeof programSortFields>,
 ) {
-  if (a.dateStart !== b.dateStart) return a.dateStart - b.dateStart;
+  if (a.dateStart != null && b.dateStart != null && a.dateStart !== b.dateStart) {
+    return a.dateStart - b.dateStart;
+  }
   if (a.programNumber !== b.programNumber) return a.programNumber - b.programNumber;
+  if (a.dateStart != null && b.dateStart == null) return -1;
+  if (a.dateStart == null && b.dateStart != null) return 1;
   return a.weekNumber - b.weekNumber;
 }
 
@@ -379,6 +417,84 @@ function variationLabels(
 
 function seriesMetaKey(seriesKey: string): string {
   return `${seriesKey}__meta`;
+}
+
+export function isSeriesPointMeta(value: unknown): value is SeriesPointMeta {
+  if (typeof value !== "object" || value == null) return false;
+  const candidate = value as Partial<SeriesPointMeta>;
+  return (
+    typeof candidate.exerciseName === "string" &&
+    typeof candidate.weightLbs === "number" &&
+    typeof candidate.reps === "number" &&
+    typeof candidate.e1rmLbs === "number" &&
+    typeof candidate.weekNumber === "number" &&
+    typeof candidate.dayNumber === "number"
+  );
+}
+
+export function prepareProgressionChartRows(
+  rows: ChartRow[],
+  series: ProgressionChartSeries[],
+  options: {
+    excludeOutliersFromLine?: boolean;
+    lineValueMode?: ProgressionLineValueMode;
+    rollingWindow?: number;
+  } = {},
+): PreparedProgressionRows {
+  const excludeOutliers = options.excludeOutliersFromLine === true;
+  const lineValueMode = options.lineValueMode ?? "raw";
+  const rollingWindow = Math.max(1, Math.floor(options.rollingWindow ?? 3));
+  const runningMax = new Map<string, number>();
+  const rollingValues = new Map<string, number[]>();
+  const outlierMarkers: ProgressionOutlierMarker[] = [];
+
+  const preparedRows = rows.map((row) => {
+    const next: ChartRow = { ...row };
+
+    for (const item of series) {
+      const value = row[item.key];
+      if (typeof value !== "number") {
+        delete next[item.key];
+        continue;
+      }
+
+      const metaValue = row[seriesMetaKey(item.key)];
+      const meta = isSeriesPointMeta(metaValue) ? metaValue : null;
+      if (excludeOutliers && meta?.isOutlier) {
+        delete next[item.key];
+        outlierMarkers.push({
+          label: String(row.label),
+          series: item,
+          value,
+          meta,
+        });
+        continue;
+      }
+
+      if (lineValueMode === "runningMax") {
+        const max = Math.max(runningMax.get(item.key) ?? -Infinity, value);
+        runningMax.set(item.key, max);
+        next[item.key] = max;
+        continue;
+      }
+
+      if (lineValueMode === "rollingAverage") {
+        const values = rollingValues.get(item.key) ?? [];
+        values.push(value);
+        while (values.length > rollingWindow) values.shift();
+        rollingValues.set(item.key, values);
+        next[item.key] =
+          values.reduce((total, current) => total + current, 0) / values.length;
+        continue;
+      }
+
+      next[item.key] = value;
+    }
+
+    return next;
+  });
+
+  return { rows: preparedRows, outlierMarkers };
 }
 
 /**

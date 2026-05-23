@@ -16,8 +16,11 @@ import { useTheme } from "@/lib/theme-provider";
 import { safeHttpUrl } from "@/lib/safe-url";
 import {
   LIFTS,
+  isSeriesPointMeta,
+  prepareProgressionChartRows,
   type ChartRow,
   type LiftKey,
+  type ProgressionLineValueMode,
   type ProgressionChartSeries,
   type SeriesPointMeta,
 } from "@/lib/progression";
@@ -41,6 +44,11 @@ interface Props {
   tracksRpe?: boolean;
   volumePeakMarkers?: VolumePeakMarker[];
   highlightMarker?: ProgressionHighlightMarker | null;
+  excludeOutliersFromLine?: boolean;
+  lineValueMode?: ProgressionLineValueMode;
+  rollingWindow?: number;
+  meetMarkers?: ProgressionMeetMarker[];
+  paddedYDomain?: boolean;
 }
 
 interface TooltipPayloadEntry {
@@ -82,6 +90,12 @@ export interface ProgressionHighlightMarker {
   color?: string;
 }
 
+export interface ProgressionMeetMarker {
+  label: string;
+  value: number;
+  title?: string;
+}
+
 const PINNED_TOOLTIP_OFFSET = 12;
 const PINNED_TOOLTIP_WIDTH_ESTIMATE = 340;
 const PINNED_TOOLTIP_HEIGHT_ESTIMATE = 260;
@@ -97,19 +111,6 @@ interface ChartClickState {
 
 function metaKey(seriesKey: string): string {
   return `${seriesKey}__meta`;
-}
-
-function isPointMeta(value: unknown): value is SeriesPointMeta {
-  if (typeof value !== "object" || value == null) return false;
-  const candidate = value as Partial<SeriesPointMeta>;
-  return (
-    typeof candidate.exerciseName === "string" &&
-    typeof candidate.weightLbs === "number" &&
-    typeof candidate.reps === "number" &&
-    typeof candidate.e1rmLbs === "number" &&
-    typeof candidate.weekNumber === "number" &&
-    typeof candidate.dayNumber === "number"
-  );
 }
 
 function formatWeightValue(valueLbs: number, unit: WeightUnit): string {
@@ -180,7 +181,7 @@ function RichTooltip({
       visiblePayload
         .map((entry) => {
           const m = row[metaKey(String(entry.dataKey ?? ""))];
-          return isPointMeta(m) ? safeHttpUrl(m.sourceUrl) : null;
+          return isSeriesPointMeta(m) ? safeHttpUrl(m.sourceUrl) : null;
         })
         .filter((u): u is string => Boolean(u)),
     ),
@@ -244,7 +245,7 @@ function RichTooltip({
           const descriptor = seriesByKey.get(key);
           const color = descriptor?.color ?? entry.color ?? "var(--cloud-primary-text)";
           const metaValue = row[metaKey(key)];
-          const meta: SeriesPointMeta | null = isPointMeta(metaValue)
+          const meta: SeriesPointMeta | null = isSeriesPointMeta(metaValue)
             ? metaValue
             : null;
           const displayValue =
@@ -613,7 +614,7 @@ function renderSeriesDot(
     );
   }
   const metaValue = payload?.[metaKey(series.key)];
-  const meta = isPointMeta(metaValue) ? metaValue : null;
+  const meta = isSeriesPointMeta(metaValue) ? metaValue : null;
   if (mode !== "e1rm" || !meta?.isOutlier) {
     return (
       <circle
@@ -669,6 +670,11 @@ export function ProgressionChart({
   tracksRpe = true,
   volumePeakMarkers = [],
   highlightMarker = null,
+  excludeOutliersFromLine = false,
+  lineValueMode = "raw",
+  rollingWindow = 3,
+  meetMarkers = [],
+  paddedYDomain = false,
 }: Props) {
   const { resolvedMode } = useTheme();
   const dark = resolvedMode === "dark";
@@ -683,6 +689,23 @@ export function ProgressionChart({
   const [outlierExplainer, setOutlierExplainer] =
     useState<OutlierExplainerState | null>(null);
   const renderedSeries = series ?? LIFTS.filter((l) => visibleLifts.has(l.key));
+  const prepared = useMemo(
+    () =>
+      prepareProgressionChartRows(rows, renderedSeries, {
+        excludeOutliersFromLine,
+        lineValueMode: mode === "e1rm" ? lineValueMode : "raw",
+        rollingWindow,
+      }),
+    [
+      excludeOutliersFromLine,
+      lineValueMode,
+      mode,
+      renderedSeries,
+      rollingWindow,
+      rows,
+    ],
+  );
+  const chartRows = prepared.rows;
   const chartRef = useRef<HTMLDivElement | null>(null);
   const [chartSize, setChartSize] = useState({ width: 0, height: 0 });
   const seriesSignature = useMemo(
@@ -704,6 +727,39 @@ export function ProgressionChart({
     });
     return () => cancelAnimationFrame(handle);
   }, [mode, rows, seriesSignature, unit]);
+
+  const yDomain = useMemo<[number, number] | [number, string] | [string, string]>(() => {
+    if (isVolume) return [0, "dataMax + 1000"];
+    if (!paddedYDomain) return ["dataMin - 10", "dataMax + 10"];
+
+    const values: number[] = [];
+    for (const row of chartRows) {
+      for (const item of renderedSeries) {
+        const value = row[item.key];
+        if (typeof value === "number") values.push(value);
+      }
+    }
+    for (const marker of meetMarkers) values.push(marker.value);
+    if (values.length === 0) return [0, 100];
+
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const spread = Math.max(1, max - min);
+    const padding = Math.max(10, spread * 0.08);
+    return [Math.max(0, min - padding), max + padding];
+  }, [chartRows, isVolume, meetMarkers, paddedYDomain, renderedSeries]);
+
+  const outlierMarkers = useMemo(() => {
+    const lower = yDomain[0];
+    if (isVolume || !excludeOutliersFromLine || typeof lower !== "number") {
+      return [];
+    }
+    const upper = typeof yDomain[1] === "number" ? yDomain[1] : Number.POSITIVE_INFINITY;
+    return prepared.outlierMarkers.map((marker) => ({
+      ...marker,
+      displayValue: Math.min(Math.max(marker.value, lower), upper),
+    }));
+  }, [excludeOutliersFromLine, isVolume, prepared.outlierMarkers, yDomain]);
 
   useEffect(() => {
     const node = chartRef.current;
@@ -742,7 +798,7 @@ export function ProgressionChart({
     };
   }, [chartSize.height, chartSize.width, pinnedTooltip]);
 
-  if (rows.length < 2) {
+  if (chartRows.length < 2) {
     return (
       <div style={{ height, display: "grid", placeItems: "center" }}>
         <p className="cloud-text-dim" style={{ fontSize: 13 }}>
@@ -756,13 +812,13 @@ export function ProgressionChart({
     <div ref={chartRef} style={{ height, position: "relative" }}>
       <ResponsiveContainer width="100%" height={height}>
         <LineChart
-          data={rows}
+          data={chartRows}
           margin={{ top: 8, right: 12, bottom: 4, left: 4 }}
           onClick={(state: ChartClickState) => {
             const rawIndex = state.activeIndex;
             const index =
               typeof rawIndex === "number" ? rawIndex : Number(rawIndex);
-            const row = Number.isInteger(index) ? rows[index] : undefined;
+            const row = Number.isInteger(index) ? chartRows[index] : undefined;
             if (!row) {
               setPinnedTooltip(null);
               return;
@@ -806,7 +862,7 @@ export function ProgressionChart({
             tick={{ fontSize: 11, fill: textColor }}
             tickLine={false}
             width={isVolume ? 54 : 40}
-            domain={isVolume ? [0, "dataMax + 1000"] : ["dataMin - 10", "dataMax + 10"]}
+            domain={yDomain}
             tickFormatter={(v: number) =>
               isVolume ? valueFormatter.format(Math.round(v)) : `${Math.round(v)}`
             }
@@ -876,6 +932,44 @@ export function ProgressionChart({
               isAnimationActive={false}
             />
           ))}
+          {mode === "e1rm" &&
+            outlierMarkers.map((marker) => (
+              <ReferenceDot
+                key={`outlier-marker-${marker.series.key}-${marker.label}`}
+                x={marker.label}
+                y={marker.displayValue}
+                r={7}
+                fill="rgba(245, 158, 11, 0.12)"
+                stroke="var(--cloud-warning-text)"
+                strokeWidth={2}
+                ifOverflow="visible"
+                onClick={(event) => {
+                  if (
+                    event &&
+                    typeof event === "object" &&
+                    "stopPropagation" in event &&
+                    typeof event.stopPropagation === "function"
+                  ) {
+                    event.stopPropagation();
+                  }
+                  setOutlierExplainer({ series: marker.series, meta: marker.meta });
+                }}
+                style={{ cursor: "pointer" }}
+              />
+            ))}
+          {mode === "e1rm" &&
+            meetMarkers.map((marker) => (
+              <ReferenceDot
+                key={`meet-marker-${marker.label}-${marker.value}`}
+                x={marker.label}
+                y={marker.value}
+                r={5}
+                fill="var(--cloud-warning-text)"
+                stroke="var(--cloud-surface-raised)"
+                strokeWidth={2}
+                ifOverflow="visible"
+              />
+            ))}
           {mode === "e1rm" && highlightMarker && (
             <ReferenceDot
               x={highlightMarker.label}
@@ -922,6 +1016,33 @@ export function ProgressionChart({
           if (!open) setOutlierExplainer(null);
         }}
       />
+      {mode === "e1rm" && meetMarkers.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            right: 10,
+            bottom: 4,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "var(--cloud-text-muted)",
+            fontSize: 11,
+            fontWeight: 600,
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 999,
+              background: "var(--cloud-warning-text)",
+              boxShadow: "0 0 0 2px rgba(15, 15, 18, 0.85)",
+            }}
+          />
+          Meet max
+        </div>
+      )}
     </div>
   );
 }
