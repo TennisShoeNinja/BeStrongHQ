@@ -960,11 +960,59 @@ body {
     -webkit-backdrop-filter: blur(24px);
   }
   .cloud-sidebar-brand {
-    padding: var(--cloud-s3) var(--cloud-s3) var(--cloud-s3);
+    padding: var(--cloud-s3);
     border-bottom: 1px solid var(--cloud-border);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--cloud-s2);
+    min-height: 57px;
+  }
+  .cloud-sidebar-brand[data-collapsed="true"] {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .cloud-brand-text {
     display: flex;
     flex-direction: column;
     line-height: 1.1;
+    min-width: 0;
+  }
+  .cloud-sidebar-collapse-btn {
+    margin-left: auto;
+    padding: 5px;
+    border-radius: var(--cloud-r-sm);
+    color: var(--cloud-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    transition: all 0.15s ease;
+  }
+  .cloud-sidebar-collapse-btn:hover {
+    background: var(--cloud-panel-hover);
+    color: var(--cloud-text);
+  }
+  .cloud-sidebar-brand[data-collapsed="true"] .cloud-sidebar-collapse-btn {
+    margin-left: 0;
+  }
+  .cloud-sidebar[data-collapsed="true"] .cloud-nav-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+    position: relative;
+  }
+  .cloud-nav-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cloud-primary-text);
   }
   .cloud-brand-name {
     font-size: 15px;
