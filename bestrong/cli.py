@@ -300,26 +300,32 @@ def resync_all(
 def backfill_prs(
     db: Path | None = typer.Option(None, help="Database path"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
+    athlete_id: int | None = typer.Option(
+        None, "--athlete-id", help="Rebuild only this athlete (default: all athletes)"
+    ),
 ):
-    """Recompute all auto-generated PRs from scratch across every program.
+    """Rebuild auto-generated PRs from scratch from current training data.
 
-    Clears max_history rows with source 'import' or 'resync' (manual entries
-    are preserved), then walks every program in chronological order and
-    re-runs PR detection. Use after a PR-logic upgrade so historical rows
-    pick up the new rules (e.g. per-(exercise, reps) tracking). Works
-    against SQLite directly, no running API server required.
+    For each athlete, clears their program-derived max_history rows
+    (sources import/resync/comp_match) and replays PR detection over their
+    programs in chronological order, so the surviving rows reflect only the
+    current exercise data. Meet, OPL, manual, and floor rows are preserved.
+
+    Use after a PR-logic upgrade so historical rows pick up the new rules,
+    or after a parser fix to purge PRs sourced from once-corrupt data
+    (pass --athlete-id to scope it). Works against SQLite directly, no
+    running API server required.
     """
-    from datetime import datetime
-
     from .models.database import init_db, get_session
-    from .models.orm import Program, MaxHistory
-    from .services.pr_tracking import log_prs_for_program
+    from .models.orm import Athlete, MaxHistory
+    from .services.pr_tracking import rebuild_pr_history
 
     if not yes:
+        scope = f"athlete {athlete_id}" if athlete_id is not None else "every athlete"
         confirm = typer.confirm(
-            "This will delete all auto-generated PRs from max_history and "
-            "rebuild them by walking every program. Manual entries are kept. "
-            "Continue?"
+            f"This will delete auto-generated PRs from max_history for {scope} "
+            "and rebuild them from current program data. Manual, meet, and OPL "
+            "entries are kept. Continue?"
         )
         if not confirm:
             raise typer.Abort()
@@ -328,38 +334,17 @@ def backfill_prs(
     session = get_session(db)
 
     try:
-        cleared = (
-            session.query(MaxHistory)
-            .filter(MaxHistory.source.in_(("import", "resync")))
-            .delete(synchronize_session=False)
+        athlete_ids = (
+            [athlete_id]
+            if athlete_id is not None
+            else [row[0] for row in session.query(Athlete.id).all()]
         )
-        console.print(f"[yellow]Cleared[/yellow] {cleared} auto-generated max_history rows (manual entries kept)")
-        session.commit()
-
-        def sort_key(p: Program) -> tuple:
-
-
-            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
-                try:
-                    if p.date_start:
-                        return (datetime.strptime(p.date_start.strip(), fmt), p.imported_at)
-                except ValueError:
-                    continue
-            return (p.imported_at, p.imported_at)
-
-        programs = sorted(session.query(Program).all(), key=sort_key)
-        console.print(f"Processing {len(programs)} programs chronologically...")
+        console.print(f"Rebuilding PR history for {len(athlete_ids)} athlete(s)...")
 
         total_prs = 0
-        for i, prog in enumerate(programs, 1):
-            prs = log_prs_for_program(
-                session,
-                athlete_id=prog.athlete_id,
-                program_id=prog.id,
-                source="import",
-            )
-            total_prs += prs
-            if i % 50 == 0:
+        for i, aid in enumerate(athlete_ids, 1):
+            total_prs += rebuild_pr_history(session, athlete_id=aid, source="import")
+            if i % 25 == 0:
                 session.commit()
         session.commit()
 
@@ -370,17 +355,17 @@ def backfill_prs(
         table = Table(title="Rep PR distribution")
         table.add_column("Rep count", style="bold")
         table.add_column("PRs", justify="right")
-        rep_rows = (
-            session.query(MaxHistory.reps, sa_func.count())
-            .filter(MaxHistory.reps.isnot(None))
-            .group_by(MaxHistory.reps)
-            .order_by(MaxHistory.reps)
-            .all()
+        rep_q = session.query(MaxHistory.reps, sa_func.count()).filter(
+            MaxHistory.reps.isnot(None)
         )
+        total_q = session.query(sa_func.count()).filter(MaxHistory.lift == "total")
+        if athlete_id is not None:
+            rep_q = rep_q.filter(MaxHistory.athlete_id == athlete_id)
+            total_q = total_q.filter(MaxHistory.athlete_id == athlete_id)
+        rep_rows = rep_q.group_by(MaxHistory.reps).order_by(MaxHistory.reps).all()
         for reps, count in rep_rows:
             table.add_row(f"{reps}RM", str(count))
-        total_count = session.query(sa_func.count()).filter(MaxHistory.lift == "total").scalar()
-        table.add_row("Training total", str(total_count))
+        table.add_row("Training total", str(total_q.scalar()))
         console.print(table)
     finally:
         session.close()

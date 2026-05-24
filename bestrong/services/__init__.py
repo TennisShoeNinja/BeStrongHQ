@@ -63,6 +63,7 @@ def import_file(
     existing_program_id: int | None = None,
     db: DBSession | None = None,
     parser_id: str | None = None,
+    reconcile_pr_history: bool = True,
 ) -> dict:
     """Parse an xlsx file and import it into the database.
 
@@ -153,6 +154,7 @@ def import_file(
                 db_path=db_path,
                 candidate_name=candidate_name,
                 targeted_program_id=existing_program_id,
+                reconcile_pr_history=reconcile_pr_history,
             )
 
     if program_number is not None:
@@ -175,6 +177,7 @@ def import_file(
             db, program_data,
             source_filename=source_filename,
             existing_program_id=existing_program_id,
+            reconcile_pr_history=reconcile_pr_history,
         )
 
 
@@ -185,6 +188,7 @@ def import_file(
             owned_db, program_data,
             source_filename=source_filename,
             existing_program_id=existing_program_id,
+            reconcile_pr_history=reconcile_pr_history,
         )
         owned_db.commit()
         return result
@@ -244,6 +248,7 @@ def _import_many(
     db_path: str | Path | None,
     candidate_name: str,
     targeted_program_id: int | None = None,
+    reconcile_pr_history: bool = True,
 ) -> dict:
     """Write multiple ProgramData records from one workbook.
 
@@ -264,6 +269,7 @@ def _import_many(
             athlete_name=athlete_name,
             candidate_name=candidate_name,
             targeted_program_id=targeted_program_id,
+            reconcile_pr_history=reconcile_pr_history,
         )
 
     init_db(db_path)
@@ -275,6 +281,7 @@ def _import_many(
             athlete_name=athlete_name,
             candidate_name=candidate_name,
             targeted_program_id=targeted_program_id,
+            reconcile_pr_history=reconcile_pr_history,
         )
         owned_db.commit()
         return result
@@ -293,6 +300,7 @@ def _write_many(
     athlete_name: str | None,
     candidate_name: str,
     targeted_program_id: int | None = None,
+    reconcile_pr_history: bool = True,
 ) -> dict:
     written: list[dict] = []
     for program_data in program_data_list:
@@ -303,12 +311,25 @@ def _write_many(
                 f"Parsed {len(program_data.sessions)} sessions but zero "
                 f"exercises from {candidate_name!r}; not a recognized program."
             )
+        # Defer PR reconciliation: a per-athlete workbook re-imports many
+        # programs for the same athlete, so rebuilding inside each
+        # _write_to_db would replay that athlete's whole history once per
+        # block. Rebuild once per affected athlete after the loop instead.
         result = _write_to_db(
             db, program_data,
             source_filename=source_filename,
             existing_program_id=None,
+            reconcile_pr_history=False,
         )
         written.append(result)
+
+    if reconcile_pr_history:
+        from .pr_tracking import rebuild_pr_history
+        reconciled_athletes = {
+            r["athlete_id"] for r in written if r.get("program_updated")
+        }
+        for athlete_id in reconciled_athletes:
+            rebuild_pr_history(db, athlete_id=athlete_id, source="resync")
 
     if not written:
         # Multi-extract returned a non-empty list but every entry was
@@ -471,12 +492,19 @@ def _write_to_db(
     data: ProgramData,
     source_filename: str = "",
     existing_program_id: int | None = None,
+    reconcile_pr_history: bool = True,
 ) -> dict:
     """Write parsed program data to the database.
 
     Handles upsert logic for athletes and programs.
     If existing_program_id is provided, that program is updated directly
     (used by resync). Otherwise, matches by athlete_id + program_number.
+
+    ``reconcile_pr_history`` controls how PR rows are kept current on a
+    re-import. When True (default), a re-import rebuilds the athlete's
+    training PR history so stale rows from a previous parse can't survive.
+    Batch callers that re-import many programs for the same athlete set it
+    False and rebuild once per athlete after their loop.
     """
 
 
@@ -682,13 +710,23 @@ def _write_to_db(
 
 
     db.flush()
-    from .pr_tracking import log_prs_for_program
-    prs_logged = log_prs_for_program(
-        db,
-        athlete_id=athlete.id,
-        program_id=program.id,
-        source="resync" if program_updated else "import",
-    )
+    # On a re-import the corrected exercise_entries can invalidate PR rows
+    # the previous parse wrote. log_prs_for_program is additive and won't
+    # remove them, so reconcile by rebuilding this athlete's training PR
+    # history from scratch. Fresh programs have no stale rows to purge, so
+    # they take the cheap additive path. Batch callers (multi-program
+    # workbooks, resync-all, force-resync) pass reconcile_pr_history=False
+    # and run one rebuild per athlete after their loop to avoid O(n^2).
+    from .pr_tracking import log_prs_for_program, rebuild_pr_history
+    if program_updated and reconcile_pr_history:
+        prs_logged = rebuild_pr_history(db, athlete_id=athlete.id, source="resync")
+    else:
+        prs_logged = log_prs_for_program(
+            db,
+            athlete_id=athlete.id,
+            program_id=program.id,
+            source="resync" if program_updated else "import",
+        )
 
 
     # Monotonic: a header value typed at the top of the workbook is the

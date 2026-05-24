@@ -23,7 +23,11 @@ from bestrong.models.orm import (
     Session as SessionModel,
 )
 from bestrong.services.max_tracking import sync_competition_lane_prs
-from bestrong.services.pr_tracking import COMP_MATCH_SOURCE, log_prs_for_program
+from bestrong.services.pr_tracking import (
+    COMP_MATCH_SOURCE,
+    log_prs_for_program,
+    rebuild_pr_history,
+)
 
 
 @pytest.fixture()
@@ -434,3 +438,138 @@ def test_accessory_named_entry_never_enters_comp_lane(session):
     # The RDL's 500 lb single must not become the declared deadlift max.
     session.refresh(athlete)
     assert athlete.deadlift_max_lbs == 405.0
+
+
+def test_rebuild_purges_stale_pr_after_data_correction(session):
+    """A PR sourced from once-corrupt data must not survive a rebuild.
+
+    Reproduces the coerced multi-set bug: a squat top set lands with an
+    impossible weight (424424402), logged as a 4RM PR and a training-total
+    PR. After the parser is fixed and exercise_entries carry a sane weight,
+    rebuild_pr_history must drop the phantom rows and reflect only the
+    corrected data, which is what a re-import now triggers.
+    """
+    athlete = Athlete(name="Test Athlete")
+    session.add(athlete)
+    session.flush()
+
+    p1 = _make_program(session, athlete.id, program_number=1, date_start="2025-01-01")
+    _make_top_set(
+        session, p1, week=1, day=1, weight=424424402.0, reps=4,
+        exercise="Competition Squat", lift_category="squat",
+    )
+    # Bench + deadlift in the same session so a training total can form.
+    _make_top_set(
+        session, p1, week=1, day=1, weight=300.0, reps=1,
+        exercise="Competition Bench Press", lift_category="bench",
+    )
+    _make_top_set(
+        session, p1, week=1, day=1, weight=500.0, reps=1,
+        exercise="Competition Deadlift", lift_category="deadlift",
+    )
+    session.commit()
+
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p1.id, source="import")
+    session.flush()
+
+    # The phantom 4RM and the inflated training total are now in history.
+    assert (
+        session.query(MaxHistory)
+        .filter(MaxHistory.athlete_id == athlete.id, MaxHistory.new_value > 2000)
+        .count()
+        > 0
+    )
+
+    # Parser fix: the squat top set now carries a sane weight, exactly as a
+    # corrected re-import would rewrite exercise_entries.
+    entry = (
+        session.query(ExerciseEntry)
+        .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+        .filter(
+            SessionModel.program_id == p1.id,
+            ExerciseEntry.lift_category == "squat",
+        )
+        .one()
+    )
+    entry.weight_lbs = 405.0
+    session.flush()
+
+    written = rebuild_pr_history(session, athlete_id=athlete.id, source="resync")
+    session.flush()
+
+    assert written > 0
+    assert (
+        session.query(MaxHistory)
+        .filter(MaxHistory.athlete_id == athlete.id, MaxHistory.new_value > 2000)
+        .count()
+        == 0
+    ), "phantom rows must be gone after rebuild"
+
+    squat_4rm = (
+        session.query(MaxHistory)
+        .filter(
+            MaxHistory.athlete_id == athlete.id,
+            MaxHistory.lift == "squat",
+            MaxHistory.reps == 4,
+        )
+        .all()
+    )
+    assert len(squat_4rm) == 1 and squat_4rm[0].new_value == 405.0
+
+
+def test_rebuild_preserves_meet_and_manual_rows(session):
+    """Rebuild must not touch meet-derived or manually-entered history.
+
+    Only program-derived rows (import/resync/comp_match) are cleared and
+    replayed; a coach's manual max edit and a meet PR lane row both survive,
+    so legitimate evidence isn't collateral damage of the reconciliation.
+    """
+    athlete = Athlete(name="Test Athlete")
+    session.add(athlete)
+    session.flush()
+
+    # A manual coach edit and a meet-derived comp lane row.
+    session.add(
+        MaxHistory(
+            athlete_id=athlete.id, lift="bench", old_value=200.0, new_value=315.0,
+            source="manual", reps=1, exercise_name="Competition Bench Press",
+        )
+    )
+    _make_meet_attempt(session, athlete.id, "squat", 600.0)
+    session.flush()
+    sync_competition_lane_prs(session, athlete.id, source="meet")
+    session.flush()
+
+    p1 = _make_program(session, athlete.id, program_number=1, date_start="2025-01-01")
+    # A genuine training PR over the meet best, so a program-derived row exists.
+    _make_top_set(
+        session, p1, week=1, day=1, weight=650.0, reps=1,
+        exercise="Competition Squat", lift_category="squat",
+    )
+    session.commit()
+    log_prs_for_program(session, athlete_id=athlete.id, program_id=p1.id, source="import")
+    session.flush()
+
+    manual_before = (
+        session.query(MaxHistory).filter(MaxHistory.source == "manual").count()
+    )
+    meet_before = (
+        session.query(MaxHistory).filter(MaxHistory.source == "meet").count()
+    )
+    assert manual_before == 1 and meet_before >= 1
+
+    rebuild_pr_history(session, athlete_id=athlete.id, source="resync")
+    session.flush()
+
+    assert (
+        session.query(MaxHistory).filter(MaxHistory.source == "manual").count()
+        == manual_before
+    )
+    assert (
+        session.query(MaxHistory).filter(MaxHistory.source == "meet").count()
+        == meet_before
+    )
+    # The program-derived rows were rebuilt under the resync source.
+    assert (
+        session.query(MaxHistory).filter(MaxHistory.source == "resync").count() > 0
+    )

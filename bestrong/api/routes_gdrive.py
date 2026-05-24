@@ -702,6 +702,7 @@ def resync_all_programs(request: Request, athlete_id: int, db: Session = Depends
                         title=file_name,
                         athlete_name=athlete.name if athlete else None,
                         existing_program_id=gdrive_import.program_id,
+                        reconcile_pr_history=False,
                     )
 
 
@@ -720,6 +721,15 @@ def resync_all_programs(request: Request, athlete_id: int, db: Session = Depends
                 import logging
                 logging.getLogger(__name__).error("Resync failed for program %s: %s\n%s", gdrive_import.program_id, e, traceback.format_exc())
                 errors.append(f"Program {gdrive_import.program_id}: {str(e)}")
+
+        # Every program for this athlete has been re-imported with PR
+        # reconciliation deferred; rebuild the athlete's PR history once so
+        # stale rows from prior parses are purged without replaying the
+        # whole history per program.
+        if resynced:
+            from ..services.pr_tracking import rebuild_pr_history
+            rebuild_pr_history(db, athlete_id=athlete_id, source="resync")
+            db.commit()
 
         return ResyncAllResponse(
             status="ok",
@@ -757,9 +767,12 @@ def _run_force_resync(db_path: Path | None = None) -> None:
                 "gdrive_file_id": gdi.gdrive_file_id,
                 "gdrive_file_name": gdi.gdrive_file_name,
                 "athlete_name": gdi.program.athlete.name if gdi.program and gdi.program.athlete else None,
+                "athlete_id": gdi.program.athlete_id if gdi.program else None,
             }
             for gdi in gdrive_imports
         ]
+
+        resynced_athlete_ids: set[int] = set()
 
         with _resync_lock:
             status["total"] = len(import_info)
@@ -786,6 +799,7 @@ def _run_force_resync(db_path: Path | None = None) -> None:
                         title=info["gdrive_file_name"],
                         athlete_name=info["athlete_name"],
                         existing_program_id=info["program_id"],
+                        reconcile_pr_history=False,
                     )
 
 
@@ -801,6 +815,8 @@ def _run_force_resync(db_path: Path | None = None) -> None:
                         )
                     db.commit()
 
+                    if info["athlete_id"] is not None:
+                        resynced_athlete_ids.add(info["athlete_id"])
                     with _resync_lock:
                         status["resynced"] += 1
 
@@ -823,6 +839,30 @@ def _run_force_resync(db_path: Path | None = None) -> None:
                 with _resync_lock:
                     status["errors"].append(
                         f"Program {info['program_id']}: {str(e)}"
+                    )
+
+        # All programs re-imported with PR reconciliation deferred. Rebuild
+        # each touched athlete's PR history once so stale rows from prior
+        # parses are purged without replaying every athlete's history once
+        # per program.
+        from ..services.pr_tracking import rebuild_pr_history
+        for athlete_id in resynced_athlete_ids:
+            try:
+                rebuild_pr_history(db, athlete_id=athlete_id, source="resync")
+                db.commit()
+            except Exception as e:  # noqa: BLE001
+                import traceback
+                try:
+                    db.rollback()
+                except Exception:  # noqa: BLE001
+                    pass
+                logger.error(
+                    "PR rebuild failed for athlete %s: %s\n%s",
+                    athlete_id, e, traceback.format_exc(),
+                )
+                with _resync_lock:
+                    status["errors"].append(
+                        f"PR rebuild for athlete {athlete_id}: {str(e)}"
                     )
 
     finally:

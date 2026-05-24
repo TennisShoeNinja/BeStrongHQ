@@ -53,6 +53,15 @@ _COMPETITION_LIFTS = ("squat", "bench", "deadlift")
 # reframes these as "Comp Match" instead of celebrating a +0 lb PR.
 COMP_MATCH_SOURCE = "comp_match"
 
+# MaxHistory.source values written by this module from a program's
+# training data. These are a *derived cache* of exercise_entries: they
+# can be regenerated in full by replaying ``log_prs_for_program`` over
+# every program, so ``rebuild_pr_history`` is free to clear and rebuild
+# them. Everything else (``meet``/``opl``/``opl_resync`` meet-derived
+# rows, ``manual`` coach edits, ``floor_history``) is independent
+# evidence and must survive a rebuild untouched.
+_PROGRAM_DERIVED_SOURCES = frozenset({"import", "resync", COMP_MATCH_SOURCE})
+
 # Names that count as the competition variant of a given lift, for
 # Comp Match purposes only. Pulls in the bare lift name and a couple
 # of common synonyms so coaches who log "Bench" or "Bench Press" in
@@ -98,6 +107,21 @@ def _is_comp_variant_name(name: str | None, lift: str) -> bool:
 
 
 MAX_REP_PR_COUNT = 10
+
+
+def program_chrono_key(program: Program) -> tuple[datetime, datetime]:
+    """Sort key that orders programs the way the athlete lived them.
+
+    Prefers the parsed ``date_start`` so PR detection runs in real
+    training order; falls back to ``imported_at`` when the start date is
+    missing or unparseable. ``imported_at`` is the tiebreaker so two
+    blocks sharing a start date keep a stable order. ``datetime.min`` is
+    the last-resort floor for rows with neither value populated.
+    """
+    floor = datetime.min
+    started = parse_program_start(program.date_start)
+    imported = program.imported_at or floor
+    return (started or imported, imported)
 
 
 def _session_timestamp(program: Program, session: SessionModel) -> datetime:
@@ -449,3 +473,57 @@ def log_prs_for_program(
                         athlete.total_lbs = new_total
 
     return entries_created
+
+
+def rebuild_pr_history(
+    db: DBSession,
+    athlete_id: int,
+    source: str = "resync",
+) -> int:
+    """Recompute an athlete's training-derived PR rows from current data.
+
+    ``log_prs_for_program`` is additive: it only ever appends rows. That
+    is correct for a fresh import, but on a *re-import* it leaves behind
+    the PR rows the previous parse wrote, even when the corrected
+    ``exercise_entries`` no longer support them. Because PRs read back as
+    ``MAX(new_value)`` per (lift, exercise, reps), a stale row sourced
+    from once-corrupt data (e.g. a coerced multi-set weight logged as a
+    4RM) keeps winning forever.
+
+    This reconciles by deleting every program-derived row
+    (``_PROGRAM_DERIVED_SOURCES``) for the athlete and replaying
+    ``log_prs_for_program`` over their programs in chronological order, so
+    the surviving rows reflect only the current training data and the
+    chronological PR chain is reconstructed exactly as a clean import
+    would have produced it.
+
+    Meet/OPL/manual/floor rows are left untouched, so legitimate
+    meet-derived PRs (see ``_MEET_DERIVED_HISTORY_SOURCES`` in
+    max_tracking) and coach-entered maxes survive.
+
+    Note: cached ``athlete.<lift>_max_lbs`` / ``total_lbs`` are managed
+    separately (monotonic raise on import, ``floor_declared_maxes_to_history``,
+    and ``reconcile_competition_maxes`` on meet changes) and are only ever
+    raised here. A cached value inflated by a prior bad import is not
+    demoted by this rebuild, only the PR *rows* are.
+
+    Returns the number of PR rows written by the replay.
+    """
+    db.flush()
+    db.query(MaxHistory).filter(
+        MaxHistory.athlete_id == athlete_id,
+        MaxHistory.source.in_(_PROGRAM_DERIVED_SOURCES),
+    ).delete(synchronize_session="fetch")
+    db.flush()
+
+    programs = sorted(
+        db.query(Program).filter(Program.athlete_id == athlete_id).all(),
+        key=program_chrono_key,
+    )
+
+    written = 0
+    for program in programs:
+        written += log_prs_for_program(
+            db, athlete_id=athlete_id, program_id=program.id, source=source
+        )
+    return written
