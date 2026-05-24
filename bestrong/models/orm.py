@@ -54,6 +54,9 @@ class Notification(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     due_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Optional deep-link target: the program a review-type notification points
+    # at, so the inbox can jump straight to the relevant block.
+    link_program_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     archived: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
     read: Mapped[bool] = mapped_column(Integer, server_default="0", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

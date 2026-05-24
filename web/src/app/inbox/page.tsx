@@ -110,9 +110,16 @@ function NotificationCard({
     if (isUnread) {
       onMarkRead();
     }
-    if (notification.athlete_id) {
-      router.push(`/athletes/${notification.athlete_id}`);
+    if (!notification.athlete_id) {
+      return;
     }
+    // RPE-review flags deep-link to the flagged block so the coach lands on it
+    // instead of the top of the profile.
+    const target =
+      isReview && notification.link_program_id
+        ? `/athletes/${notification.athlete_id}#block-${notification.link_program_id}`
+        : `/athletes/${notification.athlete_id}`;
+    router.push(target);
   };
 
   const handleToggleRead = (e: React.MouseEvent) => {

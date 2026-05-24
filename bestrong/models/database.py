@@ -162,6 +162,7 @@ _COLUMN_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     ],
     "notifications": [
         ("read", "INTEGER DEFAULT 0 NOT NULL"),
+        ("link_program_id", "INTEGER"),
     ],
     "exercise_entries": [
         ("failed", "INTEGER NOT NULL DEFAULT 0"),

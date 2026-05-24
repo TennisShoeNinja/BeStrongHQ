@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import apiClient from "@/lib/api";
@@ -15,13 +15,25 @@ export function ProgramSection({
   athleteId,
   unit,
   onHighlightExercise,
+  autoOpen = false,
 }: {
   program: Types.ProgramListResponse;
   athleteId: number;
   unit: WeightUnit;
   onHighlightExercise: (ex: HighlightedExercise) => void;
+  autoOpen?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(autoOpen);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Deep-link target (e.g. from an inbox "RPE needs review" flag): open this
+  // block and scroll it into view. Runs when autoOpen flips true, which can be
+  // after mount if the profile reads the hash once programs have loaded.
+  useEffect(() => {
+    if (!autoOpen) return;
+    setExpanded(true);
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [autoOpen]);
   const [expandedSessions, setExpandedSessions] = useState<Set<number>>(
     new Set()
   );
@@ -114,11 +126,13 @@ export function ProgramSection({
 
   return (
     <div
+      ref={rootRef}
       style={{
         border: "1px solid var(--cloud-border)",
         borderRadius: "var(--cloud-r-md)",
         background: "rgba(255,255,255,0.02)",
         overflow: "hidden",
+        scrollMarginTop: 80,
       }}
     >
       <button

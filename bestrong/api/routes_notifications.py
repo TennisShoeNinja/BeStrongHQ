@@ -130,20 +130,28 @@ def _generate_rpe_review_flags(db: Session) -> None:
     remain, mirroring ``_generate_program_due_reminders``.
     """
     flagged = (
-        db.query(
-            Athlete.id,
-            func.count(ExerciseEntry.id).label("cnt"),
-        )
-        .join(Program, Program.athlete_id == Athlete.id)
-        .join(SessionModel, SessionModel.program_id == Program.id)
-        .join(ExerciseEntry, ExerciseEntry.session_id == SessionModel.id)
+        db.query(ExerciseEntry, Program, SessionModel, Athlete)
+        .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+        .join(Program, SessionModel.program_id == Program.id)
+        .join(Athlete, Program.athlete_id == Athlete.id)
         .filter(Athlete.archived == False)  # noqa: E712
         .filter(ExerciseEntry.rpe_needs_review == True)  # noqa: E712
-        .group_by(Athlete.id)
+        .order_by(
+            Athlete.id,
+            Program.program_number.desc(),
+            SessionModel.week_number.desc(),
+            SessionModel.day_number.desc(),
+        )
         .all()
     )
 
-    for athlete_id, count in flagged:
+    # Group newest-first per athlete so we can name the most recent flagged set
+    # and point the deep-link at the block it lives in.
+    by_athlete: dict[int, list] = {}
+    for ex, prog, sess, _ath in flagged:
+        by_athlete.setdefault(prog.athlete_id, []).append((ex, prog, sess))
+
+    for athlete_id, entries in by_athlete.items():
         existing = (
             db.query(Notification)
             .filter(
@@ -156,18 +164,26 @@ def _generate_rpe_review_flags(db: Session) -> None:
         if existing:
             continue
 
-        plural = "s" if count != 1 else ""
+        ex, prog, sess = entries[0]
+        lift_label = (ex.lift_category or "lift").capitalize()
+        weight = f"{ex.weight_lbs:g}" if ex.weight_lbs is not None else "?"
+        reps = ex.reps if ex.reps is not None else "?"
+        raw = ex.rpe_raw_value or "an out-of-range value"
+        more = f" (+{len(entries) - 1} more)" if len(entries) > 1 else ""
+        message = (
+            f"{lift_label} {weight} x {reps} logged at RPE {raw} in "
+            f"Program {prog.program_number} (W{sess.week_number} D{sess.day_number})"
+            f"{more}. Confirm the lift was made, or correct the entry. Until "
+            "then it won't count toward a max."
+        )
         db.add(
             Notification(
                 athlete_id=athlete_id,
                 notification_type="rpe_review",
                 title="RPE needs review",
-                message=(
-                    f"{count} set{plural} logged above RPE 10. Confirm the lift "
-                    "was made, or correct the entry. Until then it won't count "
-                    "toward a max."
-                ),
+                message=message,
                 due_date=None,
+                link_program_id=prog.id,
             )
         )
 

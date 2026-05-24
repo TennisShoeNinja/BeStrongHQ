@@ -155,6 +155,9 @@ def test_rpe_review_flag_is_generated_once(session):
     assert len(notifs) == 1
     assert notifs[0].athlete_id == athlete.id
     assert "RPE 10" in (notifs[0].message or "")
+    # The flag names the specific set and deep-links to its block.
+    assert "353" in (notifs[0].message or "")
+    assert notifs[0].link_program_id == prog.id
 
 
 def test_no_flag_without_flagged_sets(session):

@@ -746,6 +746,7 @@ export interface NotificationResponse {
   title: string;
   message?: string | null;
   due_date?: string | null;
+  link_program_id?: number | null;
   archived?: boolean;
   read?: boolean;
   created_at: string;

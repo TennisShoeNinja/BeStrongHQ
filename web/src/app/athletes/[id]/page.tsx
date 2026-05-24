@@ -163,6 +163,17 @@ export default function AthleteDetailPage() {
   
   const [highlightedExercise, setHighlightedExercise] = useState<HighlightedExercise | null>(null);
 
+  // Deep-link target block from a "#block-<programId>" hash (e.g. an inbox
+  // "RPE needs review" flag). Read once on mount; the matching ProgramSection
+  // opens and scrolls itself into view.
+  const [targetBlockId, setTargetBlockId] = useState<number | null>(null);
+  useEffect(() => {
+    const match = window.location.hash.match(/^#block-(\d+)$/);
+    if (match) {
+      setTargetBlockId(Number(match[1]));
+    }
+  }, []);
+
   
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeSearch, setMergeSearch] = useState("");
@@ -1830,6 +1841,7 @@ export default function AthleteDetailPage() {
                       athleteId={athleteId}
                       unit={unit}
                       onHighlightExercise={setHighlightedExercise}
+                      autoOpen={program.id === targetBlockId}
                     />
                   ))}
                 </div>

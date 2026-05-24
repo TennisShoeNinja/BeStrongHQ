@@ -797,6 +797,7 @@ class NotificationResponse(BaseModel):
     title: str
     message: str | None = None
     due_date: str | None = None
+    link_program_id: int | None = None
     archived: bool = False
     read: bool = False
     created_at: datetime
