@@ -136,6 +136,13 @@ def _generate_rpe_review_flags(db: Session) -> None:
         .join(Athlete, Program.athlete_id == Athlete.id)
         .filter(Athlete.archived == False)  # noqa: E712
         .filter(ExerciseEntry.rpe_needs_review == True)  # noqa: E712
+        # Only flag the heavy work that could actually be a missed PR: a
+        # competition-lift top set. Accessories and backdown sets routinely
+        # carry stray numbers in the RPE column and would otherwise bury the
+        # one set that matters under dozens of harmless ones.
+        .filter(ExerciseEntry.lift_category.in_(("squat", "bench", "deadlift")))
+        .filter(ExerciseEntry.is_accessory == False)  # noqa: E712
+        .filter(ExerciseEntry.set_type == "top_set")
         .order_by(
             Athlete.id,
             Program.program_number.desc(),

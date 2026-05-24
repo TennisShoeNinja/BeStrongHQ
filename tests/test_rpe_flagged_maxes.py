@@ -63,6 +63,9 @@ def _single(
     exercise: str = "Competition Bench Press",
     needs_review: bool = False,
     raw_rpe: str | None = None,
+    set_type: str = "top_set",
+    is_accessory: bool = False,
+    reps: int = 1,
 ) -> ExerciseEntry:
     sess = SessionModel(
         program_id=program.id, week_number=week, day_number=day, day_name=f"Day {day}"
@@ -74,12 +77,12 @@ def _single(
         exercise_name=exercise,
         exercise_order=1,
         exercise_group=1,
-        set_type="top_set",
+        set_type=set_type,
         lift_category=lift,
         sets=1,
-        reps=1,
+        reps=reps,
         weight_lbs=weight,
-        is_accessory=False,
+        is_accessory=is_accessory,
         failed=False,
         rpe_needs_review=needs_review,
         rpe_raw_value=raw_rpe,
@@ -158,6 +161,35 @@ def test_rpe_review_flag_is_generated_once(session):
     # The flag names the specific set and deep-links to its block.
     assert "353" in (notifs[0].message or "")
     assert notifs[0].link_program_id == prog.id
+
+
+def test_flag_ignores_accessory_and_backdown_sets(session):
+    """The flag only counts competition top sets. Accessories and backdown sets
+    routinely carry stray RPE-column numbers and must not raise a flag."""
+    athlete = Athlete(name="Noisy Logger", archived=False)
+    session.add(athlete)
+    session.flush()
+    prog = _program(session, athlete.id)
+    # Flagged accessory (lift_category 'accessory') and a flagged competition
+    # backdown set. Neither is a competition top set, so neither should flag.
+    _single(
+        session, prog, 100.0, day=1, lift="accessory", exercise="Curl",
+        needs_review=True, raw_rpe="85", is_accessory=True, set_type="accessory",
+    )
+    _single(
+        session, prog, 200.0, day=2, lift="bench",
+        needs_review=True, raw_rpe="11", set_type="backdown",
+    )
+    session.commit()
+
+    _generate_rpe_review_flags(session)
+
+    assert (
+        session.query(Notification)
+        .filter(Notification.notification_type == "rpe_review")
+        .count()
+        == 0
+    )
 
 
 def test_no_flag_without_flagged_sets(session):
