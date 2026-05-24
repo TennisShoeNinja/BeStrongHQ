@@ -1502,6 +1502,7 @@ def get_recent_prs(
         delta = (h.new_value - h.old_value) if h.old_value else None
         out.append(
             RecentPR(
+                id=h.id,
                 athlete_id=a.id,
                 athlete_name=a.name,
                 lift=h.lift,

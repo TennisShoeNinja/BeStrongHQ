@@ -321,6 +321,7 @@ export interface EstimatedMaxForLift {
 }
 
 export interface RecentPR {
+  id: number;
   athlete_id: number;
   athlete_name: string;
   lift: string;

@@ -834,6 +834,20 @@ body {
   .cloud-feed-item:hover {
     background: rgba(255, 255, 255, 0.02);
   }
+  /* Feed items rendered as <button> (e.g. clickable PRs that open a modal):
+     reset native button chrome but keep the :hover background, which still
+     wins on specificity. */
+  button.cloud-feed-item {
+    width: 100%;
+    text-align: left;
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--cloud-border);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
   .cloud-feed-icon {
     width: 32px;
     height: 32px;

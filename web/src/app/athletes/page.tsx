@@ -27,6 +27,8 @@ import {
   Users,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import PRDetailModal from "@/components/PRDetailModal";
+import { formatWeight, convertWeight } from "@/lib/units";
 
 type ViewType = "Athletes" | "Availability";
 type WeightUnit = "lbs" | "kg";
@@ -1203,7 +1205,7 @@ function AthletesPageInner() {
 
         {}
         <div className="cloud-grid-halves">
-          <RecentPRsPanel />
+          <RecentPRsPanel unit={weightUnit} />
           <UpcomingMeetsPanel meets={upcomingMeets} athletes={activeAthletes} />
         </div>
 
@@ -1449,13 +1451,32 @@ function FeaturedChartPanel() {
 }
 
 
-function RecentPRsPanel() {
+function RecentPRsPanel({ unit }: { unit: WeightUnit }) {
   const now = useNow();
+  const [selectedPR, setSelectedPR] = useState<Types.RecentPR | null>(null);
   const { data: prs = [], isLoading } = useQuery({
     queryKey: ["recent-prs", 7],
     queryFn: () => apiClient.getRecentPRs(7, 10),
     staleTime: 30_000,
   });
+
+  // Pull the selected athlete's full max history so the modal can render the
+  // progression lane around the clicked PR; matched back to the row by id.
+  const { data: selectedHistory = [] } = useQuery({
+    queryKey: ["maxHistory", selectedPR?.athlete_id],
+    queryFn: () =>
+      selectedPR
+        ? apiClient.getMaxHistory(selectedPR.athlete_id)
+        : Promise.resolve([]),
+    enabled: selectedPR !== null,
+  });
+  const selectedEntry = useMemo(
+    () =>
+      selectedPR
+        ? selectedHistory.find((entry) => entry.id === selectedPR.id) ?? null
+        : null,
+    [selectedHistory, selectedPR]
+  );
 
   return (
     <div className="cloud-panel">
@@ -1484,20 +1505,20 @@ function RecentPRsPanel() {
         </div>
       ) : (
         prs.map((pr, i) => (
-          <Link
+          <button
             key={`${pr.athlete_id}-${pr.recorded_at}-${i}`}
-            href={`/athletes/${pr.athlete_id}`}
+            type="button"
+            onClick={() => setSelectedPR(pr)}
             className="cloud-feed-item"
-            style={{ textDecoration: "none", color: "inherit" }}
           >
             <div className="cloud-feed-icon">
               <ArrowUp className="w-4 h-4" strokeWidth={2} />
             </div>
             <div className="cloud-feed-body">
               <div className="cloud-feed-title">
-                <strong>{pr.athlete_name}</strong> hit a {pr.lift} PR —{" "}
+                <strong>{pr.athlete_name}</strong> hit a {pr.lift} PR -{" "}
                 <span className="cloud-feed-value">
-                  {Math.round(pr.weight_lbs)} lb
+                  {formatWeight(pr.weight_lbs, unit, { decimals: 0 })}
                 </span>
                 {typeof pr.reps === "number" && pr.reps > 1 && (
                   <span className="cloud-text-muted"> @ {pr.reps} reps</span>
@@ -1506,13 +1527,27 @@ function RecentPRsPanel() {
               <div className="cloud-feed-meta">
                 {formatRelative(pr.recorded_at, now)}
                 {typeof pr.delta_lbs === "number" && pr.delta_lbs > 0 && (
-                  <> · +{Math.round(pr.delta_lbs)} lb over prior best</>
+                  <>
+                    {" · +"}
+                    {Math.round(convertWeight(pr.delta_lbs, unit))} {unit} over
+                    prior best
+                  </>
                 )}
               </div>
             </div>
-          </Link>
+          </button>
         ))
       )}
+
+      <PRDetailModal
+        open={selectedPR !== null && selectedEntry !== null}
+        onClose={() => setSelectedPR(null)}
+        pr={selectedEntry}
+        allHistory={selectedHistory}
+        athleteName={selectedPR?.athlete_name ?? null}
+        athleteId={selectedPR?.athlete_id ?? null}
+        unit={unit}
+      />
     </div>
   );
 }

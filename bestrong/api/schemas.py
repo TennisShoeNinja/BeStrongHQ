@@ -451,6 +451,7 @@ class AthleteAnalytics(BaseModel):
 
 class RecentPR(BaseModel):
     """A single PR event within the last N days, roster-wide."""
+    id: int  # source MaxHistory row id, so the UI can open it in the PR detail modal
     athlete_id: int
     athlete_name: str
     lift: str
