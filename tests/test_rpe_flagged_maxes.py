@@ -229,3 +229,65 @@ def test_repair_demotes_inflated_max(tmp_path):
     )
     assert leftover == 0
     check.close()
+
+
+def test_repair_clears_floor_history_and_leaves_unflagged_lifts(tmp_path):
+    """The repair must clear a stale floor_history row that pinned the bad max,
+    and must never touch a lift that wasn't flagged (Eppler's bench/deadlift
+    case): bench 353 was floored off a flagged single, deadlift 600 was never
+    flagged and must be left exactly where it is."""
+    from bestrong.cli import repair_flagged_maxes
+    from bestrong.models.database import get_session, init_db
+
+    db_path = tmp_path / "repair_floor.db"
+    init_db(db_path)
+
+    seed = get_session(db_path)
+    athlete = Athlete(
+        name="Floor Eppler",
+        squat_max_lbs=500.0,
+        bench_max_lbs=353.0,
+        deadlift_max_lbs=600.0,
+        total_lbs=1453.0,
+    )
+    seed.add(athlete)
+    seed.flush()
+    prog = _program(seed, athlete.id)
+    # Bench: a clean 342 single plus the flagged 353 (RPE 10.5).
+    _single(seed, prog, 342.0, day=1, lift="bench")
+    _single(seed, prog, 353.0, day=2, lift="bench", needs_review=True, raw_rpe="10.5")
+    # The floor row that pinned bench at 353 off the flagged single. Earlier the
+    # repair only cleared import/resync/comp_match, so this survived and the
+    # demotion silently failed.
+    seed.add(
+        MaxHistory(
+            athlete_id=athlete.id,
+            lift="bench",
+            old_value=342.0,
+            new_value=353.0,
+            source="floor_history",
+        )
+    )
+    # Deadlift: declared 600 but only a clean 580 single on file, and NO flagged
+    # single. A naive recompute-everything pass would demote it to 580; the
+    # scoped repair must leave it at 600.
+    _single(seed, prog, 580.0, day=3, lift="deadlift", exercise="Competition Deadlift")
+    seed.commit()
+    athlete_id = athlete.id
+    seed.close()
+
+    repair_flagged_maxes(db=db_path, apply=True, yes=True)
+
+    check = get_session(db_path)
+    a = check.query(Athlete).filter(Athlete.id == athlete_id).first()
+    assert a.bench_max_lbs == 342.0  # floor row cleared, demoted to real evidence
+    assert a.deadlift_max_lbs == 600.0  # unflagged lift untouched
+    assert a.squat_max_lbs == 500.0
+    assert a.total_lbs == 1442.0  # 500 + 342 + 600
+    leftover = (
+        check.query(MaxHistory)
+        .filter(MaxHistory.lift == "bench", MaxHistory.new_value == 353.0)
+        .count()
+    )
+    assert leftover == 0
+    check.close()

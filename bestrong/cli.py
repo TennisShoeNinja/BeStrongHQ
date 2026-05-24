@@ -408,11 +408,22 @@ def repair_flagged_maxes(
         COMPETITION_LIFTS,
         MAX_FIELD_BY_LIFT,
         _meet_recency_cutoff,
-        reconcile_competition_maxes,
+        log_max_changes,
+        recompute_canonical_max,
     )
     from .services.pr_tracking import log_prs_for_program
 
-    AUTO_SOURCES = ("import", "resync", "comp_match")
+    # System-generated max_history sources we clear for a flagged lift before
+    # rebuilding. Verified and coach-authored values (meet / opl / manual) are
+    # kept. floor_history and repair are included so a previously-floored or
+    # previously-repaired bad value can't survive and re-pin the cached max.
+    REPAIR_CLEAR_SOURCES = (
+        "import",
+        "resync",
+        "comp_match",
+        "floor_history",
+        "repair",
+    )
 
     init_db(db)
     session = get_session(db)
@@ -468,15 +479,23 @@ def repair_flagged_maxes(
         # current declared max (the one that plausibly set it).
         affected: dict[int, dict] = {}
         for ath, ex, prog, sess in flagged_rows:
-            declared = getattr(ath, MAX_FIELD_BY_LIFT[ex.lift_category], None)
+            lift = ex.lift_category
+            declared = getattr(ath, MAX_FIELD_BY_LIFT[lift], None)
             if declared is None or ex.weight_lbs < declared:
                 continue
+            # Only act when the declared max is actually inflated above real
+            # evidence. If clean evidence already supports it (e.g. a lift that
+            # was already repaired), there is nothing to demote.
+            projected = best_nonflagged_evidence(ath.id, lift)
+            if projected is None or projected >= declared:
+                continue
             bucket = affected.setdefault(ath.id, {"athlete": ath, "lifts": {}})
-            prev = bucket["lifts"].get(ex.lift_category)
+            prev = bucket["lifts"].get(lift)
             if prev is None or ex.weight_lbs > prev["weight"]:
-                bucket["lifts"][ex.lift_category] = {
+                bucket["lifts"][lift] = {
                     "weight": ex.weight_lbs,
                     "declared": declared,
+                    "projected": projected,
                     "raw_rpe": ex.rpe_raw_value,
                     "where": f"{prog.program_name or f'Program {prog.program_number}'} "
                     f"W{sess.week_number}D{sess.day_number}",
@@ -504,7 +523,7 @@ def repair_flagged_maxes(
                 info = bucket["lifts"].get(lift)
                 if info is None:
                     continue
-                projected = best_nonflagged_evidence(aid, lift)
+                projected = info["projected"]
                 report.add_row(
                     ath.name,
                     lift.capitalize(),
@@ -540,17 +559,21 @@ def repair_flagged_maxes(
         results = []
         for aid, bucket in affected.items():
             ath = bucket["athlete"]
+            flagged_lifts = list(bucket["lifts"].keys())
             before = {
                 "squat": ath.squat_max_lbs,
                 "bench": ath.bench_max_lbs,
                 "deadlift": ath.deadlift_max_lbs,
                 "total": ath.total_lbs,
             }
-            # Drop this athlete's auto-generated PRs (manual / meet / opl kept),
-            # then rebuild them so the now-excluded flagged single disappears.
+            # Clear only the flagged lift's system-generated history (verified
+            # meet/opl and coach-entered manual values are kept), then rebuild
+            # PRs so the now-excluded flagged single disappears. Scoping to the
+            # flagged lift means an unrelated lift is never disturbed.
             session.query(MaxHistory).filter(
                 MaxHistory.athlete_id == aid,
-                MaxHistory.source.in_(AUTO_SOURCES),
+                MaxHistory.lift.in_(flagged_lifts),
+                MaxHistory.source.in_(REPAIR_CLEAR_SOURCES),
             ).delete(synchronize_session=False)
             programs = sorted(
                 session.query(Program).filter(Program.athlete_id == aid).all(),
@@ -558,15 +581,30 @@ def repair_flagged_maxes(
             )
             for prog in programs:
                 log_prs_for_program(session, athlete_id=aid, program_id=prog.id, source="import")
-            # The session factory runs autoflush=False, so the rebuilt PR rows
-            # are still pending. Flush them before reconcile reads max_history,
-            # or it recomputes against stale evidence and skips the demotion.
+            # autoflush=False: flush the rebuilt rows before recompute reads them.
             session.flush()
-            # log_prs only ever raises a cached max; this recompute is what
-            # demotes it back down to current evidence.
-            reconcile_competition_maxes(
-                session, ath, source="repair", note="flagged-rpe cleanup"
-            )
+            # Recompute ONLY the flagged lift(s). log_prs can only raise a
+            # cached max; recompute_canonical_max is what demotes it to current
+            # evidence. Unflagged lifts are deliberately left alone.
+            updates: dict[str, float] = {}
+            for lift in flagged_lifts:
+                new_val = recompute_canonical_max(session, ath, lift)
+                if new_val is None:
+                    continue
+                field = MAX_FIELD_BY_LIFT[lift]
+                if getattr(ath, field) != new_val:
+                    updates[field] = new_val
+            if updates:
+                new_squat = updates.get("squat_max_lbs", ath.squat_max_lbs)
+                new_bench = updates.get("bench_max_lbs", ath.bench_max_lbs)
+                new_deadlift = updates.get("deadlift_max_lbs", ath.deadlift_max_lbs)
+                if None not in (new_squat, new_bench, new_deadlift):
+                    updates["total_lbs"] = new_squat + new_bench + new_deadlift
+                log_max_changes(
+                    session, ath, updates, source="repair", note="flagged-rpe cleanup"
+                )
+                for field, value in updates.items():
+                    setattr(ath, field, value)
             results.append(
                 (
                     ath,
