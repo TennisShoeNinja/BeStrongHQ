@@ -23,12 +23,18 @@ interface ShareAchievementsDialogProps {
   athlete: Types.AthleteResponse;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  dataSource?: {
+    queryKey?: (...parts: readonly unknown[]) => readonly unknown[];
+    meetResults?: () => Promise<Types.MeetResultEntry[]>;
+    prEvents?: () => Promise<Types.PREventEntry[]>;
+  };
 }
 
 export function ShareAchievementsDialog({
   athlete,
   open,
   onOpenChange,
+  dataSource,
 }: ShareAchievementsDialogProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -45,13 +51,13 @@ export function ShareAchievementsDialog({
   const [meetResultsQuery, prEventsQuery] = useQueries({
     queries: [
       {
-        queryKey: ['meet-results', athlete.id],
-        queryFn: () => apiClient.listMeetResults(athlete.id),
+        queryKey: dataSource?.queryKey?.('meet-results') ?? ['meet-results', athlete.id],
+        queryFn: dataSource?.meetResults ?? (() => apiClient.listMeetResults(athlete.id)),
         enabled: open,
       },
       {
-        queryKey: ['pr-events', athlete.id],
-        queryFn: () => apiClient.getPREvents(athlete.id),
+        queryKey: dataSource?.queryKey?.('pr-events') ?? ['pr-events', athlete.id],
+        queryFn: dataSource?.prEvents ?? (() => apiClient.getPREvents(athlete.id)),
         enabled: open,
       },
     ],

@@ -36,6 +36,10 @@ interface ShareCompHistoryDialogProps {
   athlete: Types.AthleteResponse;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  dataSource?: {
+    queryKey?: (...parts: readonly unknown[]) => readonly unknown[];
+    meetResults?: () => Promise<Types.MeetResultEntry[]>;
+  };
 }
 
 function shortDate(date: string | null): string {
@@ -56,6 +60,7 @@ export function ShareCompHistoryDialog({
   athlete,
   open,
   onOpenChange,
+  dataSource,
 }: ShareCompHistoryDialogProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -80,8 +85,8 @@ export function ShareCompHistoryDialog({
   const teamName = brandingQuery.data?.team_name?.trim() || 'BeStrong';
 
   const meetResultsQuery = useQuery({
-    queryKey: ['meet-results', athlete.id],
-    queryFn: () => apiClient.listMeetResults(athlete.id),
+    queryKey: dataSource?.queryKey?.('meet-results') ?? ['meet-results', athlete.id],
+    queryFn: dataSource?.meetResults ?? (() => apiClient.listMeetResults(athlete.id)),
     enabled: open,
   });
 

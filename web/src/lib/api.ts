@@ -194,6 +194,13 @@ class APIClient {
     return response.data;
   }
 
+  async getMyAthlete(): Promise<Types.AthleteResponse> {
+    const response = await this.client.get<Types.AthleteResponse>(
+      "/athlete/me"
+    );
+    return response.data;
+  }
+
   
   async createAthlete(data: Types.AthleteCreate): Promise<Types.AthleteResponse> {
     const response = await this.client.post<Types.AthleteResponse>(
@@ -267,9 +274,23 @@ class APIClient {
     return response.data;
   }
 
+  async getMyMeets(): Promise<Types.MeetListResponse[]> {
+    const response = await this.client.get<Types.MeetListResponse[]>(
+      "/athlete/me/meets"
+    );
+    return response.data;
+  }
+
   
   async getMeet(id: number): Promise<Types.MeetResponse> {
     const response = await this.client.get<Types.MeetResponse>(`/meets/${id}`);
+    return response.data;
+  }
+
+  async getMyMeet(meetId: number): Promise<Types.MeetResponse> {
+    const response = await this.client.get<Types.MeetResponse>(
+      `/athlete/me/meets/${meetId}`
+    );
     return response.data;
   }
 
@@ -343,6 +364,13 @@ class APIClient {
     return response.data;
   }
 
+  async getMyPrograms(): Promise<Types.ProgramListResponse[]> {
+    const response = await this.client.get<Types.ProgramListResponse[]>(
+      "/athlete/me/programs"
+    );
+    return response.data;
+  }
+
   
   async getProgram(
     athleteId: number,
@@ -381,6 +409,13 @@ class APIClient {
     return response.data;
   }
 
+  async getMyProgramSessions(programId: number): Promise<Types.SessionResponse[]> {
+    const response = await this.client.get<Types.SessionResponse[]>(
+      `/athlete/me/programs/${programId}/sessions`
+    );
+    return response.data;
+  }
+
   
   async getProgramVolume(
     athleteId: number,
@@ -404,6 +439,15 @@ class APIClient {
   ): Promise<Types.ExerciseEntryResponse[]> {
     const response = await this.client.get<Types.ExerciseEntryResponse[]>(
       `/sessions/${sessionId}/exercises`
+    );
+    return response.data;
+  }
+
+  async getMySessionExercises(
+    sessionId: number
+  ): Promise<Types.ExerciseEntryResponse[]> {
+    const response = await this.client.get<Types.ExerciseEntryResponse[]>(
+      `/athlete/me/sessions/${sessionId}/exercises`
     );
     return response.data;
   }
@@ -483,6 +527,30 @@ class APIClient {
       {
         params: {
           athlete_id: athleteId,
+          lift_category: options?.liftCategory,
+          program_id: options?.programId,
+          primary_only: options?.primaryOnly,
+          min_reps: options?.minReps,
+          max_reps: options?.maxReps,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  async getMyE1RMTrends(
+    options?: {
+      liftCategory?: string;
+      programId?: number;
+      primaryOnly?: boolean;
+      minReps?: number;
+      maxReps?: number;
+    }
+  ): Promise<Types.E1RMDataPoint[]> {
+    const response = await this.client.get<Types.E1RMDataPoint[]>(
+      "/athlete/me/e1rm",
+      {
+        params: {
           lift_category: options?.liftCategory,
           program_id: options?.programId,
           primary_only: options?.primaryOnly,
@@ -1226,6 +1294,18 @@ class APIClient {
     return response.data;
   }
 
+  async getMyBodyweightTrend(
+    programId?: number
+  ): Promise<Types.BodyweightTrendPoint[]> {
+    const response = await this.client.get<Types.BodyweightTrendPoint[]>(
+      "/athlete/me/bodyweight",
+      {
+        params: programId ? { program_id: programId } : {},
+      }
+    );
+    return response.data;
+  }
+
   
   
   
@@ -1258,6 +1338,18 @@ class APIClient {
     return response.data;
   }
 
+  async getMyRPECompliance(
+    programId?: number
+  ): Promise<Types.RPEComplianceResponse> {
+    const response = await this.client.get<Types.RPEComplianceResponse>(
+      "/athlete/me/rpe-compliance",
+      {
+        params: { program_id: programId },
+      }
+    );
+    return response.data;
+  }
+
   
   async saveMeetResults(
     athleteId: number,
@@ -1274,6 +1366,13 @@ class APIClient {
   async listMeetResults(athleteId: number): Promise<Types.MeetResultEntry[]> {
     const response = await this.client.get<Types.MeetResultEntry[]>(
       `/athletes/${athleteId}/meet-results`
+    );
+    return response.data;
+  }
+
+  async getMyMeetResults(): Promise<Types.MeetResultEntry[]> {
+    const response = await this.client.get<Types.MeetResultEntry[]>(
+      "/athlete/me/meet-results"
     );
     return response.data;
   }
@@ -1306,9 +1405,28 @@ class APIClient {
     return response.data;
   }
 
+  async getMyMaxHistory(
+    options?: { lift?: string }
+  ): Promise<Types.MaxHistoryEntry[]> {
+    const response = await this.client.get<Types.MaxHistoryEntry[]>(
+      "/athlete/me/max-history",
+      {
+        params: options?.lift ? { lift: options.lift } : {},
+      }
+    );
+    return response.data;
+  }
+
   async getPREvents(athleteId: number): Promise<Types.PREventEntry[]> {
     const response = await this.client.get<Types.PREventEntry[]>(
       `/analytics/athletes/${athleteId}/pr-events`
+    );
+    return response.data;
+  }
+
+  async getMyPREvents(): Promise<Types.PREventEntry[]> {
+    const response = await this.client.get<Types.PREventEntry[]>(
+      "/athlete/me/pr-events"
     );
     return response.data;
   }
@@ -1370,6 +1488,13 @@ class APIClient {
     return response.data.settings;
   }
 
+  async getMySettings(): Promise<Record<string, string | null>> {
+    const response = await this.client.get<Record<string, string | null>>(
+      "/athlete/me/settings"
+    );
+    return response.data;
+  }
+
   async updateSettings(settings: Record<string, string | null>): Promise<Record<string, string | null>> {
     const response = await this.client.put<{ settings: Record<string, string | null> }>("/settings", { settings });
     return response.data.settings;
@@ -1417,6 +1542,10 @@ class APIClient {
   
   async logout(): Promise<void> {
     await this.client.post("/auth/logout");
+  }
+
+  async athleteLogout(): Promise<void> {
+    await this.client.post("/auth/athlete/logout");
   }
 
   async listAllowedUsers(): Promise<Types.AllowedUserResponse[]> {

@@ -22,12 +22,17 @@ interface ShareProfileDialogProps {
   athlete: Types.AthleteResponse;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  dataSource?: {
+    queryKey?: (...parts: readonly unknown[]) => readonly unknown[];
+    meetResults?: () => Promise<Types.MeetResultEntry[]>;
+  };
 }
 
 export function ShareProfileDialog({
   athlete,
   open,
   onOpenChange,
+  dataSource,
 }: ShareProfileDialogProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -42,8 +47,8 @@ export function ShareProfileDialog({
   const teamName = brandingQuery.data?.team_name?.trim() || 'BeStrong';
 
   const meetResultsQuery = useQuery({
-    queryKey: ['meet-results', athlete.id],
-    queryFn: () => apiClient.listMeetResults(athlete.id),
+    queryKey: dataSource?.queryKey?.('meet-results') ?? ['meet-results', athlete.id],
+    queryFn: dataSource?.meetResults ?? (() => apiClient.listMeetResults(athlete.id)),
     enabled: open,
   });
 

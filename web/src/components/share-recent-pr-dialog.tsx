@@ -33,6 +33,10 @@ interface ShareRecentPRDialogProps {
   athlete: Types.AthleteResponse;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  dataSource?: {
+    queryKey?: (...parts: readonly unknown[]) => readonly unknown[];
+    maxHistory?: () => Promise<Types.MaxHistoryEntry[]>;
+  };
 }
 
 function formatShortDate(iso: string | null | undefined): string {
@@ -62,6 +66,7 @@ export function ShareRecentPRDialog({
   athlete,
   open,
   onOpenChange,
+  dataSource,
 }: ShareRecentPRDialogProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -87,8 +92,8 @@ export function ShareRecentPRDialog({
   const teamName = brandingQuery.data?.team_name?.trim() || 'BeStrong';
 
   const historyQuery = useQuery({
-    queryKey: ['max-history', athlete.id],
-    queryFn: () => apiClient.getMaxHistory(athlete.id),
+    queryKey: dataSource?.queryKey?.('max-history') ?? ['max-history', athlete.id],
+    queryFn: dataSource?.maxHistory ?? (() => apiClient.getMaxHistory(athlete.id)),
     enabled: open,
   });
 
