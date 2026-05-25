@@ -110,16 +110,16 @@ function NotificationCard({
     if (isUnread) {
       onMarkRead();
     }
-    if (!notification.athlete_id) {
+    // RPE-review flags open the source spreadsheet, where the coach can
+    // actually look at and fix the entry. The "View athlete" button handles the
+    // in-app deep-link to the block.
+    if (isReview && notification.link_sheet_url) {
+      window.open(notification.link_sheet_url, "_blank", "noopener,noreferrer");
       return;
     }
-    // RPE-review flags deep-link to the flagged block so the coach lands on it
-    // instead of the top of the profile.
-    const target =
-      isReview && notification.link_program_id
-        ? `/athletes/${notification.athlete_id}#block-${notification.link_program_id}`
-        : `/athletes/${notification.athlete_id}`;
-    router.push(target);
+    if (notification.athlete_id) {
+      router.push(`/athletes/${notification.athlete_id}`);
+    }
   };
 
   const handleToggleRead = (e: React.MouseEvent) => {
@@ -273,7 +273,11 @@ function NotificationCard({
             </>
           )}
           <Link
-            href={`/athletes/${notification.athlete_id}`}
+            href={
+              isReview && notification.link_program_id
+                ? `/athletes/${notification.athlete_id}#block-${notification.link_program_id}`
+                : `/athletes/${notification.athlete_id}`
+            }
             onClick={(e) => e.stopPropagation()}
             className="cloud-btn cloud-btn-ghost cloud-btn-sm"
             style={{ textDecoration: "none" }}
@@ -330,13 +334,12 @@ function NotificationCard({
       <button
         onClick={handleArchive}
         disabled={isArchiving}
-        className="group-hover:opacity-100"
+        className="opacity-60 group-hover:opacity-100"
         title={showArchived ? "Unarchive" : "Dismiss"}
         style={{
           position: "absolute",
           top: 8,
           right: 8,
-          opacity: 0,
           padding: 4,
           borderRadius: 6,
           background: "transparent",

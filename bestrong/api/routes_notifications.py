@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
@@ -119,6 +120,33 @@ def _generate_program_due_reminders(db: Session) -> None:
     db.commit()
 
 
+_RPE_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+
+# Upper bound for a "genuine over-max attempt". An RPE just over 10 (10.5, 11)
+# is a real grinder worth reviewing; bigger numbers (67, 100, a misplaced
+# weight) are data-entry junk, and values <= 10 are in range and never flagged.
+_OVER_MAX_RPE_CEILING = 11.5
+
+
+def _is_over_max_rpe(raw: str | None) -> bool:
+    """True when the raw RPE cell parses to a number just over 10.
+
+    Keeps genuine over-max attempts (10.5, 11) and drops placeholders (0) and
+    junk / misplaced weights (67, "Overshot x 100") so the inbox flag only
+    surfaces sets a coach would actually review as a possible missed PR.
+    """
+    if not raw:
+        return False
+    match = _RPE_NUMBER_RE.search(raw)
+    if not match:
+        return False
+    try:
+        value = float(match.group())
+    except ValueError:
+        return False
+    return 10.0 < value <= _OVER_MAX_RPE_CEILING
+
+
 def _generate_rpe_review_flags(db: Session) -> None:
     """Open an inbox flag for any athlete with a set logged at an out-of-range RPE.
 
@@ -143,6 +171,7 @@ def _generate_rpe_review_flags(db: Session) -> None:
         .filter(ExerciseEntry.lift_category.in_(("squat", "bench", "deadlift")))
         .filter(ExerciseEntry.is_accessory == False)  # noqa: E712
         .filter(ExerciseEntry.set_type == "top_set")
+        .filter(ExerciseEntry.weight_lbs.isnot(None))
         .order_by(
             Athlete.id,
             Program.program_number.desc(),
@@ -156,6 +185,9 @@ def _generate_rpe_review_flags(db: Session) -> None:
     # and point the deep-link at the block it lives in.
     by_athlete: dict[int, list] = {}
     for ex, prog, sess, _ath in flagged:
+        # Keep only genuine over-max attempts; drop RPE-0 placeholders and junk.
+        if not _is_over_max_rpe(ex.rpe_raw_value):
+            continue
         by_athlete.setdefault(prog.athlete_id, []).append((ex, prog, sess))
 
     for athlete_id, entries in by_athlete.items():
@@ -197,10 +229,20 @@ def _generate_rpe_review_flags(db: Session) -> None:
     db.commit()
 
 
-def _enrich_notification(notif: Notification) -> NotificationResponse:
-    """Convert a Notification ORM object to a response with athlete name."""
+def _enrich_notification(notif: Notification, db: Session) -> NotificationResponse:
+    """Convert a Notification ORM object to a response with athlete name.
+
+    For notifications that point at a program (link_program_id), also resolve
+    that program's Google Sheet URL so the inbox can open the source workbook.
+    """
     resp = NotificationResponse.model_validate(notif)
     resp.athlete_name = notif.athlete.name if notif.athlete else ""
+    if notif.link_program_id:
+        resp.link_sheet_url = (
+            db.query(Program.google_sheet_url)
+            .filter(Program.id == notif.link_program_id)
+            .scalar()
+        )
     return resp
 
 
@@ -223,7 +265,7 @@ def list_notifications(
         query = query.limit(limit)
 
     notifications = query.all()
-    return [_enrich_notification(n) for n in notifications]
+    return [_enrich_notification(n, db) for n in notifications]
 
 
 @router.get("/count")
@@ -253,7 +295,7 @@ def mark_notification_read(notification_id: int, db: Session = Depends(get_db)):
     notif.read = True
     db.commit()
     db.refresh(notif)
-    return _enrich_notification(notif)
+    return _enrich_notification(notif, db)
 
 
 @router.post("/{notification_id}/unread", response_model=NotificationResponse)
@@ -267,7 +309,7 @@ def mark_notification_unread(notification_id: int, db: Session = Depends(get_db)
     notif.read = False
     db.commit()
     db.refresh(notif)
-    return _enrich_notification(notif)
+    return _enrich_notification(notif, db)
 
 
 @router.post("/{notification_id}/archive", response_model=NotificationResponse)
@@ -280,7 +322,7 @@ def archive_notification(notification_id: int, db: Session = Depends(get_db)):
     notif.archived = True
     db.commit()
     db.refresh(notif)
-    return _enrich_notification(notif)
+    return _enrich_notification(notif, db)
 
 
 @router.post("/{notification_id}/unarchive", response_model=NotificationResponse)
@@ -293,7 +335,7 @@ def unarchive_notification(notification_id: int, db: Session = Depends(get_db)):
     notif.archived = False
     db.commit()
     db.refresh(notif)
-    return _enrich_notification(notif)
+    return _enrich_notification(notif, db)
 
 
 @router.post("/manual", response_model=NotificationResponse)
@@ -334,7 +376,7 @@ def add_manual_queue_entry(body: ManualQueueRequest, db: Session = Depends(get_d
     db.add(notif)
     db.commit()
     db.refresh(notif)
-    return _enrich_notification(notif)
+    return _enrich_notification(notif, db)
 
 
 @router.delete("/{notification_id}", response_model=NotificationResponse)

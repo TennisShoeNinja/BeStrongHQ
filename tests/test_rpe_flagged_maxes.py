@@ -326,3 +326,60 @@ def test_repair_clears_floor_history_and_leaves_unflagged_lifts(tmp_path):
     )
     assert leftover == 0
     check.close()
+
+
+def test_flag_keeps_only_over_max_band(session):
+    """Only genuine over-max attempts flag: RPE-0 placeholders, junk (67), and
+    no-weight rows are dropped; a real 10.5 grinder is kept."""
+    athlete = Athlete(name="Band Test", archived=False)
+    session.add(athlete)
+    session.flush()
+    prog = _program(session, athlete.id)
+    _single(session, prog, 200.0, day=1, lift="bench", needs_review=True, raw_rpe="0.0")
+    _single(session, prog, 500.0, day=2, lift="squat", needs_review=True, raw_rpe="67")
+    _single(session, prog, None, day=3, lift="deadlift", needs_review=True, raw_rpe="11")
+    _single(session, prog, 350.0, day=4, lift="bench", needs_review=True, raw_rpe="10.5")
+    session.commit()
+
+    _generate_rpe_review_flags(session)
+
+    notifs = (
+        session.query(Notification)
+        .filter(Notification.notification_type == "rpe_review")
+        .all()
+    )
+    assert len(notifs) == 1
+    msg = notifs[0].message or ""
+    assert "10.5" in msg and "350" in msg
+
+
+def test_enrich_attaches_sheet_url(session):
+    """A review notification resolves its program's Google Sheet URL so the
+    inbox can open the source workbook."""
+    from bestrong.api.routes_notifications import _enrich_notification
+
+    athlete = Athlete(name="Sheet Test", archived=False)
+    session.add(athlete)
+    session.flush()
+    prog = Program(
+        athlete_id=athlete.id,
+        program_number=1,
+        program_name="Program 1",
+        date_start="2026-01-01",
+        date_end="2026-02-01",
+        google_sheet_url="https://docs.google.com/spreadsheets/d/abc123",
+    )
+    session.add(prog)
+    session.flush()
+    notif = Notification(
+        athlete_id=athlete.id,
+        notification_type="rpe_review",
+        title="RPE needs review",
+        message="x",
+        link_program_id=prog.id,
+    )
+    session.add(notif)
+    session.flush()
+
+    resp = _enrich_notification(notif, session)
+    assert resp.link_sheet_url == "https://docs.google.com/spreadsheets/d/abc123"
