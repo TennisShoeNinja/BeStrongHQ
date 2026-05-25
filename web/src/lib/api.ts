@@ -104,10 +104,11 @@ class APIClient {
             error.response.status === 401 &&
             typeof window !== "undefined" &&
             !window.location.pathname.startsWith("/login") &&
-            !window.location.pathname.startsWith("/configuration")
+            !window.location.pathname.startsWith("/configuration") &&
+            !window.location.pathname.startsWith("/athlete")
           ) {
             window.location.href = "/login";
-            return new Promise(() => {}); 
+            return new Promise(() => {});
           }
           throw new APIError(
             error.response.status,
