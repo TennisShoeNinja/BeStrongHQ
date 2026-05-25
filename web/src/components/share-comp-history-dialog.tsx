@@ -24,10 +24,10 @@ import {
 } from '@/components/share-meet-recap-card';
 import apiClient from '@/lib/api';
 import * as Types from '@/lib/types';
+import { useMeasuredWidth } from '@/lib/use-measured-width';
 
 const TABLE_PREVIEW_WIDTH = 360;
 const TABLE_NATIVE_WIDTH = 1080;
-const TABLE_PREVIEW_SCALE = TABLE_PREVIEW_WIDTH / TABLE_NATIVE_WIDTH;
 const RECAP_PREVIEW_WIDTH = 360;
 const SELECTION_CAP = 10;
 const DEFAULT_INITIAL_SELECTION = 8;
@@ -233,13 +233,19 @@ export function ShareCompHistoryDialog({
   const cap = SELECTION_CAP;
   const atCap = selectedKeys.size >= cap;
 
-  // Preview sizing.
-  const previewWidth = isSingle ? RECAP_PREVIEW_WIDTH : TABLE_PREVIEW_WIDTH;
+  // Preview sizing. Fluid: scale the fixed-native-width card down to the
+  // width the preview column actually has, capped at the desktop target.
+  const [previewBoxRef, previewBoxWidth] = useMeasuredWidth();
+  const desktopPreviewWidth = isSingle ? RECAP_PREVIEW_WIDTH : TABLE_PREVIEW_WIDTH;
+  const previewWidth =
+    previewBoxWidth > 0
+      ? Math.min(desktopPreviewWidth, previewBoxWidth - 32)
+      : desktopPreviewWidth;
   const previewScale = isSticker
     ? previewWidth / RECAP_DIMENSIONS.sticker[recapOrientation].width
     : isSingle
       ? previewWidth / RECAP_DIMENSIONS.card.width
-      : TABLE_PREVIEW_SCALE;
+      : previewWidth / TABLE_NATIVE_WIDTH;
   const previewHeight = isSticker
     ? RECAP_DIMENSIONS.sticker[recapOrientation].height * previewScale
     : null;
@@ -266,7 +272,7 @@ export function ShareCompHistoryDialog({
           card you can render as a transparent sticker for Stories or Reels.
         </p>
 
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div className="flex flex-col gap-4 sm:flex-row">
           <div
             style={{
               flex: 1,
@@ -301,8 +307,9 @@ export function ShareCompHistoryDialog({
           </div>
 
           <div
+            ref={previewBoxRef}
+            className="w-full shrink-0 sm:w-[392px]"
             style={{
-              width: previewWidth + 32,
               background: isSticker
                 ? 'repeating-conic-gradient(var(--cloud-surface) 0% 25%, var(--cloud-surface-raised) 0% 50%) 50% / 16px 16px'
                 : 'var(--cloud-surface)',
@@ -312,7 +319,6 @@ export function ShareCompHistoryDialog({
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'flex-start',
-              flexShrink: 0,
               maxHeight: 560,
               overflow: 'auto',
             }}
@@ -363,7 +369,7 @@ export function ShareCompHistoryDialog({
               <div style={{ width: previewWidth, position: 'relative' }}>
                 <div
                   style={{
-                    transform: `scale(${TABLE_PREVIEW_SCALE})`,
+                    transform: `scale(${previewScale})`,
                     transformOrigin: 'top left',
                     width: TABLE_NATIVE_WIDTH,
                   }}

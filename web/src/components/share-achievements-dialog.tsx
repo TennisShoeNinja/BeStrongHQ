@@ -14,10 +14,10 @@ import { ShareAchievementsCard } from '@/components/share-achievements-card';
 import apiClient from '@/lib/api';
 import { evaluateBadges } from '@/lib/badges';
 import * as Types from '@/lib/types';
+import { useMeasuredWidth } from '@/lib/use-measured-width';
 
 const CARD_NATIVE_WIDTH = 1080;
-const PREVIEW_WIDTH = 360;
-const PREVIEW_SCALE = PREVIEW_WIDTH / CARD_NATIVE_WIDTH;
+const DESKTOP_PREVIEW_WIDTH = 360;
 
 interface ShareAchievementsDialogProps {
   athlete: Types.AthleteResponse;
@@ -108,11 +108,17 @@ export function ShareAchievementsDialog({
   const isLoading =
     open && (meetResultsQuery.isLoading || prEventsQuery.isLoading);
 
+  const [previewBoxRef, previewBoxWidth] = useMeasuredWidth();
+  const previewWidth =
+    previewBoxWidth > 0
+      ? Math.min(DESKTOP_PREVIEW_WIDTH, previewBoxWidth - 32)
+      : DESKTOP_PREVIEW_WIDTH;
+  const previewScale = previewWidth / CARD_NATIVE_WIDTH;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)]"
-        style={{ maxWidth: 460 }}
+        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-[460px]"
       >
         <DialogHeader>
           <DialogTitle
@@ -130,6 +136,7 @@ export function ShareAchievementsDialog({
         </p>
 
         <div
+          ref={previewBoxRef}
           style={{
             display: 'flex',
             justifyContent: 'center',
@@ -158,13 +165,13 @@ export function ShareAchievementsDialog({
           ) : (
             <div
               style={{
-                width: PREVIEW_WIDTH,
+                width: previewWidth,
                 position: 'relative',
               }}
             >
               <div
                 style={{
-                  transform: `scale(${PREVIEW_SCALE})`,
+                  transform: `scale(${previewScale})`,
                   transformOrigin: 'top left',
                   width: CARD_NATIVE_WIDTH,
                 }}

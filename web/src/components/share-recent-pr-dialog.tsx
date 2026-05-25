@@ -21,10 +21,10 @@ import {
 } from '@/components/share-pr-sticker';
 import apiClient from '@/lib/api';
 import * as Types from '@/lib/types';
+import { useMeasuredWidth } from '@/lib/use-measured-width';
 
 const CARD_NATIVE_WIDTH = 1080;
-const PREVIEW_WIDTH = 320;
-const PREVIEW_SCALE = PREVIEW_WIDTH / CARD_NATIVE_WIDTH;
+const DESKTOP_PREVIEW_WIDTH = 320;
 const RECENT_LIMIT = 8;
 
 type ShareMode = 'card' | 'sticker';
@@ -237,16 +237,22 @@ export function ShareRecentPRDialog({
   const isLoading = open && historyQuery.isLoading;
   const cardHeightPx = selectedEntries.length > 1 ? 1620 : 1350;
   const stickerEntry = selectedEntries[0];
+
+  const [previewBoxRef, previewBoxWidth] = useMeasuredWidth();
+  const previewWidth =
+    previewBoxWidth > 0
+      ? Math.min(DESKTOP_PREVIEW_WIDTH, previewBoxWidth - 32)
+      : DESKTOP_PREVIEW_WIDTH;
+  const previewScale = previewWidth / CARD_NATIVE_WIDTH;
+  const stickerPreviewScale = previewWidth / stickerDims.width;
   const previewBoxHeight = isSticker
-    ? stickerDims.height * (PREVIEW_WIDTH / stickerDims.width)
-    : cardHeightPx * PREVIEW_SCALE;
-  const stickerPreviewScale = PREVIEW_WIDTH / stickerDims.width;
+    ? stickerDims.height * stickerPreviewScale
+    : cardHeightPx * previewScale;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)]"
-        style={{ maxWidth: 720 }}
+        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-[720px]"
       >
         <DialogHeader>
           <DialogTitle
@@ -266,7 +272,7 @@ export function ShareRecentPRDialog({
 
         <ModeToggle mode={mode} onChange={setMode} />
 
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div className="flex flex-col gap-4 sm:flex-row">
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <PRPickList
               recent={recent}
@@ -290,8 +296,9 @@ export function ShareRecentPRDialog({
           </div>
 
           <div
+            ref={previewBoxRef}
+            className="w-full shrink-0 sm:w-[352px]"
             style={{
-              width: PREVIEW_WIDTH + 32,
               background: isSticker
                 ? 'repeating-conic-gradient(var(--cloud-surface) 0% 25%, var(--cloud-surface-raised) 0% 50%) 50% / 16px 16px'
                 : 'var(--cloud-surface)',
@@ -301,7 +308,6 @@ export function ShareRecentPRDialog({
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'flex-start',
-              flexShrink: 0,
             }}
           >
             {selectedEntries.length === 0 ? (
@@ -314,7 +320,7 @@ export function ShareRecentPRDialog({
             ) : isSticker ? (
               <div
                 style={{
-                  width: PREVIEW_WIDTH,
+                  width: previewWidth,
                   height: previewBoxHeight,
                   position: 'relative',
                   overflow: 'hidden',
@@ -341,15 +347,15 @@ export function ShareRecentPRDialog({
             ) : (
               <div
                 style={{
-                  width: PREVIEW_WIDTH,
-                  height: cardHeightPx * PREVIEW_SCALE,
+                  width: previewWidth,
+                  height: cardHeightPx * previewScale,
                   position: 'relative',
                   overflow: 'hidden',
                 }}
               >
                 <div
                   style={{
-                    transform: `scale(${PREVIEW_SCALE})`,
+                    transform: `scale(${previewScale})`,
                     transformOrigin: 'top left',
                     width: CARD_NATIVE_WIDTH,
                   }}

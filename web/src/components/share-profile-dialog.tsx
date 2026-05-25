@@ -13,10 +13,11 @@ import { Button } from '@/components/ui/button';
 import { ShareProfileCard } from '@/components/share-profile-card';
 import apiClient from '@/lib/api';
 import * as Types from '@/lib/types';
+import { useMeasuredWidth } from '@/lib/use-measured-width';
 
 const CARD_NATIVE_WIDTH = 1080;
-const PREVIEW_WIDTH = 360;
-const PREVIEW_SCALE = PREVIEW_WIDTH / CARD_NATIVE_WIDTH;
+const CARD_NATIVE_HEIGHT = 1920;
+const DESKTOP_PREVIEW_WIDTH = 360;
 
 interface ShareProfileDialogProps {
   athlete: Types.AthleteResponse;
@@ -87,11 +88,17 @@ export function ShareProfileDialog({
   const meetResults = meetResultsQuery.data ?? [];
   const isLoading = open && meetResultsQuery.isLoading;
 
+  const [previewBoxRef, previewBoxWidth] = useMeasuredWidth();
+  const previewWidth =
+    previewBoxWidth > 0
+      ? Math.min(DESKTOP_PREVIEW_WIDTH, previewBoxWidth - 32)
+      : DESKTOP_PREVIEW_WIDTH;
+  const previewScale = previewWidth / CARD_NATIVE_WIDTH;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-md"
-        style={{ maxWidth: 480 }}
+        className="!bg-[var(--cloud-surface-raised)] !border !border-[var(--cloud-border-strong)] sm:!max-w-[480px]"
       >
         <DialogHeader>
           <DialogTitle
@@ -109,6 +116,7 @@ export function ShareProfileDialog({
         </p>
 
         <div
+          ref={previewBoxRef}
           style={{
             display: 'flex',
             justifyContent: 'center',
@@ -129,15 +137,15 @@ export function ShareProfileDialog({
           ) : (
             <div
               style={{
-                width: CARD_NATIVE_WIDTH * PREVIEW_SCALE,
-                height: 1920 * PREVIEW_SCALE,
+                width: previewWidth,
+                height: CARD_NATIVE_HEIGHT * previewScale,
                 position: 'relative',
                 overflow: 'hidden',
               }}
             >
               <div
                 style={{
-                  transform: `scale(${PREVIEW_SCALE})`,
+                  transform: `scale(${previewScale})`,
                   transformOrigin: 'top left',
                   width: CARD_NATIVE_WIDTH,
                 }}
