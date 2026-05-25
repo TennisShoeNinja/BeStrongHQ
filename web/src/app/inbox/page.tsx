@@ -328,29 +328,26 @@ function NotificationCard({
             }}
           />
         </button>
+        <button
+          onClick={handleArchive}
+          disabled={isArchiving}
+          className="opacity-60 group-hover:opacity-100"
+          title={showArchived ? "Unarchive" : "Dismiss"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: 2,
+            borderRadius: 6,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--cloud-text-muted)",
+            transition: "opacity 120ms ease",
+          }}
+        >
+          <X style={{ width: 13, height: 13 }} />
+        </button>
       </div>
-
-      {}
-      <button
-        onClick={handleArchive}
-        disabled={isArchiving}
-        className="opacity-60 group-hover:opacity-100"
-        title={showArchived ? "Unarchive" : "Dismiss"}
-        style={{
-          position: "absolute",
-          top: 8,
-          right: 8,
-          padding: 4,
-          borderRadius: 6,
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          color: "var(--cloud-text-muted)",
-          transition: "opacity 120ms ease",
-        }}
-      >
-        <X style={{ width: 13, height: 13 }} />
-      </button>
     </div>
   );
 }
