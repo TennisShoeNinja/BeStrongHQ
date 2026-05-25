@@ -69,18 +69,29 @@ def test_string_numeric_in_range(s, expected):
     )
 
 
-@pytest.mark.parametrize("n", [85, -3, 0, 11, 100.5, 10.5, 0.5])
+@pytest.mark.parametrize("n", [85, -3, 0, 100.5, 0.5, 12.5, 13])
 def test_out_of_range_numeric_needs_review(n):
-    """Numbers outside [1, 10] are flagged AND retain the raw value.
+    """Numbers well outside the scale are flagged AND retain the raw value.
 
-    Covers the classic 'weight-in-wrong-column' case (85, 100.5) plus
-    boundary misses (0, 11, 10.5, 0.5) and a negative (-3).
+    Covers the classic 'weight-in-wrong-column' case (85, 100.5), below-1
+    misses (0, 0.5, -3), and values above the over-max fail band (12.5, 13)
+    that read as typos rather than a missed attempt.
     """
     result = parse_rpe_cell(n)
     assert result.parsed is None
     assert result.failed is False
     assert result.needs_review is True
     assert result.raw == str(n)
+
+
+@pytest.mark.parametrize("n", [10.5, 11, 12, 10.1])
+def test_over_max_numeric_is_failed(n):
+    """A number just above 10 is the team's shorthand for a missed lift, so it
+    parses as a failed attempt rather than a review item."""
+    result = parse_rpe_cell(n)
+    assert result.parsed is None
+    assert result.failed is True
+    assert result.needs_review is False
 
 
 @pytest.mark.parametrize("text", ["7-8", "7 - 8", "7to8", "7 to 8", "7, 8"])

@@ -137,14 +137,16 @@ def test_floor_ignores_flagged_single(session):
 
 
 def test_rpe_review_flag_is_generated_once(session):
-    """A flagged set opens one rpe_review notification per athlete, and the
-    generator is idempotent while that notification stays open."""
+    """A flagged (typo-looking) set opens one rpe_review notification per
+    athlete, and the generator is idempotent while it stays open."""
     athlete = Athlete(name="Jonathan Eppler", archived=False)
     session.add(athlete)
     session.flush()
     prog = _program(session, athlete.id)
     _single(session, prog, 320.0, day=1)
-    _single(session, prog, 353.0, day=2, needs_review=True, raw_rpe="10.5")
+    # A misplaced-weight / typo RPE (well out of range) is what now stays
+    # needs_review; a real over-max like 10.5 would parse as a failed lift.
+    _single(session, prog, 353.0, day=2, needs_review=True, raw_rpe="67")
     session.commit()
 
     _generate_rpe_review_flags(session)
@@ -157,9 +159,9 @@ def test_rpe_review_flag_is_generated_once(session):
     )
     assert len(notifs) == 1
     assert notifs[0].athlete_id == athlete.id
-    assert "RPE 10" in (notifs[0].message or "")
-    # The flag names the specific set and deep-links to its block.
+    # The flag names the specific set (weight + raw value) and deep-links.
     assert "353" in (notifs[0].message or "")
+    assert "67" in (notifs[0].message or "")
     assert notifs[0].link_program_id == prog.id
 
 
@@ -328,17 +330,15 @@ def test_repair_clears_floor_history_and_leaves_unflagged_lifts(tmp_path):
     check.close()
 
 
-def test_flag_keeps_only_over_max_band(session):
-    """Only genuine over-max attempts flag: RPE-0 placeholders, junk (67), and
-    no-weight rows are dropped; a real 10.5 grinder is kept."""
-    athlete = Athlete(name="Band Test", archived=False)
+def test_flag_excludes_no_weight_rows(session):
+    """The flag surfaces typo-looking RPE entries on competition top sets, but
+    skips rows with no logged weight (nothing concrete to point at)."""
+    athlete = Athlete(name="Weightless Test", archived=False)
     session.add(athlete)
     session.flush()
     prog = _program(session, athlete.id)
-    _single(session, prog, 200.0, day=1, lift="bench", needs_review=True, raw_rpe="0.0")
-    _single(session, prog, 500.0, day=2, lift="squat", needs_review=True, raw_rpe="67")
-    _single(session, prog, None, day=3, lift="deadlift", needs_review=True, raw_rpe="11")
-    _single(session, prog, 350.0, day=4, lift="bench", needs_review=True, raw_rpe="10.5")
+    _single(session, prog, 500.0, day=1, lift="squat", needs_review=True, raw_rpe="67")
+    _single(session, prog, None, day=2, lift="deadlift", needs_review=True, raw_rpe="910")
     session.commit()
 
     _generate_rpe_review_flags(session)
@@ -350,7 +350,8 @@ def test_flag_keeps_only_over_max_band(session):
     )
     assert len(notifs) == 1
     msg = notifs[0].message or ""
-    assert "10.5" in msg and "350" in msg
+    assert "500" in msg and "67" in msg  # the weighted typo is named
+    assert "910" not in msg  # the no-weight row was skipped
 
 
 def test_enrich_attaches_sheet_url(session):

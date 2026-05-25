@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
@@ -120,42 +119,16 @@ def _generate_program_due_reminders(db: Session) -> None:
     db.commit()
 
 
-_RPE_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
-
-# Upper bound for a "genuine over-max attempt". An RPE just over 10 (10.5, 11)
-# is a real grinder worth reviewing; bigger numbers (67, 100, a misplaced
-# weight) are data-entry junk, and values <= 10 are in range and never flagged.
-_OVER_MAX_RPE_CEILING = 11.5
-
-
-def _is_over_max_rpe(raw: str | None) -> bool:
-    """True when the raw RPE cell parses to a number just over 10.
-
-    Keeps genuine over-max attempts (10.5, 11) and drops placeholders (0) and
-    junk / misplaced weights (67, "Overshot x 100") so the inbox flag only
-    surfaces sets a coach would actually review as a possible missed PR.
-    """
-    if not raw:
-        return False
-    match = _RPE_NUMBER_RE.search(raw)
-    if not match:
-        return False
-    try:
-        value = float(match.group())
-    except ValueError:
-        return False
-    return 10.0 < value <= _OVER_MAX_RPE_CEILING
-
-
 def _generate_rpe_review_flags(db: Session) -> None:
-    """Open an inbox flag for any athlete with a set logged at an out-of-range RPE.
+    """Open an inbox flag for any athlete with a typo-looking RPE entry.
 
-    The parser marks a set ``rpe_needs_review`` when its RPE lands above 10
-    (or below 1). We can't tell whether the lifter ground out a true single or
-    fat-fingered a weight into the RPE column, so those sets are quarantined
-    from max math until a coach confirms or corrects them. This surfaces them:
-    one open notification per athlete, recreated if archived while flagged sets
-    remain, mirroring ``_generate_program_due_reminders``.
+    A number just over 10 is parsed as a failed lift (the team's shorthand for
+    a missed attempt), so it never reaches here. What stays
+    ``rpe_needs_review`` is the implausible stuff: a value well outside
+    [1, 10], i.e. a misplaced weight or a typo (67, 910, 0). Those can't be
+    trusted and don't count toward a max, so we surface them for the coach to
+    check or correct. One open notification per athlete, recreated if archived
+    while flagged sets remain, mirroring ``_generate_program_due_reminders``.
     """
     flagged = (
         db.query(ExerciseEntry, Program, SessionModel, Athlete)
@@ -185,9 +158,6 @@ def _generate_rpe_review_flags(db: Session) -> None:
     # and point the deep-link at the block it lives in.
     by_athlete: dict[int, list] = {}
     for ex, prog, sess, _ath in flagged:
-        # Keep only genuine over-max attempts; drop RPE-0 placeholders and junk.
-        if not _is_over_max_rpe(ex.rpe_raw_value):
-            continue
         by_athlete.setdefault(prog.athlete_id, []).append((ex, prog, sess))
 
     for athlete_id, entries in by_athlete.items():
@@ -210,10 +180,10 @@ def _generate_rpe_review_flags(db: Session) -> None:
         raw = ex.rpe_raw_value or "an out-of-range value"
         more = f" (+{len(entries) - 1} more)" if len(entries) > 1 else ""
         message = (
-            f"{lift_label} {weight} x {reps} logged at RPE {raw} in "
-            f"Program {prog.program_number} (W{sess.week_number} D{sess.day_number})"
-            f"{more}. Confirm the lift was made, or correct the entry. Until "
-            "then it won't count toward a max."
+            f"{lift_label} {weight} x {reps} has an out-of-range RPE entry "
+            f"('{raw}') in Program {prog.program_number} "
+            f"(W{sess.week_number} D{sess.day_number}){more}. Looks like a typo "
+            "or misplaced value, so it isn't counting toward a max until you fix it."
         )
         db.add(
             Notification(
