@@ -9,3 +9,10 @@
  * Plugins can extend this list via the build-time overlay sync.
  */
 export const EXTRA_BARE_LAYOUT_PREFIXES: string[] = [];
+
+/**
+ * Regex patterns that also bypass the standard layout, for routes that
+ * cannot be expressed as a static prefix (e.g. a section nested under a
+ * dynamic path segment). Plugins extend this via the build-time overlay sync.
+ */
+export const EXTRA_BARE_LAYOUT_PATTERNS: RegExp[] = [];

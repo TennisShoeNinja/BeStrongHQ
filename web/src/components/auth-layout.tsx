@@ -7,16 +7,7 @@ import { SidebarWithNotifications } from '@/components/sidebar-with-notification
 import { BottomNav } from '@/components/bottom-nav';
 import { DriveStatusBanner } from '@/components/drive-status-banner';
 import { Topbar } from '@/components/topbar';
-import { EXTRA_BARE_LAYOUT_PREFIXES } from '@/config/auth-layout-config';
-
-
-const BARE_LAYOUT_PREFIXES = ['/login', ...EXTRA_BARE_LAYOUT_PREFIXES];
-
-function isBarePath(pathname: string): boolean {
-  return BARE_LAYOUT_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
-  );
-}
+import { isBareLayoutPath } from '@/lib/bare-layout';
 
 function AuthSpinner() {
   return (
@@ -48,7 +39,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
 
 
-  if (isBarePath(pathname)) {
+  if (isBareLayoutPath(pathname)) {
     return <div className="w-full">{children}</div>;
   }
 
