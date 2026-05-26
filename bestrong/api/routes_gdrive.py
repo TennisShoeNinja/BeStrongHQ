@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import requests as http_requests
+from googleapiclient.errors import HttpError
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel
@@ -94,6 +95,21 @@ def _resync_key(db_path: Path | None) -> str:
     return str(db_path) if db_path is not None else "default"
 
 
+def _is_file_not_found(exc: Exception) -> bool:
+    """True when exc is a Google Drive 404 (source file deleted or unshared).
+
+    A deleted source sheet is not a resync failure: nothing we can do is
+    going to bring the file back, so it gets soft-skipped as "orphaned"
+    rather than counted as a hard error that fails the whole run.
+    """
+    if not isinstance(exc, HttpError):
+        return False
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        status = getattr(getattr(exc, "resp", None), "status", None)
+    return status == 404
+
+
 def _get_resync_status(db_path: Path | None) -> dict:
     key = _resync_key(db_path)
     with _resync_lock:
@@ -104,6 +120,7 @@ def _get_resync_status(db_path: Path | None) -> dict:
                 "total": 0,
                 "resynced": 0,
                 "errors": [],
+                "orphaned": [],
                 "started_at": None,
                 "finished_at": None,
             }
@@ -779,6 +796,7 @@ def _run_force_resync(db_path: Path | None = None) -> None:
             status["resynced"] = 0
             status["phase"] = "resyncing"
             status["errors"] = []
+            status["orphaned"] = []
 
         for info in import_info:
             try:
@@ -832,6 +850,42 @@ def _run_force_resync(db_path: Path | None = None) -> None:
                     db.rollback()
                 except Exception:  # noqa: BLE001
                     pass
+
+                if _is_file_not_found(e):
+                    # The source sheet was deleted or unshared in Drive.
+                    # Mark the import orphaned (so future resyncs skip it
+                    # without re-hitting Drive) and report it in the soft
+                    # "orphaned" bucket, never as a hard error. The already
+                    # imported program data is kept; only the Drive link is
+                    # dead.
+                    logger.warning(
+                        "Force resync: source file gone for program %s (%s); "
+                        "marking orphaned",
+                        info["program_id"], info["gdrive_file_id"],
+                    )
+                    try:
+                        gdi_rec = db.query(GDriveImport).filter(
+                            GDriveImport.gdrive_file_id == info["gdrive_file_id"]
+                        ).first()
+                        if gdi_rec:
+                            gdi_rec.status = "orphaned"
+                            gdi_rec.error_message = (
+                                "Source file no longer in Drive (404)"
+                            )
+                            db.commit()
+                    except Exception:  # noqa: BLE001
+                        try:
+                            db.rollback()
+                        except Exception:  # noqa: BLE001
+                            pass
+                    with _resync_lock:
+                        status["orphaned"].append(
+                            f"Program {info['program_id']} "
+                            f"({info['gdrive_file_name']}): "
+                            "source file no longer in Drive"
+                        )
+                    continue
+
                 logger.error(
                     "Force resync failed for program %s: %s\n%s",
                     info["program_id"], e, traceback.format_exc(),
@@ -896,6 +950,7 @@ def force_resync_all_programs(request: Request, db: Session = Depends(get_db)):
         status["total"] = 0
         status["resynced"] = 0
         status["errors"] = []
+        status["orphaned"] = []
         status["started_at"] = time.time()
         status["finished_at"] = None
 

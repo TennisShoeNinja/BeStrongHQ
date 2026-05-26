@@ -1555,6 +1555,11 @@ export default function GoogleDriveSyncPage() {
                             {resyncStatus.errors.length} errors
                           </span>
                         )}
+                        {(resyncStatus.orphaned?.length ?? 0) > 0 && (
+                          <span style={{ color: '#fcd34d' }}>
+                            {resyncStatus.orphaned.length} skipped
+                          </span>
+                        )}
                         <span className="cloud-text-muted">{resyncStatus.total} total</span>
                       </div>
                       {resyncStatus.errors.length > 0 && (
@@ -1569,6 +1574,25 @@ export default function GoogleDriveSyncPage() {
                           {resyncStatus.errors.map((err: string, i: number) => (
                             <p key={i} style={{ fontSize: 12, color: '#fca5a5' }}>
                               {err}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {(resyncStatus.orphaned?.length ?? 0) > 0 && (
+                        <div
+                          className="flex flex-col"
+                          style={{
+                            gap: 4,
+                            borderTop: '1px solid var(--cloud-border)',
+                            padding: '10px 14px',
+                          }}
+                        >
+                          <p className="cloud-text-muted" style={{ fontSize: 12 }}>
+                            Skipped (source file removed from Drive):
+                          </p>
+                          {resyncStatus.orphaned.map((msg: string, i: number) => (
+                            <p key={i} style={{ fontSize: 12, color: '#fcd34d' }}>
+                              {msg}
                             </p>
                           ))}
                         </div>

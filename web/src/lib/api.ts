@@ -965,6 +965,7 @@ class APIClient {
     total: number;
     resynced: number;
     errors: string[];
+    orphaned: string[];
     started_at: number | null;
     finished_at: number | null;
   }> {

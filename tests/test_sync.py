@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
+import httplib2
 import openpyxl
 import pytest
+from googleapiclient.errors import HttpError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -548,3 +551,153 @@ class TestIsProgramSheet:
         from bestrong.gdrive.sync import _is_program_sheet
         assert _is_program_sheet("Athlete Program 1.xlsx") is True
         assert _is_program_sheet("Program 5 (9/26/25).xlsx") is True
+
+
+def _http_error(status: int, message: str = "File not found") -> HttpError:
+    """Build a googleapiclient HttpError with the given HTTP status."""
+    resp = httplib2.Response({"status": status, "reason": message})
+    content = (
+        b'{"error": {"code": %d, "message": "%s"}}'
+        % (status, message.encode())
+    )
+    return HttpError(resp, content, uri="https://www.googleapis.com/drive/v3")
+
+
+class TestForceResyncOrphans:
+    """A deleted source sheet (Drive 404) is a soft skip, not a hard error.
+
+    Regression: a single orphaned file used to land in status["errors"],
+    which made the UI report the entire resync run as failed even though
+    every other program re-parsed cleanly.
+    """
+
+    @pytest.fixture()
+    def orphaned_program_id(self, db):
+        """One athlete with one program whose GDrive source is recorded.
+
+        Returns the program id (not the ORM instance) so assertions survive
+        the session close that _run_force_resync performs in its finally.
+        """
+        athlete = Athlete(name="Gone Lifter")
+        db.add(athlete)
+        db.flush()
+        program = Program(
+            athlete_id=athlete.id, program_number=1, program_name="Block 1",
+        )
+        db.add(program)
+        db.flush()
+        db.add(GDriveImport(
+            gdrive_file_id="deleted-file-id",
+            gdrive_file_name="Copy of Jonathan's Program Block 2.2.xlsx",
+            gdrive_modified_time="2026-05-01T00:00:00Z",
+            status="success",
+            program_id=program.id,
+        ))
+        db.commit()
+        return program.id
+
+    def test_404_marks_orphaned_and_does_not_fail_run(self, db, orphaned_program_id):
+        from bestrong.api import routes_gdrive
+
+        db_path = Path("/tmp/bestrong-orphan-test.db")
+        with patch.object(routes_gdrive, "get_session", lambda *a, **kw: db), \
+            patch.object(
+                routes_gdrive.client,
+                "export_sheet_as_xlsx",
+                lambda *a, **kw: (_ for _ in ()).throw(_http_error(404)),
+            ):
+            routes_gdrive._run_force_resync(db_path=db_path)
+
+        status = routes_gdrive._get_resync_status(db_path)
+
+        # The dead file is reported as a soft skip, never a hard error.
+        assert status["errors"] == []
+        assert len(status["orphaned"]) == 1
+        assert "deleted" not in status["orphaned"][0].lower()  # uses our copy
+        assert "no longer in Drive" in status["orphaned"][0]
+
+        # The run completes cleanly.
+        assert status["running"] is False
+        assert status["phase"] == "done"
+        assert status["resynced"] == 0
+
+        # The import row is flagged orphaned so future resyncs skip it
+        # without re-hitting Drive; the program data itself is kept.
+        gdi = db.query(GDriveImport).filter(
+            GDriveImport.gdrive_file_id == "deleted-file-id"
+        ).first()
+        assert gdi.status == "orphaned"
+        assert gdi.error_message == "Source file no longer in Drive (404)"
+        assert db.query(Program).filter(
+            Program.id == orphaned_program_id
+        ).first() is not None
+
+    def test_orphaned_rows_are_excluded_from_later_resyncs(self, db, orphaned_program_id):
+        """Once orphaned, the row drops out of the success-only query, so a
+        second run does not even attempt the dead file (no Drive call)."""
+        from bestrong.api import routes_gdrive
+
+        db_path = Path("/tmp/bestrong-orphan-rerun-test.db")
+        # First run: discovers the orphan.
+        with patch.object(routes_gdrive, "get_session", lambda *a, **kw: db), \
+            patch.object(
+                routes_gdrive.client,
+                "export_sheet_as_xlsx",
+                lambda *a, **kw: (_ for _ in ()).throw(_http_error(404)),
+            ):
+            routes_gdrive._run_force_resync(db_path=db_path)
+
+        # Second run: export must never be called again for the orphan.
+        def _boom(*a, **kw):
+            raise AssertionError("export_sheet_as_xlsx should not be called")
+
+        with patch.object(routes_gdrive, "get_session", lambda *a, **kw: db), \
+            patch.object(routes_gdrive.client, "export_sheet_as_xlsx", _boom):
+            routes_gdrive._run_force_resync(db_path=db_path)
+
+        status = routes_gdrive._get_resync_status(db_path)
+        assert status["total"] == 0
+        assert status["errors"] == []
+        assert status["orphaned"] == []
+
+    def test_genuine_error_still_lands_in_hard_errors(self, db, orphaned_program_id):
+        """A non-404 failure (parse/auth/etc.) stays in the hard-error path
+        and does not get downgraded to an orphan skip."""
+        from bestrong.api import routes_gdrive
+
+        db_path = Path("/tmp/bestrong-error-test.db")
+        with patch.object(routes_gdrive, "get_session", lambda *a, **kw: db), \
+            patch.object(
+                routes_gdrive.client,
+                "export_sheet_as_xlsx",
+                lambda *a, **kw: (_ for _ in ()).throw(ValueError("parse boom")),
+            ):
+            routes_gdrive._run_force_resync(db_path=db_path)
+
+        status = routes_gdrive._get_resync_status(db_path)
+        assert status["orphaned"] == []
+        assert len(status["errors"]) == 1
+        assert "parse boom" in status["errors"][0]
+
+        # A genuine error must not touch the import row's status.
+        gdi = db.query(GDriveImport).filter(
+            GDriveImport.gdrive_file_id == "deleted-file-id"
+        ).first()
+        assert gdi.status == "success"
+
+    def test_non_404_http_error_is_a_hard_error(self, db, orphaned_program_id):
+        """A 500 from Drive is a real failure, not an orphan."""
+        from bestrong.api import routes_gdrive
+
+        db_path = Path("/tmp/bestrong-500-test.db")
+        with patch.object(routes_gdrive, "get_session", lambda *a, **kw: db), \
+            patch.object(
+                routes_gdrive.client,
+                "export_sheet_as_xlsx",
+                lambda *a, **kw: (_ for _ in ()).throw(_http_error(500, "boom")),
+            ):
+            routes_gdrive._run_force_resync(db_path=db_path)
+
+        status = routes_gdrive._get_resync_status(db_path)
+        assert status["orphaned"] == []
+        assert len(status["errors"]) == 1
