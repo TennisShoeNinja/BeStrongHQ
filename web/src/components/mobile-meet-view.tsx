@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight } from "lucide-react";
 import apiClient from "@/lib/api";
 import {
   formatMeetDate,
@@ -24,6 +25,25 @@ interface MeetBests {
   total: number | null;
 }
 
+const LIFT_ORDER = ["squat", "bench", "deadlift"] as const;
+const LIFT_LABEL: Record<string, string> = {
+  squat: "Squat",
+  bench: "Bench",
+  deadlift: "Dead",
+};
+const LIFT_TINT: Record<string, string> = {
+  squat: "#fb923c",
+  bench: "#22d3ee",
+  deadlift: "#a78bfa",
+};
+
+const ATTEMPT_GRID: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "48px repeat(3, minmax(0, 1fr))",
+  gap: 6,
+  alignItems: "center",
+};
+
 /** Best made attempt per lift at a meet, and the resulting total. */
 function meetBests(rows: Types.MeetResultEntry[]): MeetBests {
   const best: Record<string, number> = {};
@@ -39,6 +59,30 @@ function meetBests(rows: Types.MeetResultEntry[]): MeetBests {
   return { squat, bench, deadlift, total: sum > 0 ? sum : null };
 }
 
+/** Attempt rows by lift + attempt number, plus the id of the best made lift. */
+function buildAttempts(rows: Types.MeetResultEntry[]) {
+  const byLift: Record<string, Record<number, Types.MeetResultEntry>> = {
+    squat: {},
+    bench: {},
+    deadlift: {},
+  };
+  const bestId: Record<string, number | null> = {
+    squat: null,
+    bench: null,
+    deadlift: null,
+  };
+  const bestVal: Record<string, number> = {};
+  for (const r of rows) {
+    if (!(r.lift in byLift)) continue;
+    byLift[r.lift][r.attempt_number] = r;
+    if (r.made && (bestVal[r.lift] == null || r.weight_lbs > bestVal[r.lift])) {
+      bestVal[r.lift] = r.weight_lbs;
+      bestId[r.lift] = r.id;
+    }
+  }
+  return { byLift, bestId };
+}
+
 function show(v: number | null, unit: WeightUnit): string {
   return v == null ? "-" : String(Math.round(convertWeight(v, unit)));
 }
@@ -51,6 +95,22 @@ export function MobileMeetView({ athlete, unit, onBack }: Props) {
   });
 
   const meets = groupMeetResults(rows); // newest-first
+
+  // Default the most recent meet open: a coach at a meet asks "what did I hit
+  // last time," so the newest attempts should be visible without a tap.
+  const [expanded, setExpanded] = useState<Set<string> | null>(null);
+  const effectiveExpanded =
+    expanded ?? new Set(meets[0] ? [meets[0].key] : []);
+
+  const toggle = (key: string) => {
+    setExpanded((prev) => {
+      const base = prev ?? new Set(meets[0] ? [meets[0].key] : []);
+      const next = new Set(base);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div>
@@ -140,6 +200,7 @@ export function MobileMeetView({ athlete, unit, onBack }: Props) {
             >
               {meets.map((g, i) => {
                 const bests = meetBests(g.rows);
+                const { byLift, bestId } = buildAttempts(g.rows);
                 const place = formatPlace(
                   g.rows.find((r) => r.place)?.place,
                 );
@@ -147,6 +208,7 @@ export function MobileMeetView({ athlete, unit, onBack }: Props) {
                 const meta = [g.federation, g.weight_class, g.division]
                   .filter(Boolean)
                   .join(" · ");
+                const isOpen = effectiveExpanded.has(g.key || String(i));
                 return (
                   <div
                     key={g.key || i}
@@ -154,104 +216,238 @@ export function MobileMeetView({ athlete, unit, onBack }: Props) {
                       background: "var(--cloud-panel)",
                       border: "1px solid var(--cloud-border)",
                       borderRadius: "var(--cloud-r-md)",
-                      padding: "12px var(--cloud-s3)",
+                      overflow: "hidden",
                     }}
                   >
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => toggle(g.key || String(i))}
+                      aria-expanded={isOpen}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: 8,
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        background: "transparent",
+                        border: "none",
+                        padding: "12px var(--cloud-s3)",
+                        cursor: "pointer",
+                        color: "inherit",
                       }}
                     >
-                      <p
+                      <div
                         style={{
-                          fontSize: 13,
-                          fontWeight: 600,
-                          margin: 0,
-                          minWidth: 0,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          alignItems: "center",
                         }}
                       >
-                        {g.meet_name || "Meet"}
-                      </p>
-                      {place && (
+                        <p
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            margin: 0,
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {g.meet_name || "Meet"}
+                        </p>
                         <span
                           style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "var(--cloud-text)",
-                            whiteSpace: "nowrap",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
                             flexShrink: 0,
                           }}
                         >
-                          {place}
+                          {place && (
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "var(--cloud-text)",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {place}
+                            </span>
+                          )}
+                          {isOpen ? (
+                            <ChevronDown
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "var(--cloud-text-dim)",
+                              }}
+                            />
+                          ) : (
+                            <ChevronRight
+                              style={{
+                                width: 16,
+                                height: 16,
+                                color: "var(--cloud-text-dim)",
+                              }}
+                            />
+                          )}
                         </span>
-                      )}
-                    </div>
+                      </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        marginTop: 6,
-                      }}
-                    >
-                      <span
+                      <div
                         style={{
-                          fontSize: 22,
-                          fontWeight: 600,
-                          letterSpacing: "-0.02em",
-                          fontVariantNumeric: "tabular-nums",
-                          color: "var(--cloud-text)",
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          marginTop: 6,
                         }}
                       >
-                        {show(bests.total, unit)}
                         <span
                           style={{
-                            fontSize: 11,
-                            color: "var(--cloud-text-dim)",
-                            fontWeight: 500,
-                            marginLeft: 2,
+                            fontSize: 22,
+                            fontWeight: 600,
+                            letterSpacing: "-0.02em",
+                            fontVariantNumeric: "tabular-nums",
+                            color: "var(--cloud-text)",
                           }}
                         >
-                          {unitLabel(unit)} total
+                          {show(bests.total, unit)}
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--cloud-text-dim)",
+                              fontWeight: 500,
+                              marginLeft: 2,
+                            }}
+                          >
+                            {unitLabel(unit)} total
+                          </span>
                         </span>
-                      </span>
-                      {date && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "var(--cloud-text-dim)",
-                          }}
-                        >
-                          {date}
-                        </span>
-                      )}
-                    </div>
+                        {date && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "var(--cloud-text-dim)",
+                            }}
+                          >
+                            {date}
+                          </span>
+                        )}
+                      </div>
 
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: "var(--cloud-text-muted)",
-                        margin: "6px 0 0",
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    >
-                      S {show(bests.squat, unit)} · B {show(bests.bench, unit)}{" "}
-                      · DL {show(bests.deadlift, unit)}
-                    </p>
-                    {meta && (
                       <p
                         style={{
-                          fontSize: 10,
-                          color: "var(--cloud-text-dim)",
-                          margin: "2px 0 0",
+                          fontSize: 11,
+                          color: "var(--cloud-text-muted)",
+                          margin: "6px 0 0",
+                          fontFamily: "var(--font-mono)",
                         }}
                       >
-                        {meta}
+                        S {show(bests.squat, unit)} · B {show(bests.bench, unit)}{" "}
+                        · DL {show(bests.deadlift, unit)}
                       </p>
+                      {meta && (
+                        <p
+                          style={{
+                            fontSize: 10,
+                            color: "var(--cloud-text-dim)",
+                            margin: "2px 0 0",
+                          }}
+                        >
+                          {meta}
+                        </p>
+                      )}
+                    </button>
+
+                    {isOpen && (
+                      <div
+                        style={{
+                          borderTop: "1px solid var(--cloud-border)",
+                          padding: "10px var(--cloud-s3) 12px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            ...ATTEMPT_GRID,
+                            fontSize: 10,
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            fontWeight: 500,
+                            color: "var(--cloud-text-dim)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <div />
+                          <div style={{ textAlign: "center" }}>A1</div>
+                          <div style={{ textAlign: "center" }}>A2</div>
+                          <div style={{ textAlign: "center" }}>A3</div>
+                        </div>
+                        {LIFT_ORDER.map((lift) => (
+                          <div
+                            key={lift}
+                            style={{ ...ATTEMPT_GRID, padding: "3px 0" }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: LIFT_TINT[lift],
+                              }}
+                            >
+                              {LIFT_LABEL[lift]}
+                            </div>
+                            {[1, 2, 3].map((n) => {
+                              const r = byLift[lift][n];
+                              if (!r) {
+                                return (
+                                  <div
+                                    key={n}
+                                    style={{
+                                      textAlign: "center",
+                                      fontSize: 13,
+                                      color: "var(--cloud-text-dim)",
+                                      fontVariantNumeric: "tabular-nums",
+                                    }}
+                                  >
+                                    -
+                                  </div>
+                                );
+                              }
+                              const isBest = r.id === bestId[lift];
+                              const cellStyle: CSSProperties = r.made
+                                ? isBest
+                                  ? {
+                                      background: "rgba(34, 197, 94, 0.15)",
+                                      color: "#86efac",
+                                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                                      fontWeight: 600,
+                                    }
+                                  : { color: "#86efac" }
+                                : {
+                                    color: "#fca5a5",
+                                    textDecoration: "line-through",
+                                  };
+                              return (
+                                <div
+                                  key={n}
+                                  style={{
+                                    textAlign: "center",
+                                    fontSize: 13,
+                                    borderRadius: 6,
+                                    padding: "2px 0",
+                                    fontVariantNumeric: "tabular-nums",
+                                    ...cellStyle,
+                                  }}
+                                >
+                                  {Math.round(convertWeight(r.weight_lbs, unit))}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 );
