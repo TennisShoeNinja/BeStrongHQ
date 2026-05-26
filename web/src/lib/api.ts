@@ -579,6 +579,15 @@ class APIClient {
     return response.data;
   }
 
+  // Competition-lift top sets flagged with an out-of-range RPE (held back
+  // from maxes until corrected). Powers the per-athlete review page + pill.
+  async getRpeReview(athleteId: number): Promise<Types.DataQualityIssue[]> {
+    const response = await this.client.get<Types.DataQualityIssue[]>(
+      `/analytics/athletes/${athleteId}/rpe-review`,
+    );
+    return response.data;
+  }
+
   
   
   

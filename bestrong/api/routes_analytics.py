@@ -717,6 +717,66 @@ def get_data_quality(athlete_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.get(
+    "/athletes/{athlete_id}/rpe-review",
+    response_model=list[DataQualityIssue],
+)
+def get_rpe_review(athlete_id: int, db: Session = Depends(get_db)):
+    """List competition-lift top sets whose RPE entry looks like a typo.
+
+    These carry an out-of-range RPE value (a misplaced weight or a stray
+    number), so they're held back from the declared maxes, PR history, and
+    estimated-max math until the value is corrected. We surface every one per
+    athlete, newest first, for the per-athlete review page. Each row deep-links
+    to the source workbook; fixing the cell and re-syncing clears the flag.
+    """
+    athlete = db.query(Athlete).filter(Athlete.id == athlete_id).first()
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    rows = (
+        db.query(ExerciseEntry, SessionModel, Program)
+        .join(SessionModel, ExerciseEntry.session_id == SessionModel.id)
+        .join(Program, SessionModel.program_id == Program.id)
+        .filter(Program.athlete_id == athlete_id)
+        .filter(ExerciseEntry.rpe_needs_review == True)  # noqa: E712
+        .filter(ExerciseEntry.is_accessory == False)  # noqa: E712
+        .filter(ExerciseEntry.set_type == "top_set")
+        .filter(ExerciseEntry.lift_category.in_(("squat", "bench", "deadlift")))
+        .filter(ExerciseEntry.weight_lbs.isnot(None))
+        .order_by(
+            Program.program_number.desc(),
+            SessionModel.week_number.desc(),
+            SessionModel.day_number.desc(),
+        )
+        .all()
+    )
+
+    issues: list[DataQualityIssue] = []
+    for ex, sess, prog in rows:
+        raw = ex.rpe_raw_value or "an out-of-range value"
+        issues.append(
+            DataQualityIssue(
+                category="rpe_review",
+                reason=f"Out-of-range RPE entry ('{raw}')",
+                lift_category=ex.lift_category,
+                exercise_name=ex.exercise_name,
+                weight_lbs=ex.weight_lbs,
+                reps=ex.reps,
+                actual_rpe=ex.actual_rpe,
+                e1rm=None,
+                week_number=sess.week_number,
+                day_number=sess.day_number,
+                day_name=sess.day_name,
+                program_id=prog.id,
+                program_number=prog.program_number,
+                program_name=prog.program_name,
+                google_sheet_url=prog.google_sheet_url,
+            )
+        )
+    return issues
+
+
 @router.get("/estimated-max", response_model=list[EstimatedMaxForLift])
 def get_estimated_max(
     athlete_id: int = Query(..., description="Athlete ID"),

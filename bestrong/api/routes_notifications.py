@@ -222,11 +222,19 @@ def list_notifications(
     limit: int | None = Query(None, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    """List notifications (inbox). Auto-generates reminders on each call."""
-    _generate_program_due_reminders(db)
-    _generate_rpe_review_flags(db)
+    """List notifications (inbox). Auto-generates program-due reminders on
+    each call.
 
-    query = db.query(Notification)
+    RPE-review flags are no longer surfaced here: they're a per-athlete data
+    issue, not a dated work item, so they live on the athlete review page
+    (``/athletes/{id}/review``, backed by the analytics ``rpe-review``
+    endpoint). Any pre-existing ``rpe_review`` rows are filtered out below.
+    """
+    _generate_program_due_reminders(db)
+
+    query = db.query(Notification).filter(
+        Notification.notification_type != "rpe_review"
+    )
     if not include_archived:
         query = query.filter(Notification.archived == False)  # noqa: E712
 
@@ -249,6 +257,7 @@ def notification_count(db: Session = Depends(get_db)):
     count = (
         db.query(Notification)
         .filter(Notification.archived == False)  # noqa: E712
+        .filter(Notification.notification_type != "rpe_review")
         .count()
     )
     return {"count": count}

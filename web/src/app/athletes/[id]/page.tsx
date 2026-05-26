@@ -68,6 +68,7 @@ import {
   Share2,
 } from "lucide-react";
 import { ProfileStatusPills } from "@/components/athlete-detail/ProfileStatusPills";
+import { NeedsReviewPill } from "@/components/athlete-detail/NeedsReviewPill";
 import { DetailsModal } from "@/components/athlete-detail/DetailsModal";
 import { UpdateMaxesDialog } from "@/components/athlete-detail/UpdateMaxesDialog";
 import { WeightClassSelect } from "@/components/athlete-detail/WeightClassSelect";
@@ -664,6 +665,7 @@ export default function AthleteDetailPage() {
                 {athlete.archived && (
                   <span className="cloud-badge">Archived</span>
                 )}
+                <NeedsReviewPill athleteId={athleteId} />
               </div>
               {athlete.next_meet_name &&
                 (!athlete.meet_date ||

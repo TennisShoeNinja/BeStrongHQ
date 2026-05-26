@@ -16,6 +16,7 @@ import {
 } from "@/lib/units";
 import { CurrentCycleCard } from "@/components/current-cycle-card";
 import { EmptyState } from "@/components/empty-state";
+import { NeedsReviewPill } from "@/components/athlete-detail/NeedsReviewPill";
 import { TodaySessionCard } from "@/components/today-session-card";
 import { MobileLiftCards } from "@/components/mobile-lift-cards";
 import { MobileLiftBlockView } from "@/components/mobile-lift-block-view";
@@ -228,6 +229,9 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
                 {metaBits.join(" · ")}
               </p>
             )}
+            <div style={{ marginTop: "var(--cloud-s2)" }}>
+              <NeedsReviewPill athleteId={athlete.id} />
+            </div>
           </div>
         </div>
 
