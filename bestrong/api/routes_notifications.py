@@ -343,7 +343,7 @@ def add_manual_queue_entry(body: ManualQueueRequest, db: Session = Depends(get_d
         .first()
     )
     if existing:
-        return _enrich_notification(existing)
+        return _enrich_notification(existing, db)
 
     notif = Notification(
         athlete_id=body.athlete_id,
@@ -373,7 +373,7 @@ def delete_notification(notification_id: int, db: Session = Depends(get_db)):
     if notif.notification_type != "manual_queue":
         raise HTTPException(status_code=400, detail="Only manual queue entries can be deleted")
 
-    resp = _enrich_notification(notif)
+    resp = _enrich_notification(notif, db)
     db.delete(notif)
     db.commit()
     return resp
