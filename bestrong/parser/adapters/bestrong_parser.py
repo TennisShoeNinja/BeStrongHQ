@@ -183,16 +183,114 @@ _FALLBACK_NAME_COLS = [1, 9, 18, 26]
 
 _STANDARD_OFFSETS = {"sets": 1, "reps": 2, "weight": 3, "target_rpe": 4, "actual_rpe": 5, "volume": 6}
 
-_WEEK2_OFFSETS = {"sets": 1, "reps": 2, "weight": 3, "target_rpe": 5, "actual_rpe": 6, "volume": 7}
+
+# How far right of the exercise-name column to look for the header band. The
+# widest layout seen carries a blank spacer column plus the six labelled
+# columns, so a 12-wide window covers every era without straying into the
+# next week's band.
+_BAND_HEADER_WIDTH = 12
+
+
+# RPE-header vocabulary. The team's actual-RPE column is headed "RPE Last Set"
+# (older eras also "Actual RPE" / "Last Set RPE" / "RPE Achieved"); the target
+# column always carries a prescription word. A bare "RPE" with no qualifier is
+# left for positional resolution (the target column always sits left of the
+# actual-RPE column).
+_TARGET_RPE_WORDS = ("target", "goal", "prescrib")
+_ACTUAL_RPE_WORDS = ("last", "actual", "achiev", "got", "done")
+
+
+def _band_offsets_from_header(ws: Worksheet, name_col: int, header_row: int) -> dict | None:
+    """Map a band's columns to fields from one header row, by header content.
+
+    Returns an offset dict (``sets``/``reps``/``weight``/``target_rpe``/
+    ``actual_rpe``/``volume``, each relative to ``name_col``), or ``None`` when
+    ``header_row`` is not an exercise header (no "Weight" label in the band).
+
+    The actual-RPE column is located by its *own* header text rather than
+    assumed to sit one column right of "Target RPE". Older layout eras shift or
+    reorder the RPE columns, and the previous offset-from-target guess silently
+    pointed the RPE read at a weight or volume column, which is the source of
+    the spurious ``rpe_needs_review`` weights (200-435 lbs) on athletes with
+    vintage workbooks. Any field whose header is absent falls back to
+    ``_STANDARD_OFFSETS``, with the historical adjacency guesses kept only as a
+    last resort.
+    """
+    sets_off = reps_off = weight_off = volume_off = None
+    target_off = actual_off = None
+    bare_rpe_offs: list[int] = []
+
+    for off in range(1, _BAND_HEADER_WIDTH + 1):
+        val = ws.cell(row=header_row, column=name_col + off).value
+        if not isinstance(val, str):
+            continue
+        low = val.strip().lower()
+        if not low:
+            continue
+        if low == "sets" and sets_off is None:
+            sets_off = off
+        elif low == "reps" and reps_off is None:
+            reps_off = off
+        elif low == "weight" and weight_off is None:
+            weight_off = off
+        elif low.startswith("volume") and volume_off is None:
+            volume_off = off
+        elif "rpe" in low:
+            if any(w in low for w in _TARGET_RPE_WORDS):
+                if target_off is None:
+                    target_off = off
+            elif any(w in low for w in _ACTUAL_RPE_WORDS):
+                if actual_off is None:
+                    actual_off = off
+            else:
+                bare_rpe_offs.append(off)
+
+    # "Weight" is the one header every exercise era carries; without it this
+    # row is the pre-session block, a day-split table, or just noise.
+    if weight_off is None:
+        return None
+
+    # Resolve any unqualified "RPE" headers positionally: target sits left of
+    # the actual-RPE column.
+    leftover = [o for o in bare_rpe_offs if o not in (target_off, actual_off)]
+    if target_off is None and leftover:
+        target_off = min(leftover)
+        leftover = [o for o in leftover if o != target_off]
+    if actual_off is None and leftover:
+        actual_off = max(leftover)
+
+    # Adjacency fallbacks for layouts exposing only one of the two RPE headers
+    # (the historical assumption), kept strictly as a last resort.
+    if target_off is not None and actual_off is None:
+        actual_off = target_off + 1
+    if actual_off is not None and target_off is None:
+        target_off = actual_off - 1
+    if actual_off is not None and volume_off is None:
+        volume_off = actual_off + 1
+
+    offsets = dict(_STANDARD_OFFSETS)
+    for field, off in (
+        ("sets", sets_off),
+        ("reps", reps_off),
+        ("weight", weight_off),
+        ("target_rpe", target_off),
+        ("actual_rpe", actual_off),
+        ("volume", volume_off),
+    ):
+        if off is not None:
+            offsets[field] = off
+    return offsets
 
 
 def _detect_week_bands(ws: Worksheet) -> list[dict]:
-    """Dynamically detect the column bands for each week by scanning for Day markers.
+    """Detect the column band for each week by scanning for Day markers.
 
     Scans the sheet for "Day N" markers (any day number) to find which columns
-    contain exercise names for each week.  Some weeks may lack a "Day 1" marker
-    (e.g., one fixture's Week 4) so we look for *any* "Day \\d" pattern.
-    Falls back to hardcoded positions if detection fails.
+    contain exercise names for each week. Some weeks may lack a "Day 1" marker
+    (e.g., one fixture's Week 4) so we look for *any* "Day \\d" pattern, then
+    read each band's column offsets from its header row by content (see
+    ``_band_offsets_from_header``). Falls back to hardcoded name columns and
+    standard offsets if detection fails.
     """
     _DAY_RE = re.compile(r"^Day\s+\d+$")
 
@@ -214,35 +312,17 @@ def _detect_week_bands(ws: Worksheet) -> list[dict]:
 
 
     bands: list[dict] = []
-    for i, name_col in enumerate(sorted_cols):
+    for name_col in sorted_cols:
         offsets = dict(_STANDARD_OFFSETS)
-        target_found = False
-        actual_found = False
 
+        # The header band repeats per session down a week column but at fixed
+        # offsets, so the first "Weight"-bearing header row fully describes the
+        # band's layout era.
         for r in range(1, min(ws.max_row + 1, 100)):
-
-            for off in range(4, 9):
-                val = ws.cell(row=r, column=name_col + off).value
-                if not val or not isinstance(val, str):
-                    continue
-                lower = val.lower().strip()
-                if not target_found and "target" in lower and "rpe" in lower:
-                    offsets["target_rpe"] = off
-                    target_found = True
-                elif not actual_found and "actual" in lower and "rpe" in lower:
-                    offsets["actual_rpe"] = off
-                    actual_found = True
-
-            if target_found and actual_found:
+            detected = _band_offsets_from_header(ws, name_col, r)
+            if detected is not None:
+                offsets = detected
                 break
-
-
-        if target_found and not actual_found:
-            offsets["actual_rpe"] = offsets["target_rpe"] + 1
-
-
-        if actual_found and not target_found:
-            offsets["target_rpe"] = offsets["actual_rpe"] - 1
 
         bands.append({"name_col": name_col, **offsets})
 
