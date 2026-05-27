@@ -150,6 +150,11 @@ function OverflowChip({
   size: number;
   onClick: () => void;
 }) {
+  // The badge PNGs carry transparent padding, so their artwork reads at ~82%
+  // of the tile box. Match that here so the chip doesn't look bigger than the
+  // badges sitting next to it: keep the layout box at `size`, render the
+  // visible circle at ~82% and center it.
+  const inner = Math.round(size * 0.82);
   return (
     <button
       type="button"
@@ -160,41 +165,41 @@ function OverflowChip({
       style={{
         width: size,
         height: size,
-        borderRadius: 999,
-        border: '1px solid rgba(124, 180, 237, 0.55)',
-        background: 'rgba(12, 92, 171, 0.14)',
-        color: 'var(--cloud-primary-text, #7cb4ed)',
-        cursor: 'pointer',
+        background: 'transparent',
+        border: 'none',
         padding: 0,
+        cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: Math.max(12, Math.round(size * 0.32)),
-        fontWeight: 700,
-        fontVariantNumeric: 'tabular-nums',
-        boxShadow: '0 0 0 1px rgba(12, 92, 171, 0.12)',
-        transition: 'border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease',
+        transition: 'transform 0.12s ease',
       }}
       onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLButtonElement;
-        el.style.borderColor = 'rgba(124, 180, 237, 0.85)';
-        el.style.background = 'rgba(12, 92, 171, 0.22)';
-        el.style.boxShadow = '0 0 0 3px rgba(12, 92, 171, 0.16)';
+        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
       }}
       onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLButtonElement;
-        el.style.borderColor = 'rgba(124, 180, 237, 0.55)';
-        el.style.background = 'rgba(12, 92, 171, 0.14)';
-        el.style.boxShadow = '0 0 0 1px rgba(12, 92, 171, 0.12)';
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(12, 92, 171, 0.18)';
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(12, 92, 171, 0.12)';
+        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
       }}
     >
-      +{count}
+      <span
+        style={{
+          width: inner,
+          height: inner,
+          borderRadius: 999,
+          border: '1px solid rgba(124, 180, 237, 0.55)',
+          background: 'rgba(12, 92, 171, 0.14)',
+          color: 'var(--cloud-primary-text, #7cb4ed)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: Math.max(11, Math.round(inner * 0.34)),
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+          boxShadow: '0 0 0 1px rgba(12, 92, 171, 0.12)',
+        }}
+      >
+        +{count}
+      </span>
     </button>
   );
 }

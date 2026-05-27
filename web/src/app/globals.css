@@ -2011,4 +2011,159 @@ body {
     box-shadow: 0 0 0 3px rgba(12, 92, 171, 0.15);
   }
 
+  /* ============================================================
+     Athlete detail: Current cycle card (side-by-side on desktop,
+     stacked below md). The component is also rendered by
+     MobileAthleteDetail, so the grid must collapse to a single
+     column with a horizontal hairline divider below md.
+     ============================================================ */
+  .cloud-cycle-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .cloud-cycle-div {
+    height: 1px;
+    width: auto;
+    background: rgba(12, 92, 171, 0.20);
+    margin: 0 16px;
+  }
+  @media (min-width: 768px) {
+    .cloud-cycle-grid.has-divider {
+      grid-template-columns: 1fr 1px 1.3fr;
+    }
+    .cloud-cycle-grid.has-divider .cloud-cycle-div {
+      height: auto;
+      width: 1px;
+      margin: 14px 0;
+    }
+  }
+
+  /* Athlete detail: persistent tab strip */
+  .cloud-detail-tabs {
+    display: flex;
+    gap: var(--cloud-s5);
+    margin-top: calc(var(--cloud-s2) * -1);
+    border-bottom: 1px solid var(--cloud-border);
+  }
+  .cloud-detail-tab {
+    position: relative;
+    padding: 0 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--cloud-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-bottom: -1px;
+    text-decoration: none;
+  }
+  .cloud-detail-tab:hover { color: var(--cloud-text); }
+  .cloud-detail-tab.active { color: var(--cloud-text); }
+  .cloud-detail-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cloud-primary) 0%, var(--cloud-primary-hover) 100%);
+    border-radius: 999px;
+    box-shadow: 0 0 12px -1px rgba(12, 92, 171, 0.6);
+  }
+
+  /* Persistent compact maxes strip in the athlete-detail header: a single
+     bordered rounded row split into 4 equal cells divided by hairlines. */
+  .cloud-maxes {
+    display: flex;
+    align-items: stretch;
+    margin-top: 0;
+    margin-bottom: 0;
+    border: 1px solid var(--cloud-border);
+    border-radius: var(--cloud-r-md);
+    background: var(--cloud-panel);
+    overflow: hidden;
+  }
+  .cloud-maxes__cell {
+    flex: 1;
+    padding: 6px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .cloud-maxes__cell + .cloud-maxes__cell {
+    border-left: 1px solid var(--cloud-border);
+  }
+  .cloud-maxes__label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--cloud-text-muted);
+  }
+  .cloud-maxes__value {
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    margin-top: 2px;
+    color: var(--cloud-text);
+  }
+  .cloud-maxes__value small {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--cloud-text-muted);
+    margin-left: 3px;
+  }
+
+  /* Calm status pills in the athlete-detail context bar: small rounded-full
+     chips with a tiny leading dot. Mirrors the approved mock's `.pill`. */
+  .cloud-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    border-radius: 999px;
+    background: var(--cloud-panel);
+    color: var(--cloud-text-muted);
+    border: 1px solid var(--cloud-border);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .cloud-status-pill:hover {
+    background: var(--cloud-panel-hover);
+    border-color: var(--cloud-border-strong);
+  }
+  .cloud-status-pill:disabled {
+    cursor: default;
+  }
+  .cloud-status-pill__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .cloud-status-pill--warn {
+    color: var(--cloud-warning-text);
+    background: rgba(245, 158, 11, 0.10);
+    border-color: rgba(245, 158, 11, 0.25);
+  }
+  .cloud-status-pill--warn:hover {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .cloud-status-pill--primary {
+    color: var(--cloud-primary-text);
+    background: rgba(12, 92, 171, 0.16);
+    border-color: rgba(12, 92, 171, 0.35);
+  }
+  .cloud-status-pill--primary:hover {
+    background: rgba(12, 92, 171, 0.24);
+    border-color: rgba(12, 92, 171, 0.45);
+  }
+
 }

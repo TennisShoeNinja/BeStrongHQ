@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, ArrowRight, ExternalLink } from "lucide-react";
+import { Clock, ArrowRight, ExternalLink } from "lucide-react";
 import type * as Types from "@/lib/types";
 
 function formatBlockDate(d: string | null | undefined): string | null {
@@ -48,13 +48,14 @@ interface Props {
 }
 
 /**
- * Combined Current Cycle hero card for athlete detail. Top half shows the
- * next meet (icon chip · name · location/date · countdown pill); a hairline
- * divider separates it from the bottom half, which shows the current block
- * (name · week badge · 5-segment progress bar · date range · cadence).
+ * Combined Current Cycle hero card for athlete detail. On desktop it lays the
+ * next meet and current block side by side, separated by a vertical hairline.
+ * Below the md breakpoint (where MobileAthleteDetail also renders it) the two
+ * columns stack vertically with a horizontal hairline between them. The
+ * responsive grid lives in globals.css (.cloud-cycle-grid / .cloud-cycle-div).
  *
- * Renders nothing when there's no meet AND no program — the page collapses
- * gracefully for athletes who haven't been programmed yet.
+ * Renders nothing when there's no meet AND no program (the page collapses
+ * gracefully for athletes who haven't been programmed yet).
  */
 export function CurrentCycleCard({
   athlete,
@@ -89,7 +90,7 @@ export function CurrentCycleCard({
         Math.floor(elapsedDays / 7),
       );
       const displayWeek = Math.min(totalWeeks, currentWeekIdx + 1);
-      weekLabel = `Week ${displayWeek} / ${totalWeeks}`;
+      weekLabel = `Week ${displayWeek} of ${totalWeeks}`;
       weekSegs = Array.from({ length: totalWeeks }, (_, i) =>
         i < currentWeekIdx ? "done" : i === currentWeekIdx ? "now" : "future",
       );
@@ -116,6 +117,238 @@ export function CurrentCycleCard({
     return { start: s, end: e };
   })();
 
+  const meetCell = meetUpcoming ? (
+    <button
+      type="button"
+      onClick={() =>
+        athlete.next_meet_id && onOpenMeet?.(athlete.next_meet_id)
+      }
+      disabled={!athlete.next_meet_id}
+      style={{
+        position: "relative",
+        display: "block",
+        width: "100%",
+        padding: "var(--cloud-s4)",
+        background: "transparent",
+        border: 0,
+        textAlign: "left",
+        color: "inherit",
+        font: "inherit",
+        cursor: athlete.next_meet_id ? "pointer" : "default",
+      }}
+      title={athlete.next_meet_id ? "Open meet" : undefined}
+    >
+      <p className="cloud-eyebrow" style={{ margin: 0 }}>
+        Next meet
+      </p>
+      <p
+        className="cloud-text"
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          letterSpacing: "-0.02em",
+          margin: "8px 0 4px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {athlete.next_meet_name || "Assigned meet"}
+      </p>
+      {meetSubtitle && (
+        <p className="cloud-text-muted" style={{ fontSize: 13, margin: 0 }}>
+          {meetSubtitle}
+        </p>
+      )}
+      {countdown && (
+        <div style={{ marginTop: 14 }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--cloud-primary-text)",
+              padding: "3px 10px",
+              borderRadius: 999,
+              background: "rgba(12, 92, 171, 0.16)",
+              border: "1px solid rgba(12, 92, 171, 0.35)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            <Clock style={{ width: 12, height: 12, strokeWidth: 2 }} />
+            {countdown}
+          </span>
+        </div>
+      )}
+    </button>
+  ) : null;
+
+  const blockCell =
+    hasProgram && currentProgram ? (
+      <button
+        type="button"
+        onClick={() => {
+          if (programSheetUrl) {
+            window.open(programSheetUrl, "_blank", "noopener,noreferrer");
+          }
+        }}
+        disabled={!programSheetUrl}
+        style={{
+          position: "relative",
+          display: "block",
+          width: "100%",
+          padding: "var(--cloud-s4)",
+          background: "transparent",
+          border: 0,
+          textAlign: "left",
+          color: "inherit",
+          font: "inherit",
+          cursor: programSheetUrl ? "pointer" : "default",
+        }}
+        title={programSheetUrl ? "Open Google Sheet in new tab" : undefined}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <p className="cloud-eyebrow" style={{ margin: 0 }}>
+            Current block
+          </p>
+          {(weekLabel || programSheetUrl) && (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexShrink: 0,
+              }}
+            >
+              {weekLabel && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    padding: "2px 8px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 999,
+                    background: "var(--cloud-panel-hover)",
+                    color: "var(--cloud-text)",
+                    border: "1px solid var(--cloud-border)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {weekLabel}
+                </span>
+              )}
+              {programSheetUrl && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    color: "var(--cloud-text-dim)",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  <ExternalLink style={{ width: 12, height: 12 }} />
+                  Open Sheet
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+        <p
+          className="cloud-text"
+          style={{
+            fontSize: 18,
+            fontWeight: 600,
+            letterSpacing: "-0.02em",
+            margin: "8px 0 4px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {currentProgram.program_number && (
+            <span style={{ color: "var(--cloud-primary-text)", marginRight: 6 }}>
+              Block {currentProgram.program_number}
+            </span>
+          )}
+          {blockName}
+        </p>
+        {weekSegs && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${weekSegs.length}, 1fr)`,
+              gap: 4,
+              margin: "14px 0 10px",
+            }}
+          >
+            {weekSegs.map((seg, i) => (
+              <span
+                key={i}
+                style={{
+                  height: 6,
+                  borderRadius: 999,
+                  background:
+                    seg === "done"
+                      ? "linear-gradient(90deg, var(--cloud-primary) 0%, var(--cloud-primary-hover) 100%)"
+                      : seg === "now"
+                        ? "repeating-linear-gradient(135deg, rgba(12, 92, 171, 0.55) 0 4px, rgba(12, 92, 171, 0.30) 4px 8px)"
+                        : "rgba(255, 255, 255, 0.06)",
+                  boxShadow:
+                    seg === "done"
+                      ? "0 0 12px -2px rgba(12, 92, 171, 0.55)"
+                      : "none",
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {dateRange && (
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--cloud-text-muted)",
+              letterSpacing: "0.02em",
+              margin: 0,
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+            }}
+          >
+            <span>{dateRange.start}</span>
+            <ArrowRight style={{ width: 11, height: 11, opacity: 0.5 }} />
+            <span>{dateRange.end}</span>
+            {currentProgram.session_count && weekSegs && (
+              <>
+                <span style={{ opacity: 0.5 }}>·</span>
+                <span>
+                  {(currentProgram.session_count / weekSegs.length).toFixed(
+                    currentProgram.session_count % weekSegs.length === 0
+                      ? 0
+                      : 1,
+                  )}{" "}
+                  sessions / week
+                </span>
+              </>
+            )}
+          </p>
+        )}
+      </button>
+    ) : null;
+
+  const bothColumns = !!meetCell && !!blockCell;
+
   return (
     <div
       style={{
@@ -139,254 +372,14 @@ export function CurrentCycleCard({
         }}
       />
 
-      {meetUpcoming && (
-        <button
-          type="button"
-          onClick={() =>
-            athlete.next_meet_id && onOpenMeet?.(athlete.next_meet_id)
-          }
-          disabled={!athlete.next_meet_id}
-          style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            width: "100%",
-            padding: "14px 16px",
-            background: "transparent",
-            border: 0,
-            textAlign: "left",
-            color: "inherit",
-            font: "inherit",
-            cursor: athlete.next_meet_id ? "pointer" : "default",
-          }}
-        >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: "rgba(12, 92, 171, 0.28)",
-              border: "1px solid rgba(12, 92, 171, 0.40)",
-              color: "var(--cloud-primary-text)",
-              display: "grid",
-              placeItems: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Trophy style={{ width: 16, height: 16, strokeWidth: 1.8 }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p
-              className="cloud-text"
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                letterSpacing: "-0.01em",
-                margin: 0,
-              }}
-            >
-              {athlete.next_meet_name || "Assigned meet"}
-            </p>
-            <p
-              className="cloud-text-muted"
-              style={{
-                fontSize: 11,
-                margin: "2px 0 0",
-                letterSpacing: "0.02em",
-              }}
-            >
-              {meetSubtitle}
-            </p>
-          </div>
-          {countdown && (
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "var(--cloud-primary-text)",
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: "rgba(12, 92, 171, 0.20)",
-                border: "1px solid rgba(12, 92, 171, 0.30)",
-                fontVariantNumeric: "tabular-nums",
-                flexShrink: 0,
-              }}
-            >
-              {countdown}
-            </span>
-          )}
-        </button>
-      )}
-
-      {meetUpcoming && hasProgram && (
-        <div
-          style={{
-            height: 1,
-            background: "rgba(12, 92, 171, 0.20)",
-            margin: "0 16px",
-            position: "relative",
-          }}
-        />
-      )}
-
-      {hasProgram && currentProgram && (
-        <button
-          type="button"
-          onClick={() => {
-            if (programSheetUrl) {
-              window.open(programSheetUrl, "_blank", "noopener,noreferrer");
-            }
-          }}
-          disabled={!programSheetUrl}
-          style={{
-            position: "relative",
-            display: "block",
-            width: "100%",
-            padding: "14px 16px",
-            background: "transparent",
-            border: 0,
-            textAlign: "left",
-            color: "inherit",
-            font: "inherit",
-            cursor: programSheetUrl ? "pointer" : "default",
-          }}
-          title={programSheetUrl ? "Open Google Sheet in new tab" : undefined}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              justifyContent: "space-between",
-              marginBottom: weekSegs ? 10 : 0,
-              gap: 12,
-            }}
-          >
-            <p
-              className="cloud-text"
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                letterSpacing: "-0.01em",
-                margin: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flex: 1,
-                minWidth: 0,
-              }}
-            >
-              {currentProgram.program_number && (
-                <span style={{ color: "var(--cloud-primary-text)", marginRight: 6 }}>
-                  Block {currentProgram.program_number}
-                </span>
-              )}
-              {blockName}
-            </p>
-            {(weekLabel || programSheetUrl) && (
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  flexShrink: 0,
-                }}
-              >
-                {weekLabel && (
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--cloud-primary-text)",
-                      fontWeight: 600,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {weekLabel}
-                  </span>
-                )}
-                {programSheetUrl && (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      color: "var(--cloud-text-dim)",
-                      fontSize: 11,
-                      fontWeight: 500,
-                      letterSpacing: "0.01em",
-                    }}
-                  >
-                    <ExternalLink style={{ width: 12, height: 12 }} />
-                    Open Sheet
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-          {weekSegs && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${weekSegs.length}, 1fr)`,
-                gap: 4,
-                marginBottom: 10,
-              }}
-            >
-              {weekSegs.map((seg, i) => (
-                <span
-                  key={i}
-                  style={{
-                    height: 6,
-                    borderRadius: 999,
-                    background:
-                      seg === "done"
-                        ? "linear-gradient(90deg, var(--cloud-primary) 0%, var(--cloud-primary-hover) 100%)"
-                        : seg === "now"
-                          ? "repeating-linear-gradient(135deg, rgba(12, 92, 171, 0.55) 0 4px, rgba(12, 92, 171, 0.30) 4px 8px)"
-                          : "rgba(255, 255, 255, 0.06)",
-                    boxShadow:
-                      seg === "done"
-                        ? "0 0 12px -2px rgba(12, 92, 171, 0.55)"
-                        : "none",
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          {dateRange && (
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--cloud-text-dim)",
-                letterSpacing: "0.02em",
-                margin: 0,
-                display: "flex",
-                gap: 6,
-                alignItems: "center",
-              }}
-            >
-              <span>{dateRange.start}</span>
-              <ArrowRight style={{ width: 11, height: 11, opacity: 0.5 }} />
-              <span>{dateRange.end}</span>
-              {currentProgram.session_count && weekSegs && (
-                <>
-                  <span style={{ opacity: 0.5 }}>·</span>
-                  <span>
-                    {(currentProgram.session_count / weekSegs.length).toFixed(
-                      currentProgram.session_count % weekSegs.length === 0
-                        ? 0
-                        : 1,
-                    )}{" "}
-                    sessions / week
-                  </span>
-                </>
-              )}
-            </p>
-          )}
-        </button>
-      )}
+      <div
+        className={`cloud-cycle-grid${bothColumns ? " has-divider" : ""}`}
+        style={{ position: "relative" }}
+      >
+        {meetCell}
+        {bothColumns && <div className="cloud-cycle-div" aria-hidden />}
+        {blockCell}
+      </div>
     </div>
   );
 }
