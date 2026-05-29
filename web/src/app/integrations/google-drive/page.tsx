@@ -719,6 +719,10 @@ export default function GoogleDriveSyncPage() {
     mutationFn: () => apiClient.forceResyncAll(),
     onSuccess: () => {
       setError(null);
+      // Refetch status immediately so polling picks up running=true and the
+      // button keeps showing "Re-parsing…" instead of snapping back to idle
+      // while we wait for the next 2s tick.
+      queryClient.invalidateQueries({ queryKey: ['force-resync-status'] });
     },
     onError: (err: unknown) => {
       const error = err as { response?: { data?: { detail?: string } }; message?: string };
