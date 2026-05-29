@@ -24,7 +24,7 @@ export function NeedsReviewPill({ athleteId }: { athleteId: number }) {
     <Link
       href={`/athletes/${athleteId}/review`}
       title={`${count} set${count === 1 ? "" : "s"} with an out-of-range RPE need review`}
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors hover:brightness-110"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors hover:brightness-110"
       style={{
         background: "rgba(245, 158, 11, 0.1)",
         border: "1px solid rgba(245, 158, 11, 0.35)",
@@ -33,15 +33,16 @@ export function NeedsReviewPill({ athleteId }: { athleteId: number }) {
         whiteSpace: "nowrap",
       }}
     >
-      <AlertCircle style={{ width: 13, height: 13, strokeWidth: 1.8 }} />
-      <span style={{ fontSize: 12, fontWeight: 600 }}>Needs Review</span>
+      <AlertCircle style={{ width: 11, height: 11, strokeWidth: 1.8 }} />
+      <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1 }}>Needs Review</span>
       <span
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 700,
-          minWidth: 16,
+          lineHeight: 1,
+          minWidth: 13,
           textAlign: "center",
-          padding: "0 5px",
+          padding: "1px 4px",
           borderRadius: 999,
           background: "rgba(245, 158, 11, 0.22)",
         }}

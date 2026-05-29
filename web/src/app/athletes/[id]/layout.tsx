@@ -541,7 +541,7 @@ export default function AthleteDetailLayout({
                 />
                 <span style={{ color: "var(--cloud-text-dim)" }}>Athlete</span>
               </p>
-              <div className="flex items-center" style={{ gap: "var(--cloud-s2)" }}>
+              <div className="flex items-end" style={{ gap: "var(--cloud-s2)" }}>
                 <h1
                   className="font-semibold truncate"
                   style={{ fontSize: 32, letterSpacing: "-0.03em", lineHeight: 1.1 }}
