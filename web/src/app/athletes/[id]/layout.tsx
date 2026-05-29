@@ -198,6 +198,7 @@ export default function AthleteDetailLayout({
     if (hasAutoOpenedOplRef.current || !status) return;
     if (status.linked === false && status.not_applicable === false) {
       hasAutoOpenedOplRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsOplDialogOpen(true);
     }
   }, [oplStatusQuery.data]);

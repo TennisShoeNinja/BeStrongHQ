@@ -31,6 +31,7 @@ export function ProgramSection({
   // after mount if the profile reads the hash once programs have loaded.
   useEffect(() => {
     if (!autoOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpanded(true);
     rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [autoOpen]);
