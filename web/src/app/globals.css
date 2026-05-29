@@ -2115,6 +2115,25 @@ body {
     color: var(--cloud-text-muted);
     margin-left: 3px;
   }
+  /* Clickable max value: looks identical to the static value but opens the
+     PR-progression modal. Reset button chrome, keep the .cloud-maxes__value
+     typography, and tint the number on hover to signal interactivity. */
+  .cloud-maxes__value--btn {
+    display: block;
+    width: fit-content;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.12s ease;
+  }
+  .cloud-maxes__value--btn:hover {
+    color: #fcd34d;
+  }
 
   /* Calm status pills in the athlete-detail context bar: small rounded-full
      chips with a tiny leading dot. Mirrors the approved mock's `.pill`. */

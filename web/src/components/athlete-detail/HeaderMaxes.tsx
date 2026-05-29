@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
@@ -11,6 +11,8 @@ import {
   useLocalWeightUnit,
   type WeightUnit,
 } from "@/lib/units";
+import PRDetailModal from "@/components/PRDetailModal";
+import { findMaxAnchor } from "@/components/athlete-detail/utils";
 import { EstimatedMaxBadge } from "@/components/athlete-detail/EstimatedMaxBadge";
 import { CompTotalLine } from "@/components/athlete-detail/CompTotalLine";
 import { CompMaxLine } from "@/components/athlete-detail/CompMaxLine";
@@ -78,6 +80,26 @@ export function HeaderMaxes({ athleteId }: { athleteId: number }) {
     return m;
   }, [estimatedMaxes]);
 
+  // Full max history, shared with the rest of the page via the same query key.
+  // Used both to anchor each clickable max to its all-time-best PR row and as
+  // the `allHistory` lane source the modal walks back through.
+  const { data: maxHistory = [] } = useQuery({
+    queryKey: ["max-history", athleteId],
+    queryFn: () => apiClient.getMaxHistory(athleteId),
+    enabled: !!athlete,
+  });
+  const anchorByLift = useMemo(() => {
+    const m: Record<string, Types.MaxHistoryEntry | null> = {};
+    for (const lift of ["squat", "bench", "deadlift", "total"]) {
+      m[lift] = findMaxAnchor(maxHistory, lift);
+    }
+    return m;
+  }, [maxHistory]);
+
+  const [selectedPR, setSelectedPR] = useState<Types.MaxHistoryEntry | null>(
+    null
+  );
+
   // Cross-tab highlight: navigate to the Overview tab with the clicked
   // exercise encoded as a `highlight` query param. The Overview page reads it
   // via useSearchParams and seeds the ProgressionPanel.
@@ -90,14 +112,36 @@ export function HeaderMaxes({ athleteId }: { athleteId: number }) {
 
   const plate = unit === "kg";
 
+  // Render a max value: a clickable button that opens the PR-progression modal
+  // when we have a history row to anchor to, otherwise the plain static value.
+  const renderValue = (lift: string, value: number | null | undefined) => {
+    const content = (
+      <>
+        {formatWeight(value, unit, { plate, unitless: true })}
+        <small>{unit}</small>
+      </>
+    );
+    const anchor = anchorByLift[lift];
+    if (!anchor || value == null) {
+      return <span className="cloud-maxes__value">{content}</span>;
+    }
+    return (
+      <button
+        type="button"
+        className="cloud-maxes__value cloud-maxes__value--btn"
+        onClick={() => setSelectedPR(anchor)}
+        title="See how this max was reached"
+      >
+        {content}
+      </button>
+    );
+  };
+
   return (
     <div className="cloud-maxes">
       <div className="cloud-maxes__cell">
         <span className="cloud-maxes__label">Squat</span>
-        <span className="cloud-maxes__value">
-          {formatWeight(athlete.squat_max_lbs, unit, { plate, unitless: true })}
-          <small>{unit}</small>
-        </span>
+        {renderValue("squat", athlete.squat_max_lbs)}
         <EstimatedMaxBadge
           est={estMaxByLift.squat}
           unit={unit}
@@ -109,10 +153,7 @@ export function HeaderMaxes({ athleteId }: { athleteId: number }) {
 
       <div className="cloud-maxes__cell">
         <span className="cloud-maxes__label">Bench</span>
-        <span className="cloud-maxes__value">
-          {formatWeight(athlete.bench_max_lbs, unit, { plate, unitless: true })}
-          <small>{unit}</small>
-        </span>
+        {renderValue("bench", athlete.bench_max_lbs)}
         <EstimatedMaxBadge
           est={estMaxByLift.bench}
           unit={unit}
@@ -124,10 +165,7 @@ export function HeaderMaxes({ athleteId }: { athleteId: number }) {
 
       <div className="cloud-maxes__cell">
         <span className="cloud-maxes__label">Deadlift</span>
-        <span className="cloud-maxes__value">
-          {formatWeight(athlete.deadlift_max_lbs, unit, { plate, unitless: true })}
-          <small>{unit}</small>
-        </span>
+        {renderValue("deadlift", athlete.deadlift_max_lbs)}
         <EstimatedMaxBadge
           est={estMaxByLift.deadlift}
           unit={unit}
@@ -141,12 +179,27 @@ export function HeaderMaxes({ athleteId }: { athleteId: number }) {
 
       <div className="cloud-maxes__cell">
         <span className="cloud-maxes__label">Total</span>
-        <span className="cloud-maxes__value">
-          {formatWeight(athlete.total_lbs, unit, { plate, unitless: true })}
-          <small>{unit}</small>
-        </span>
+        {renderValue("total", athlete.total_lbs)}
         {showCompMaxes && <CompTotalLine byLift={compMaxByLift} unit={unit} />}
       </div>
+
+      <PRDetailModal
+        open={!!selectedPR}
+        onClose={() => setSelectedPR(null)}
+        pr={selectedPR}
+        allHistory={maxHistory}
+        athleteName={athlete.name}
+        athleteId={athlete.id}
+        unit={unit}
+        programIndex={programs.map((p) => ({
+          id: p.id,
+          program_number: p.program_number ?? null,
+          program_name: p.program_name ?? null,
+        }))}
+        programSheetUrls={Object.fromEntries(
+          programs.map((p) => [p.id, p.google_sheet_url ?? null])
+        )}
+      />
     </div>
   );
 }

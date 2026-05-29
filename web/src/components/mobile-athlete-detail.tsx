@@ -24,6 +24,8 @@ import { MobileBodyweightCard } from "@/components/mobile-bodyweight-card";
 import { MobileBodyweightView } from "@/components/mobile-bodyweight-view";
 import { MobileMeetCard } from "@/components/mobile-meet-card";
 import { MobileMeetView } from "@/components/mobile-meet-view";
+import PRDetailModal from "@/components/PRDetailModal";
+import { findMaxAnchor } from "@/components/athlete-detail/utils";
 import { LIFTS, type LiftKey } from "@/lib/progression";
 import type * as Types from "@/lib/types";
 
@@ -79,6 +81,9 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
   const [drillLift, setDrillLift] = useState<LiftKey | null>(null);
   const [showBodyweight, setShowBodyweight] = useState(false);
   const [showMeets, setShowMeets] = useState(false);
+  const [selectedPR, setSelectedPR] = useState<Types.MaxHistoryEntry | null>(
+    null
+  );
   const { instance } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
 
@@ -123,10 +128,10 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
   if (athlete.membership_no != null) metaBits.push(`OPL #${athlete.membership_no}`);
 
   const maxTiles = [
-    { label: "Squat", value: athlete.squat_max_lbs },
-    { label: "Bench", value: athlete.bench_max_lbs },
-    { label: "Deadlift", value: athlete.deadlift_max_lbs },
-    { label: "Total", value: athlete.total_lbs },
+    { label: "Squat", lift: "squat", value: athlete.squat_max_lbs },
+    { label: "Bench", lift: "bench", value: athlete.bench_max_lbs },
+    { label: "Deadlift", lift: "deadlift", value: athlete.deadlift_max_lbs },
+    { label: "Total", lift: "total", value: athlete.total_lbs },
   ] as const;
   const hasAnyMax = maxTiles.some((m) => m.value != null);
 
@@ -255,40 +260,68 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
                 marginBottom: "var(--cloud-s5)",
               }}
             >
-              {maxTiles.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="cloud-panel"
-                  style={{
-                    padding: "var(--cloud-s3)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}
-                >
-                  <span
+              {maxTiles.map((stat) => {
+                const anchor = findMaxAnchor(maxHistory, stat.lift);
+                const clickable = anchor != null && stat.value != null;
+                const tileStyle = {
+                  padding: "var(--cloud-s3)",
+                  display: "flex",
+                  flexDirection: "column" as const,
+                  gap: 4,
+                };
+                const inner = (
+                  <>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "var(--cloud-text-dim)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {stat.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 19,
+                        fontWeight: 600,
+                        lineHeight: 1.1,
+                        color: "var(--cloud-text)",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {formatLiftValue(stat.value, unit)}
+                    </span>
+                  </>
+                );
+                if (!clickable) {
+                  return (
+                    <div key={stat.label} className="cloud-panel" style={tileStyle}>
+                      {inner}
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={stat.label}
+                    type="button"
+                    className="cloud-panel"
+                    onClick={() => setSelectedPR(anchor)}
+                    title="See how this max was reached"
                     style={{
-                      fontSize: 10,
-                      color: "var(--cloud-text-dim)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
+                      ...tileStyle,
+                      textAlign: "left",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      font: "inherit",
+                      color: "inherit",
+                      cursor: "pointer",
                     }}
                   >
-                    {stat.label}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 19,
-                      fontWeight: 600,
-                      lineHeight: 1.1,
-                      color: "var(--cloud-text)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {formatLiftValue(stat.value, unit)}
-                  </span>
-                </div>
-              ))}
+                    {inner}
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -436,6 +469,24 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
           />
         </div>
       </div>
+
+      <PRDetailModal
+        open={!!selectedPR}
+        onClose={() => setSelectedPR(null)}
+        pr={selectedPR}
+        allHistory={maxHistory}
+        athleteName={athlete.name}
+        athleteId={athlete.id}
+        unit={unit}
+        programIndex={programs.map((p) => ({
+          id: p.id,
+          program_number: p.program_number ?? null,
+          program_name: p.program_name ?? null,
+        }))}
+        programSheetUrls={Object.fromEntries(
+          programs.map((p) => [p.id, p.google_sheet_url ?? null])
+        )}
+      />
     </div>
   );
 }

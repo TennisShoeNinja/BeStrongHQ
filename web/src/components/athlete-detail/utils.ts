@@ -93,6 +93,36 @@ export function formatMeetCountdown(meetDate: string | undefined | null): string
 }
 
 
+// Pick the max-history entry that best represents the current displayed max
+// for a lift, i.e. the all-time best recorded value (most recent on ties).
+// This is the row the PRDetailModal anchors to so its progression lane shows
+// how the athlete climbed to the number shown in the header. Returns null when
+// there's no history for the lift.
+export function findMaxAnchor(
+  history: Types.MaxHistoryEntry[],
+  lift: string,
+): Types.MaxHistoryEntry | null {
+  const target = lift.toLowerCase();
+  let best: Types.MaxHistoryEntry | null = null;
+  for (const h of history) {
+    if (h.lift.toLowerCase() !== target) continue;
+    if (best === null) {
+      best = h;
+      continue;
+    }
+    if (h.new_value > best.new_value) {
+      best = h;
+    } else if (
+      h.new_value === best.new_value &&
+      new Date(h.recorded_at).getTime() > new Date(best.recorded_at).getTime()
+    ) {
+      best = h;
+    }
+  }
+  return best;
+}
+
+
 export function subscribeToCompMaxesPref(cb: () => void): () => void {
   if (typeof window === "undefined") return () => { };
   
