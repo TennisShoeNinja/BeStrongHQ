@@ -346,6 +346,60 @@ class APIClient {
     return response.data;
   }
 
+  async getMeetAttemptPlans(meetId: number): Promise<Types.MeetAttemptPlan[]> {
+    const response = await this.client.get<Types.MeetAttemptPlan[]>(
+      `/meets/${meetId}/attempt-plans`
+    );
+    return response.data;
+  }
+
+  async getAthleteMeetAttemptPlan(
+    meetId: number,
+    athleteId: number
+  ): Promise<Types.AthleteMeetAttemptPlan> {
+    const response = await this.client.get<Types.AthleteMeetAttemptPlan>(
+      `/meets/${meetId}/attempt-plans/${athleteId}`
+    );
+    return response.data;
+  }
+
+  async saveAthleteMeetAttemptPlan(
+    meetId: number,
+    athleteId: number,
+    body: Types.MeetAttemptPlanUpsertBody
+  ): Promise<Types.AthleteMeetAttemptPlan> {
+    const response = await this.client.put<Types.AthleteMeetAttemptPlan>(
+      `/meets/${meetId}/attempt-plans/${athleteId}`,
+      body
+    );
+    return response.data;
+  }
+
+  async clearAthleteMeetAttemptPlan(
+    meetId: number,
+    athleteId: number
+  ): Promise<void> {
+    await this.client.delete(`/meets/${meetId}/attempt-plans/${athleteId}`);
+  }
+
+  async getMeetsToday(): Promise<Types.MeetTodayItem[]> {
+    const response = await this.client.get<Types.MeetTodayItem[]>("/meets/today");
+    return response.data;
+  }
+
+  async getPickerContext(
+    athleteId: number,
+    meetId: number,
+    lift: Types.MeetAttemptLift,
+    weightLbs: number
+  ): Promise<Types.PickerContext> {
+    const response = await this.client.get<Types.PickerContext>(
+      `/athletes/${athleteId}/meets/${meetId}/picker-context`,
+      { params: { lift, weight_lbs: weightLbs } }
+    );
+    return response.data;
+  }
+
   
   
   

@@ -76,6 +76,84 @@ export interface MeetPrepResponse {
   athletes: AthleteReadiness[];
 }
 
+export type MeetAttemptScript = "safe" | "plan" | "reach";
+export type MeetAttemptLift = "squat" | "bench" | "deadlift";
+
+export interface MeetAttemptPlan {
+  athlete_id?: number | null;
+  lift: MeetAttemptLift;
+  script: MeetAttemptScript;
+  attempt_number: 1 | 2 | 3;
+  weight_lbs: number | null;
+  opener_pct: number | null;
+}
+
+export interface MeetAttemptMaxValues {
+  squat: number | null;
+  bench: number | null;
+  deadlift: number | null;
+}
+
+export interface AthleteMeetAttemptPlan {
+  meet_max: MeetAttemptMaxValues;
+  plan: MeetAttemptPlan[];
+}
+
+export interface MeetAttemptPlanUpsertBody {
+  meet_max?: {
+    squat?: number | null;
+    bench?: number | null;
+    deadlift?: number | null;
+  };
+  plan: MeetAttemptPlan[];
+}
+
+export interface MeetTodayAthlete {
+  id: number;
+  name: string;
+  weight_class?: string | null;
+  division?: string | null;
+}
+
+export interface MeetTodayItem {
+  meet_id: number;
+  meet_name: string;
+  federation: string | null;
+  meet_date: string;
+  meet_date_end: string | null;
+  athletes: MeetTodayAthlete[];
+}
+
+export interface PickerContextDelta {
+  from_attempt_number: number;
+  delta_lbs: number;
+  delta_pct: number;
+}
+
+export interface PickerContextPR {
+  best_lbs: number;
+  best_at: string;
+  delta_to_best_lbs: number;
+  stale_months: number | null;
+  bodyweight_at_best: number | null;
+  meet_name?: string | null;
+}
+
+export interface PickerContextRecentHistory {
+  hits_in_6mo: number;
+  misses_in_6mo: number;
+  last_meet_missed_lbs: number | null;
+}
+
+export interface PickerContext {
+  delta: PickerContextDelta | null;
+  pct_of_meet_max: number | null;
+  gym_pr_context: PickerContextPR | null;
+  platform_pr_context: PickerContextPR | null;
+  recent_history: PickerContextRecentHistory | null;
+  bodyweight_at_candidate: number | null;
+}
+
 
 export interface AthleteBase {
   name: string;
