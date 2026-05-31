@@ -241,6 +241,8 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
           </div>
         </div>
 
+        <div id="coach-athlete-next-meet-mobile-slot" />
+
         {/* Current maxes */}
         {hasAnyMax && (
           <>

@@ -108,6 +108,8 @@ function AthleteOverviewPageInner() {
         athleteName={athlete?.name ?? null}
       />
 
+      <div id="coach-athlete-next-meet-slot" />
+
       {/* Current cycle hero: meet + block side by side */}
       <div>
         <p className="cloud-eyebrow" style={{ marginBottom: 8 }}>
