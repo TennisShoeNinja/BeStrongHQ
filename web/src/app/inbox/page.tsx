@@ -3,6 +3,7 @@
 import { useState, useMemo, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { withReturn } from "@/lib/back-nav";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { useAuth } from "@/lib/auth-provider";
@@ -118,7 +119,9 @@ function NotificationCard({
       return;
     }
     if (notification.athlete_id) {
-      router.push(`/athletes/${notification.athlete_id}`);
+      router.push(
+        withReturn(`/athletes/${notification.athlete_id}`, "/inbox", "Inbox"),
+      );
     }
   };
 
@@ -273,11 +276,13 @@ function NotificationCard({
             </>
           )}
           <Link
-            href={
+            href={withReturn(
               isReview && notification.link_program_id
                 ? `/athletes/${notification.athlete_id}#block-${notification.link_program_id}`
-                : `/athletes/${notification.athlete_id}`
-            }
+                : `/athletes/${notification.athlete_id}`,
+              "/inbox",
+              "Inbox",
+            )}
             onClick={(e) => e.stopPropagation()}
             className="cloud-btn cloud-btn-ghost cloud-btn-sm"
             style={{ textDecoration: "none" }}

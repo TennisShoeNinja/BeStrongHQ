@@ -3,6 +3,8 @@
 import { Fragment, useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import { useRouter, useParams, useSelectedLayoutSegment } from "next/navigation";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
+import { useBackTarget, useReturnQuery, withReturn } from "@/lib/back-nav";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { useNow } from "@/lib/use-now";
@@ -46,7 +48,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ChevronLeft,
   AlertCircle,
   Check,
   Merge,
@@ -89,6 +90,8 @@ export default function AthleteDetailLayout({
 }) {
   const router = useRouter();
   const params = useParams();
+  const back = useBackTarget("/athletes", "Athletes");
+  const returnQuery = useReturnQuery();
   const queryClient = useQueryClient();
   const { instance } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
@@ -505,26 +508,9 @@ export default function AthleteDetailLayout({
         <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ gap: "var(--cloud-s3)" }}>
           <div className="flex items-start min-w-0" style={{ gap: "var(--cloud-s3)" }}>
             <div className="min-w-0">
-              <button
-                type="button"
-                onClick={() => router.push("/athletes")}
-                className="cloud-text-muted hover:text-[color:var(--cloud-text)]"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 12,
-                  marginBottom: 10,
-                  background: "none",
-                  border: 0,
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-                aria-label="Back to athletes"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                Athletes
-              </button>
+              <div style={{ marginBottom: 10 }}>
+                <BackLink href={back.href} label={back.label} />
+              </div>
               <p
                 className="cloud-eyebrow"
                 style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
@@ -720,7 +706,11 @@ export default function AthleteDetailLayout({
           onOpenChange={setIsShowingDetails}
           athlete={athlete}
           onEditProfile={() => setIsEditingProfile(true)}
-          onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
+          onOpenMeet={(mid) =>
+            router.push(
+              withReturn(`/meets/${mid}`, `/athletes/${athleteId}`, athlete?.name ?? "Athlete"),
+            )
+          }
         />
 
         {/* OpenPowerlifting link/manage dialog. OPL is the source of truth
@@ -1501,7 +1491,11 @@ export default function AthleteDetailLayout({
             setLocalReminderDays={setLocalReminderDays}
             onInlineUpdate={handleInlineUpdate}
             onBumpDate={bumpDate}
-            onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
+            onOpenMeet={(mid) =>
+              router.push(
+                withReturn(`/meets/${mid}`, `/athletes/${athleteId}`, athlete?.name ?? "Athlete"),
+              )
+            }
           />
           <div className="flex items-center ml-auto" style={{ gap: "var(--cloud-s3)" }}>
             <div className="cloud-tabs" role="tablist" aria-label="Weight unit">
@@ -1549,7 +1543,7 @@ export default function AthleteDetailLayout({
             return (
               <Link
                 key={tab.label}
-                href={`/athletes/${athleteId}${tab.href ? `/${tab.href}` : ""}`}
+                href={`/athletes/${athleteId}${tab.href ? `/${tab.href}` : ""}${returnQuery}`}
                 className={`cloud-detail-tab${active ? " active" : ""}`}
                 aria-current={active ? "page" : undefined}
               >

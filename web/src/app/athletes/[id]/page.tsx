@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
+import { withReturn } from "@/lib/back-nav";
 import * as Types from "@/lib/types";
 import {
   resolveWeightUnit,
@@ -116,7 +117,11 @@ function AthleteOverviewPageInner() {
           athlete={athlete}
           currentProgram={programs[0] ?? null}
           programSheetUrl={athlete.latest_program_sheet_url ?? null}
-          onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
+          onOpenMeet={(mid) =>
+            router.push(
+              withReturn(`/meets/${mid}`, `/athletes/${athlete.id}`, athlete.name),
+            )
+          }
         />
       </div>
 

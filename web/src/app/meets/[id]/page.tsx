@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ChevronLeft,
   AlertCircle,
   Check,
   ExternalLink,
@@ -25,6 +24,8 @@ import {
   Users,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { BackLink } from "@/components/back-link";
+import { useBackTarget, withReturn } from "@/lib/back-nav";
 
 const MICRO_LABEL: CSSProperties = {
   fontSize: 10,
@@ -155,6 +156,7 @@ export default function MeetDetailPage() {
   const queryClient = useQueryClient();
   const { instance } = useAuth();
   const teamName = instance?.org_name || "BeStrong";
+  const back = useBackTarget("/meets", "Meets");
   const meetId = parseInt(params.id as string, 10);
 
   const [isEditingMeet, setIsEditingMeet] = useState(false);
@@ -180,7 +182,16 @@ export default function MeetDetailPage() {
       setErrorMessage(
         `Meet created, but ${failed} ${noun} couldn't be assigned. Assign them below.`
       );
-      router.replace(`/meets/${meetId}`);
+      // Drop the assign_* params but keep any back-navigation target intact.
+      const keep = new URLSearchParams();
+      const from = searchParams.get("from");
+      const fromLabel = searchParams.get("fromLabel");
+      if (from) {
+        keep.set("from", from);
+        if (fromLabel) keep.set("fromLabel", fromLabel);
+      }
+      const suffix = keep.toString();
+      router.replace(`/meets/${meetId}${suffix ? `?${suffix}` : ""}`);
       const timer = setTimeout(() => setErrorMessage(null), 8000);
       return () => clearTimeout(timer);
     }
@@ -360,25 +371,10 @@ export default function MeetDetailPage() {
             className="flex items-center"
             style={{ gap: 12, minWidth: 0, flex: 1 }}
           >
-            <button
-              onClick={() => router.push("/meets")}
-              title="Back to Meets"
-              style={{
-                padding: 6,
-                borderRadius: 6,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--cloud-text-muted)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <ChevronLeft style={{ width: 18, height: 18 }} />
-            </button>
             <div style={{ minWidth: 0 }}>
+              <div style={{ marginBottom: 10 }}>
+                <BackLink href={back.href} label={back.label} />
+              </div>
               <p
                 className="cloud-eyebrow"
                 style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}
@@ -649,7 +645,13 @@ export default function MeetDetailPage() {
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <button
                         onClick={() =>
-                          router.push(`/athletes/${athlete.athlete_id}`)
+                          router.push(
+                            withReturn(
+                              `/athletes/${athlete.athlete_id}`,
+                              `/meets/${meetId}`,
+                              meet.name,
+                            ),
+                          )
                         }
                         style={{
                           background: "transparent",
@@ -838,7 +840,15 @@ export default function MeetDetailPage() {
                   }}
                 >
                   <button
-                    onClick={() => router.push(`/athletes/${athlete.id}`)}
+                    onClick={() =>
+                      router.push(
+                        withReturn(
+                          `/athletes/${athlete.id}`,
+                          `/meets/${meetId}`,
+                          meet.name,
+                        ),
+                      )
+                    }
                     style={{
                       background: "transparent",
                       border: "none",

@@ -23,6 +23,8 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { withReturn } from '@/lib/back-nav';
 import apiClient from '@/lib/api';
 import { useAuth } from '@/lib/auth-provider';
 import * as Types from '@/lib/types';
@@ -165,6 +167,9 @@ export default function WorkQueuePage() {
   const queryClient = useQueryClient();
   const { instance } = useAuth();
   const teamName = instance?.org_name || 'BeStrong';
+  const searchParams = useSearchParams();
+  const focusParam = searchParams.get('focus');
+  const focusHandledRef = useRef(false);
   const [currentIndex, setCurrentIndexRaw] = useState(0);
   const setCurrentIndex = useCallback((valOrFn: number | ((prev: number) => number)) => {
     setCurrentIndexRaw((prev) => {
@@ -350,6 +355,22 @@ export default function WorkQueuePage() {
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [queue.length, isLoading, currentIndex, setCurrentIndex]);
+
+  // Exact-spot restore: when returning here via a back link that carries
+  // `?focus=<athlete_id>`, re-focus that athlete (robust against the queue
+  // having reordered since). Runs once, after the queue has loaded.
+  useEffect(() => {
+    if (focusHandledRef.current || !focusParam || queue.length === 0) return;
+    const targetId = parseInt(focusParam, 10);
+    const idx = queue.findIndex(
+      (n: Types.NotificationResponse) => n.athlete_id === targetId,
+    );
+    if (idx >= 0) {
+      focusHandledRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCurrentIndex(idx);
+    }
+  }, [focusParam, queue, setCurrentIndex]);
 
   const current = queue[currentIndex];
 
@@ -1191,7 +1212,11 @@ export default function WorkQueuePage() {
                     <Link
                       href={
                         currentMeet?.next_meet_id != null
-                          ? `/meets/${currentMeet.next_meet_id}`
+                          ? withReturn(
+                              `/meets/${currentMeet.next_meet_id}`,
+                              `/queue?focus=${current.athlete_id}`,
+                              'Work queue',
+                            )
                           : '/meets'
                       }
                       className="cloud-badge transition-opacity hover:opacity-80"
@@ -1369,7 +1394,11 @@ export default function WorkQueuePage() {
                   </button>
                 )}
                 <Link
-                  href={`/athletes/${current.athlete_id}`}
+                  href={withReturn(
+                    `/athletes/${current.athlete_id}`,
+                    `/queue?focus=${current.athlete_id}`,
+                    'Work queue',
+                  )}
                   className="cloud-btn cloud-btn-ghost"
                 >
                   <User style={{ width: 13, height: 13 }} />

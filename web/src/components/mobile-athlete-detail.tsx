@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Flame } from "lucide-react";
 import apiClient from "@/lib/api";
+import { withReturn } from "@/lib/back-nav";
 import { useAuth } from "@/lib/auth-provider";
 import { MobileTopbar } from "@/components/mobile-topbar";
 import {
@@ -334,7 +335,11 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
           <CurrentCycleCard
             athlete={athlete}
             currentProgram={programs[0] ?? null}
-            onOpenMeet={(mid) => router.push(`/meets/${mid}`)}
+            onOpenMeet={(mid) =>
+              router.push(
+                withReturn(`/meets/${mid}`, `/athletes/${athlete.id}`, athlete.name),
+              )
+            }
           />
         </div>
 

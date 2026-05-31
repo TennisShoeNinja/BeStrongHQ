@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { withReturn } from "@/lib/back-nav";
 import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart,
@@ -255,7 +256,7 @@ function MobileRoster({
           {athletes.map((athlete) => (
             <Link
               key={athlete.id}
-              href={`/athletes/${athlete.id}`}
+              href={withReturn(`/athletes/${athlete.id}`, "/athletes", "Athletes")}
               className="cloud-mhome-rcard"
               style={{ textDecoration: "none" }}
             >
@@ -1063,7 +1064,7 @@ function AthletesPageInner() {
                             return (
                               <td key={columnKey} style={tdStyle}>
                                 <Link
-                                  href={`/athletes/${athlete.id}`}
+                                  href={withReturn(`/athletes/${athlete.id}`, "/athletes", "Athletes")}
                                   className="cloud-athlete-cell group"
                                   style={{ textDecoration: "none" }}
                                 >
@@ -1106,7 +1107,7 @@ function AthletesPageInner() {
                               <td key={columnKey} style={tdStyle}>
                                 {athlete.next_meet_name ? (
                                   <Link
-                                    href={`/meets/${athlete.next_meet_id}`}
+                                    href={withReturn(`/meets/${athlete.next_meet_id}`, "/athletes", "Athletes")}
                                     className="hover:underline"
                                     style={{ color: "var(--cloud-primary-text)" }}
                                   >
@@ -1596,7 +1597,7 @@ function UpcomingMeetsPanel({
           return (
             <Link
               key={meet.id}
-              href={`/meets/${meet.id}`}
+              href={withReturn(`/meets/${meet.id}`, "/athletes", "Athletes")}
               className="cloud-feed-item"
               style={{ textDecoration: "none", color: "inherit" }}
             >
