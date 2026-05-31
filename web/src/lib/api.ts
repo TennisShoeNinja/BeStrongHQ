@@ -363,6 +363,17 @@ class APIClient {
     return response.data;
   }
 
+  async getMeetAttemptDefaults(
+    athleteId: number,
+    meetId: number
+  ): Promise<Types.AthleteMeetAttemptPlan> {
+    const response = await this.client.get<Types.AthleteMeetAttemptPlan>(
+      `/athletes/${athleteId}/meet-attempt-defaults`,
+      { params: { meet_id: meetId } }
+    );
+    return response.data;
+  }
+
   async saveAthleteMeetAttemptPlan(
     meetId: number,
     athleteId: number,
