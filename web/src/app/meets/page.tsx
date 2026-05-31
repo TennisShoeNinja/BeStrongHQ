@@ -571,10 +571,15 @@ export default function MeetsPage() {
                                 >
                                   {past
                                     ? "—"
-                                    : meet.weeks_out !== null &&
-                                      meet.weeks_out !== undefined
-                                    ? meet.weeks_out
-                                    : "—"}
+                                    : meet.weeks_out === null ||
+                                      meet.weeks_out === undefined
+                                    ? "—"
+                                    : meet.days_out !== null &&
+                                      meet.days_out !== undefined &&
+                                      meet.days_out >= 0 &&
+                                      meet.days_out < 7
+                                    ? `${meet.days_out}d`
+                                    : meet.weeks_out}
                                 </span>
                                 {!past &&
                                   meet.weeks_out !== null &&

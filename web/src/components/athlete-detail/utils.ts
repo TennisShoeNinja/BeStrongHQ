@@ -89,7 +89,12 @@ export function formatMeetCountdown(meetDate: string | undefined | null): string
   today.setHours(0, 0, 0, 0);
   const days = Math.round((meet.getTime() - today.getTime()) / 86400000);
   if (days < 0) return null;
-  return `${Math.floor(days / 7)}w ${days % 7}d`;
+  if (days === 0) return "Today";
+  // Inside the final week we count down in days rather than showing "0w Nd".
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  const rem = days % 7;
+  return rem === 0 ? `${weeks}w` : `${weeks}w ${rem}d`;
 }
 
 

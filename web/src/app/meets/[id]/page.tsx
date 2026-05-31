@@ -79,19 +79,34 @@ function weeksOutColor(
   return "#4ade80";
 }
 
+// Once a meet drops inside a week (weeks_out hits 0) we count down in days
+// instead of showing "0 weeks". Returns null when there's nothing to show.
+function countdownLabel(
+  weeksOut: number | null | undefined,
+  daysOut: number | null | undefined
+): string | null {
+  let days = daysOut;
+  if (days === null || days === undefined) {
+    if (weeksOut === null || weeksOut === undefined) return null;
+    days = weeksOut * 7;
+  }
+  if (days < 0) return "Completed";
+  if (days === 0) return "Today";
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"}`;
+  const weeks =
+    weeksOut !== null && weeksOut !== undefined && weeksOut >= 0
+      ? weeksOut
+      : Math.floor(days / 7);
+  return `${weeks} week${weeks === 1 ? "" : "s"}`;
+}
+
 function weeksOutLabel(
   weeksOut: number | null | undefined,
+  daysOut: number | null | undefined,
   meetDate: string | null | undefined
 ): string {
   if (!meetDate) return "—";
-  const meet = new Date(meetDate);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  meet.setHours(0, 0, 0, 0);
-
-  if (meet < now) return "Completed";
-  if (weeksOut === null || weeksOut === undefined) return "—";
-  return `${weeksOut} weeks`;
+  return countdownLabel(weeksOut, daysOut) ?? "—";
 }
 
 function weeksUntilColor(weeksUntil: number | null | undefined): string {
@@ -478,7 +493,7 @@ export default function MeetDetailPage() {
           <StatTile label="Date" value={dateRange} />
           <StatTile
             label="Weeks out"
-            value={weeksOutLabel(meet.weeks_out, meet.meet_date)}
+            value={weeksOutLabel(meet.weeks_out, meet.days_out, meet.meet_date)}
             valueColor={weeksOutColor(meet.weeks_out, isCompleted)}
           />
           <StatTile label="Athletes" value={meet.athlete_count ?? 0} />
@@ -571,7 +586,7 @@ export default function MeetDetailPage() {
               </div>
               <div className="cloud-text" style={{ fontSize: 13 }}>
                 {meet.days_out !== null && meet.days_out !== undefined
-                  ? `${meet.days_out} days`
+                  ? `${meet.days_out} day${meet.days_out === 1 ? "" : "s"}`
                   : "—"}
               </div>
             </div>
@@ -675,20 +690,21 @@ export default function MeetDetailPage() {
                           color: weeksUntilColor(athlete.weeks_until_meet),
                         }}
                       >
-                        {athlete.weeks_until_meet !== null &&
-                        athlete.weeks_until_meet !== undefined
-                          ? `${athlete.weeks_until_meet} weeks`
-                          : "—"}
+                        {countdownLabel(
+                          athlete.weeks_until_meet,
+                          athlete.days_until_meet
+                        ) ?? "—"}
                       </div>
-                      <div
-                        className="cloud-text-muted"
-                        style={{ fontSize: 11 }}
-                      >
-                        {athlete.days_until_meet !== null &&
-                        athlete.days_until_meet !== undefined
-                          ? `${athlete.days_until_meet} days`
-                          : "—"}
-                      </div>
+                      {athlete.days_until_meet !== null &&
+                        athlete.days_until_meet !== undefined &&
+                        athlete.days_until_meet >= 7 && (
+                          <div
+                            className="cloud-text-muted"
+                            style={{ fontSize: 11 }}
+                          >
+                            {`${athlete.days_until_meet} days`}
+                          </div>
+                        )}
                     </div>
                   </div>
 

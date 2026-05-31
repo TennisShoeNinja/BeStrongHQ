@@ -232,18 +232,13 @@ def get_meet_prep(meet_id: int, db: Session = Depends(get_db)):
                 program_week = None
 
 
-        days_until_meet = None
-        weeks_until_meet = None
-        if meet.meet_date:
-            try:
-                meet_date = datetime.strptime(meet.meet_date, "%Y-%m-%d")
-                today = datetime.now()
-                delta = (meet_date - today).days
-                if delta >= 0:
-                    days_until_meet = delta
-                    weeks_until_meet = delta // 7
-            except (ValueError, TypeError):
-                pass
+        # Date-based (not datetime.now) so the countdown matches the meet's
+        # days_out tile instead of truncating by the current time of day.
+        days_until_meet = compute_days_out(meet.meet_date)
+        weeks_until_meet = compute_weeks_out(meet.meet_date)
+        if days_until_meet is not None and days_until_meet < 0:
+            days_until_meet = None
+            weeks_until_meet = None
 
         readiness = AthleteReadiness(
             athlete_id=athlete.id,
