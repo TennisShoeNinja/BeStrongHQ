@@ -634,6 +634,8 @@ export default function Home() {
           </div>
         </div>
 
+        <div id="competing-today-slot" />
+
         {}
         <div className="flex flex-col" style={{ gap: 12 }}>
           <div>
