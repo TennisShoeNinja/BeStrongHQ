@@ -144,6 +144,7 @@ function getBlockBadgeClass(block: string | null | undefined): string {
     lower.includes("strength") ||
     lower.includes("hypertrophy") ||
     lower.includes("volume") ||
+    lower.includes("intensity") ||
     lower.includes("accum") ||
     lower.includes("base")
   ) {

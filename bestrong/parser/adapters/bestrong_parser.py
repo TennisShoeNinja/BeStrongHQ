@@ -879,26 +879,31 @@ class BeStrongParser(BaseAdapter):
     description = "Default BeStrong spreadsheet (Strength Block layout)"
 
 
-    _BLOCK_PREFIXES = [
-        "Strength Block",
-        "STRENGTH BLOCK",
-        "Peaking Block",
-        "PEAKING BLOCK",
-        "Hypertrophy Block",
-        "HYPERTROPHY BLOCK",
-        "Block",
-    ]
+    # Recognized mesocycle block types. The block tab must be named
+    # "<Type> Block" (optionally followed by a number, e.g. "Strength Block 2").
+    # Matching is case-insensitive. A bare "Block"-prefixed tab is accepted as a
+    # last-resort fallback so legacy sheets named just "Block 3" still parse.
+    _BLOCK_TYPES = (
+        "Strength",
+        "Volume",
+        "Hypertrophy",
+        "Peaking",
+        "Intensity",
+    )
 
     @staticmethod
     def _find_block_sheet(workbook: openpyxl.Workbook) -> str | None:
         """Find the main training block sheet.
 
-        Accepts variants like 'Strength Block', 'Strength Block 2',
-        'PEAKING BLOCK', 'Hypertrophy Block', etc.
+        Accepts '<Type> Block' variants (any case) for the recognized block
+        types, e.g. 'Strength Block', 'Volume Block 2', 'PEAKING BLOCK'. Falls
+        back to any sheet whose name starts with 'Block'.
         """
-        for prefix in BeStrongParser._BLOCK_PREFIXES:
+        prefixes = [f"{t.lower()} block" for t in BeStrongParser._BLOCK_TYPES]
+        prefixes.append("block")
+        for prefix in prefixes:
             for name in workbook.sheetnames:
-                if name.startswith(prefix):
+                if name.strip().lower().startswith(prefix):
                     return name
         return None
 
