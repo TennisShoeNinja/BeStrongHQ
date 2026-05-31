@@ -1321,7 +1321,11 @@ export default function WorkQueuePage() {
                       <Link
                         href={
                           currentMeet.next_meet_id != null
-                            ? `/meets/${currentMeet.next_meet_id}`
+                            ? withReturn(
+                                `/meets/${currentMeet.next_meet_id}`,
+                                `/queue?focus=${current.athlete_id}`,
+                                'Work queue',
+                              )
                             : '/meets'
                         }
                         className="cloud-text transition-opacity hover:opacity-80"
