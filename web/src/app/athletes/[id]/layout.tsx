@@ -1,7 +1,12 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
-import { useRouter, useParams, useSelectedLayoutSegment } from "next/navigation";
+import {
+  useRouter,
+  useParams,
+  useSelectedLayoutSegment,
+  useSelectedLayoutSegments,
+} from "next/navigation";
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
 import { useBackTarget, useReturnQuery, withReturn } from "@/lib/back-nav";
@@ -97,6 +102,7 @@ export default function AthleteDetailLayout({
   const teamName = instance?.org_name || "BeStrong";
   const athleteId = parseInt(params.id as string, 10);
   const activeSegment = useSelectedLayoutSegment();
+  const layoutSegments = useSelectedLayoutSegments();
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSettingAvailability, setIsSettingAvailability] = useState(false);
@@ -479,6 +485,16 @@ export default function AthleteDetailLayout({
         </div>
       </div>
     );
+  }
+
+  // The day-of picker (/athletes/[id]/meets/[meet_id]) and the attempt
+  // editor (/athletes/[id]/meets/[meet_id]/attempts) are full-screen
+  // interactive surfaces. They should NOT inherit the athlete profile
+  // chrome (header, maxes, current cycle, etc.) above them. Bypass the
+  // layout shell and render the child page directly. The meets-list page
+  // at /athletes/[id]/meets keeps the chrome (no second segment).
+  if (layoutSegments[0] === "meets" && layoutSegments.length >= 2) {
+    return <>{children}</>;
   }
 
   return (
