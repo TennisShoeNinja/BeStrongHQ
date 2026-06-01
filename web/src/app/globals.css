@@ -19,6 +19,8 @@
   --cloud-danger: #ef4444;
   --cloud-danger-text: #f87171;
   --cloud-primary-text: #7cb4ed;
+  --cloud-cyan: #06b6d4;
+  --cloud-cyan-text: #22d3ee;
 
   --cloud-surface: #09090b;
   --cloud-surface-raised: #0f0f12;
@@ -313,6 +315,7 @@ body {
   .cloud-badge-warning { background: rgba(245, 158, 11, 0.12); color: var(--cloud-warning-text); border-color: rgba(245, 158, 11, 0.25); }
   .cloud-badge-danger { background: rgba(239, 68, 68, 0.12); color: var(--cloud-danger-text); border-color: rgba(239, 68, 68, 0.25); }
   .cloud-badge-primary { background: rgba(12, 92, 171, 0.18); color: var(--cloud-primary-text); border-color: rgba(12, 92, 171, 0.35); }
+  .cloud-badge-cyan { background: rgba(6, 182, 212, 0.12); color: var(--cloud-cyan-text); border-color: rgba(6, 182, 212, 0.25); }
 
   
   .cloud-input {

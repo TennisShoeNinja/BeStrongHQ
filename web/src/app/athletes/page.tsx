@@ -134,21 +134,25 @@ function StatusPill({ value }: { value: string }) {
 function getBlockBadgeClass(block: string | null | undefined): string {
   if (!block) return "cloud-badge";
   const lower = block.toLowerCase();
+  // Block taxonomy colored on a base -> peak heat ramp. Deload/recovery is a
+  // rest status, not a training block, so it stays neutral.
   if (lower.includes("deload") || lower.includes("recovery")) {
-    return "cloud-badge cloud-badge-warning";
+    return "cloud-badge";
   }
   if (lower.includes("peak") || lower.includes("taper")) {
-    return "cloud-badge cloud-badge-success";
+    return "cloud-badge cloud-badge-danger"; // red: closest to the meet
   }
-  if (
-    lower.includes("strength") ||
-    lower.includes("hypertrophy") ||
-    lower.includes("volume") ||
-    lower.includes("intensity") ||
-    lower.includes("accum") ||
-    lower.includes("base")
-  ) {
-    return "cloud-badge cloud-badge-primary";
+  if (lower.includes("intensity")) {
+    return "cloud-badge cloud-badge-warning"; // amber: heavy
+  }
+  if (lower.includes("hypertrophy")) {
+    return "cloud-badge cloud-badge-success"; // green
+  }
+  if (lower.includes("volume") || lower.includes("accum") || lower.includes("base")) {
+    return "cloud-badge cloud-badge-cyan"; // cyan: accumulation base
+  }
+  if (lower.includes("strength")) {
+    return "cloud-badge cloud-badge-primary"; // blue: brand core
   }
   return "cloud-badge";
 }
