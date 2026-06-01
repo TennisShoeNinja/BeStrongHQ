@@ -11,6 +11,7 @@ import { MobileTopbar } from "@/components/mobile-topbar";
 import {
   convertWeight,
   resolveWeightUnit,
+  setWeightUnit,
   unitLabel,
   useLocalWeightUnit,
   type WeightUnit,
@@ -248,12 +249,25 @@ export function MobileAthleteDetail({ athlete, programs }: Props) {
           <>
             <div className="cloud-mhome-section-h">
               <p className="eyebrow">Current maxes</p>
-              <span
-                className="meta"
-                style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 11 }}
-              >
-                {unitLabel(unit)}
-              </span>
+              <div className="cloud-tabs" role="tablist" aria-label="Weight unit">
+                {(["lbs", "kg"] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    role="tab"
+                    aria-selected={unit === u}
+                    onClick={() => setWeightUnit(u)}
+                    className="cloud-tab"
+                    title={
+                      u === unit
+                        ? `Currently displaying in ${unitLabel(u)}`
+                        : `Switch this profile to ${unitLabel(u)}`
+                    }
+                  >
+                    {unitLabel(u)}
+                  </button>
+                ))}
+              </div>
             </div>
             <div
               style={{
