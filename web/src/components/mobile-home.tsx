@@ -198,6 +198,11 @@ export function MobileHome() {
           </>
         )}
 
+        {/* Slot for the cloud overlay's "Competing today" card (mobile). The
+           overlay portals into this div when populated; otherwise this div
+           renders nothing. Sibling slot for desktop is in app/page.tsx. */}
+        <div id="competing-today-slot-mobile" />
+
         {/* Recent PRs */}
         {recentPRs.length > 0 && (
           <>
