@@ -240,7 +240,13 @@ export default function MeetDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => apiClient.deleteMeet(meetId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meets"] });
+      queryClient.invalidateQueries({ queryKey: ["athletes"] });
       router.push("/meets");
+    },
+    onError: () => {
+      setErrorMessage("Could not delete this meet. Please try again.");
+      setTimeout(() => setErrorMessage(null), 4000);
     },
   });
 

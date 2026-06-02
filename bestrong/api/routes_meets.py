@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..models.orm import Athlete, Meet, Program
+from ..models.orm import Athlete, Meet, MeetResult, Program
 from ..utils.dates import compute_days_out, compute_weeks_out
 from .deps import get_db
 from .schemas import (
@@ -182,6 +182,13 @@ def delete_meet(meet_id: int, db: Session = Depends(get_db)):
 
     db.query(Athlete).filter(Athlete.next_meet_id == meet_id).update(
         {"next_meet_id": None, "next_meet_name": None, "meet_date": None, "weeks_out": None, "days_out": None},
+        synchronize_session="fetch",
+    )
+    # Logged meet results denormalize the meet name/date, so they survive as
+    # standalone history; just drop the dead FK link or the enforced foreign
+    # key (PRAGMA foreign_keys=ON) blocks the delete for any meet with results.
+    db.query(MeetResult).filter(MeetResult.meet_id == meet_id).update(
+        {"meet_id": None},
         synchronize_session="fetch",
     )
     db.delete(meet)
