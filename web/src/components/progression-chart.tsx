@@ -754,6 +754,30 @@ export function ProgressionChart({
     return [Math.max(0, min - padding), max + padding];
   }, [chartRows, highlightMarker, isVolume, meetMarkers, paddedYDomain, renderedSeries]);
 
+  // Recharts switches a category x-axis to a serial-number (index) domain as
+  // soon as tick labels are duplicated (e.g. several unnumbered "P? W1"
+  // blocks). A ReferenceDot/-Line keyed by the string label then can't resolve
+  // and pins to the axis origin (far left). This resolver returns the row index
+  // in that case (and the label otherwise) so reference marks land on the
+  // actual point. Returns null when the label isn't on the chart.
+  const resolveAxisX = useMemo(() => {
+    const labels = chartRows.map((row) => row.label);
+    const hasDuplicateLabels = labels.length !== new Set(labels).size;
+    const indexByLabel = new Map<string, number>();
+    labels.forEach((label, idx) => {
+      if (!indexByLabel.has(label)) indexByLabel.set(label, idx);
+    });
+    return (label: string): number | string | null => {
+      const idx = indexByLabel.get(label);
+      if (idx == null) return null;
+      return hasDuplicateLabels ? idx : label;
+    };
+  }, [chartRows]);
+
+  const highlightMarkerX = highlightMarker
+    ? resolveAxisX(highlightMarker.label)
+    : null;
+
   const outlierMarkers = useMemo(() => {
     const lower = yDomain[0];
     if (isVolume || !excludeOutliersFromLine || typeof lower !== "number") {
@@ -941,7 +965,7 @@ export function ProgressionChart({
             outlierMarkers.map((marker) => (
               <ReferenceDot
                 key={`outlier-marker-${marker.series.key}-${marker.label}`}
-                x={marker.label}
+                x={resolveAxisX(marker.label) ?? undefined}
                 y={marker.displayValue}
                 r={7}
                 fill="rgba(245, 158, 11, 0.12)"
@@ -966,7 +990,7 @@ export function ProgressionChart({
             meetMarkers.map((marker) => (
               <ReferenceDot
                 key={`meet-marker-${marker.label}-${marker.value}`}
-                x={marker.label}
+                x={resolveAxisX(marker.label) ?? undefined}
                 y={marker.value}
                 r={5}
                 fill="var(--cloud-warning-text)"
@@ -975,15 +999,19 @@ export function ProgressionChart({
                 ifOverflow="visible"
               />
             ))}
-          {mode === "e1rm" && highlightMarker && (
+          {mode === "e1rm" && highlightMarker && highlightMarkerX != null && (
             <ReferenceDot
-              x={highlightMarker.label}
+              x={highlightMarkerX}
               y={highlightMarker.y}
               r={9}
               fill="rgba(245, 158, 11, 0.22)"
               stroke={highlightMarker.color ?? "var(--cloud-warning-text)"}
               strokeWidth={3}
-              ifOverflow="extendDomain"
+              // "visible" (not "extendDomain"): on a category x-axis,
+              // extendDomain can't extend the band scale and Recharts pins the
+              // dot to the axis origin (far left). The y value is already kept
+              // in-domain by the yDomain calc, so it renders on the line.
+              ifOverflow="visible"
             />
           )}
         </LineChart>
