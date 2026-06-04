@@ -740,6 +740,11 @@ export function ProgressionChart({
       }
     }
     for (const marker of meetMarkers) values.push(marker.value);
+    // The highlight marker is drawn as a ReferenceDot; fold its value into the
+    // domain so it can never float above/below the plotted axis (off the grid).
+    if (highlightMarker && typeof highlightMarker.y === "number") {
+      values.push(highlightMarker.y);
+    }
     if (values.length === 0) return [0, 100];
 
     const min = Math.min(...values);
@@ -747,7 +752,7 @@ export function ProgressionChart({
     const spread = Math.max(1, max - min);
     const padding = Math.max(10, spread * 0.08);
     return [Math.max(0, min - padding), max + padding];
-  }, [chartRows, isVolume, meetMarkers, paddedYDomain, renderedSeries]);
+  }, [chartRows, highlightMarker, isVolume, meetMarkers, paddedYDomain, renderedSeries]);
 
   const outlierMarkers = useMemo(() => {
     const lower = yDomain[0];

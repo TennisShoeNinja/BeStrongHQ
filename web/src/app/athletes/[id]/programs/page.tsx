@@ -18,6 +18,10 @@ export default function AthleteProgramsPage() {
 
   const [programSearch, setProgramSearch] = useState("");
   const [programSortNewest, setProgramSortNewest] = useState(true);
+  // Cap the initial render so the page isn't a wall of 40+ blocks; "Show more"
+  // reveals the rest. Search always filters the full set, not just the slice.
+  const PROGRAM_PAGE_SIZE = 25;
+  const [showAllPrograms, setShowAllPrograms] = useState(false);
 
   // Deep-link target block from a "#block-<programId>" hash (e.g. an inbox
   // "RPE needs review" flag). Read once on mount via lazy init; the matching
@@ -69,6 +73,16 @@ export default function AthleteProgramsPage() {
       return programSortNewest ? timeB - timeA : timeA - timeB;
     });
   }, [programs, programSearch, programSortNewest]);
+
+  // While searching (or deep-linking to a specific block), show every match;
+  // otherwise cap to the page size.
+  const visiblePrograms = useMemo(() => {
+    if (programSearch.trim() || showAllPrograms || targetBlockId != null) {
+      return filteredPrograms;
+    }
+    return filteredPrograms.slice(0, PROGRAM_PAGE_SIZE);
+  }, [filteredPrograms, programSearch, showAllPrograms, targetBlockId]);
+  const hiddenProgramCount = filteredPrograms.length - visiblePrograms.length;
 
   // Clicking an exercise navigates to the Overview tab with the highlight
   // encoded in the URL; the Overview page seeds ProgressionPanel from it.
@@ -145,11 +159,8 @@ export default function AthleteProgramsPage() {
               {programSearch.trim() ? "No programs match your search" : "No programs"}
             </div>
           ) : (
-            <div
-              className="cloud-thin-scroll space-y-3"
-              style={{ maxHeight: 340, overflowY: "auto", paddingRight: 4 }}
-            >
-              {filteredPrograms.map((program) => (
+            <div className="space-y-3">
+              {visiblePrograms.map((program) => (
                 <ProgramSection
                   key={program.id}
                   program={program}
@@ -159,6 +170,17 @@ export default function AthleteProgramsPage() {
                   autoOpen={program.id === targetBlockId}
                 />
               ))}
+              {hiddenProgramCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllPrograms(true)}
+                  className="cloud-btn cloud-btn-ghost w-full"
+                  style={{ fontSize: 12 }}
+                >
+                  Show {hiddenProgramCount} more{" "}
+                  {hiddenProgramCount === 1 ? "program" : "programs"}
+                </button>
+              )}
             </div>
           )}
         </div>

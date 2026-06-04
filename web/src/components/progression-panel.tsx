@@ -763,11 +763,12 @@ export function ProgressionPanel({
       setRepFilter(repFilterForReps(highlightedExercise.reps));
       setSelectedProgramIds(new Set<number>());
       if (highlightedLift) {
+        // Isolate the highlighted lift: clicking "High Bar Squat" should show
+        // only squat, not squat alongside bench/deadlift. The pre-highlight
+        // snapshot restores the prior set when the highlight is cleared.
         setVisibleLifts((current) => {
-          if (current.has(highlightedLift)) return current;
-          const next = new Set(current);
-          next.add(highlightedLift);
-          return next;
+          if (current.size === 1 && current.has(highlightedLift)) return current;
+          return new Set<LiftKey>([highlightedLift]);
         });
       }
     });
