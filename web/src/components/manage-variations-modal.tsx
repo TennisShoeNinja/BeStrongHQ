@@ -29,6 +29,25 @@ export function ManageVariationsModal({
     enabled: open,
   });
 
+  // A merge re-canonicalizes exercise names server-side, which changes the
+  // variation dropdowns, PR lanes, and every e1RM-derived chart. Invalidate
+  // by the query-key prefixes those surfaces actually use: the progression
+  // panel keys on "progression-e1rm", the mobile views on "e1rm-trends", and
+  // block review on "block-review-e1rm". A bare ["e1rm"] prefix matches none
+  // of them, which is why merged variations kept showing in the dropdown.
+  const invalidateMergeAffected = () => {
+    for (const key of [
+      ["exercise-aliases"],
+      ["progression-e1rm"],
+      ["e1rm-trends"],
+      ["block-review-e1rm"],
+      ["max-history"],
+      ["pr-events"],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+  };
+
 
   // Whether a new merge applies to just this athlete or every athlete.
   const [scope, setScope] = useState<"athlete" | "instance">("athlete");
@@ -53,12 +72,7 @@ export function ManageVariationsModal({
         scope === "athlete" ? athleteId : undefined,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exercise-aliases"] });
-      
-      queryClient.invalidateQueries({ queryKey: ["e1rm"] });
-      queryClient.invalidateQueries({ queryKey: ["prs"] });
-      queryClient.invalidateQueries({ queryKey: ["max-history"] });
-      queryClient.invalidateQueries({ queryKey: ["pr-events"] });
+      invalidateMergeAffected();
       setSelected(new Set());
       setPrimary("");
       setError(null);
@@ -72,11 +86,7 @@ export function ManageVariationsModal({
   const deleteMutation = useMutation({
     mutationFn: (aliasId: number) => apiClient.deleteExerciseAlias(aliasId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exercise-aliases"] });
-      queryClient.invalidateQueries({ queryKey: ["e1rm"] });
-      queryClient.invalidateQueries({ queryKey: ["prs"] });
-      queryClient.invalidateQueries({ queryKey: ["max-history"] });
-      queryClient.invalidateQueries({ queryKey: ["pr-events"] });
+      invalidateMergeAffected();
     },
   });
 
