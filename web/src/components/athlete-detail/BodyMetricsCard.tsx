@@ -205,6 +205,18 @@ export function BodyMetricsCard({
     capKg != null ? (unit === "kg" ? capKg : kgToLbs(capKg)) : null;
   const showCap = capDisplay != null && hasUpcomingMeet;
 
+
+
+  const yDomain: [number | string, number | string] = (() => {
+    const vals = chartData
+      .map((p) => p.bodyweight)
+      .filter((v): v is number => v != null);
+    if (vals.length === 0) return ["dataMin - 2", "dataMax + 2"];
+    if (showCap && capDisplay !== null) vals.push(capDisplay);
+    if (goalDisplay !== null) vals.push(goalDisplay);
+    return [Math.min(...vals) - 2, Math.max(...vals) + 2];
+  })();
+
   
   
   const latestBw = summary.latest_bodyweight;
@@ -573,7 +585,7 @@ export function BodyMetricsCard({
                   <YAxis
                     tick={{ fontSize: 11, fill: textColor }}
                     tickLine={false}
-                    domain={["dataMin - 2", "dataMax + 2"]}
+                    domain={yDomain}
                     tickFormatter={(v: number) => `${v}`}
                   />
                   <Tooltip
@@ -616,12 +628,13 @@ export function BodyMetricsCard({
                   {showCap && capDisplay !== null && (
                     <ReferenceLine
                       y={capDisplay}
-                      stroke="#f59e0b"
+                      stroke="#ef4444"
+                      strokeWidth={1.5}
                       strokeDasharray="4 4"
                       label={{
                         value: `Class Cap ${round1(capDisplay)}`,
                         position: "insideBottomRight",
-                        fill: "#fcd34d",
+                        fill: "#fca5a5",
                         fontSize: 10,
                       }}
                     />
