@@ -11,17 +11,34 @@ import io
 import json
 import logging
 import os
+import random
+import socket
+import ssl
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import httplib2
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 from sqlalchemy.orm import Session as DBSession
 
 logger = logging.getLogger(__name__)
+
+# Drive export tuning. A full resync re-downloads every program back-to-back,
+# which pushes Google's export (server-side xlsx conversion) response times up
+# and occasionally trips a read timeout on a single sheet. A bounded socket
+# timeout keeps a hung read from blocking forever; per-chunk retries and a
+# per-export retry absorb the transient timeouts / 5xx / 429s that caused
+# otherwise-healthy programs to show up as hard resync errors.
+_EXPORT_TIMEOUT_SECONDS = 120
+_EXPORT_MAX_ATTEMPTS = 3
+_CHUNK_NUM_RETRIES = 5
 
 
 TESTING_MODE_REFRESH_TOKEN_LIFETIME = timedelta(days=7)
@@ -488,11 +505,36 @@ def _get_service(
     db: DBSession | None = None,
     db_path: Path | str | None = None,
 ):
-    """Build the Drive API service object."""
+    """Build the Drive API service object with a bounded socket timeout.
+
+    Passing our own ``AuthorizedHttp`` (instead of ``credentials=``) lets us set
+    an explicit read timeout on the underlying httplib2 connection so a stalled
+    download fails predictably and can be retried, rather than hanging on
+    httplib2's default (effectively unbounded) socket timeout.
+    """
     creds = get_credentials(db=db, db_path=db_path)
     if creds is None:
         raise RuntimeError("Not authenticated with Google Drive. Connect your account first.")
-    return build("drive", "v3", credentials=creds)
+    authed_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=_EXPORT_TIMEOUT_SECONDS))
+    return build("drive", "v3", http=authed_http)
+
+
+def _is_transient_export_error(exc: Exception) -> bool:
+    """True for errors worth retrying: read timeouts, dropped connections, and
+    Google 429/5xx responses. Permanent errors (404 file gone, 403, auth) are
+    not retried so callers can handle them immediately (e.g. orphan detection).
+    """
+    if isinstance(exc, (TimeoutError, socket.timeout, ssl.SSLError, ConnectionError)):
+        return True
+    if isinstance(exc, HttpError):
+        status = getattr(exc.resp, "status", None)
+        try:
+            return int(status) in (429, 500, 502, 503, 504)
+        except (TypeError, ValueError):
+            return False
+    # httplib2 / transport errors surface as assorted types; fall back to the
+    # characteristic timeout message ("The read operation timed out").
+    return "timed out" in str(exc).lower()
 
 
 def get_settings() -> dict[str, Any]:
@@ -682,7 +724,40 @@ def export_sheet_as_xlsx(
 
     Pass mime_type to skip an extra metadata round-trip when the caller
     already has it (e.g., from list_sheets_in_folder).
+
+    Transient failures (read timeouts, dropped connections, Google 429/5xx) are
+    retried with exponential backoff so a single slow export during a bulk
+    resync no longer surfaces as a hard error. Permanent errors (404, 403) are
+    raised immediately.
     """
+    last_exc: Exception | None = None
+    for attempt in range(1, _EXPORT_MAX_ATTEMPTS + 1):
+        try:
+            return _export_sheet_as_xlsx_once(
+                file_id, mime_type=mime_type, db=db, db_path=db_path
+            )
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt >= _EXPORT_MAX_ATTEMPTS or not _is_transient_export_error(exc):
+                raise
+            backoff = min(2 ** (attempt - 1), 8) + random.uniform(0, 0.5)
+            logger.warning(
+                "Drive export of %s failed (attempt %d/%d): %s; retrying in %.1fs",
+                file_id, attempt, _EXPORT_MAX_ATTEMPTS, exc, backoff,
+            )
+            time.sleep(backoff)
+    # Loop only exits via return or raise; this satisfies type checkers.
+    assert last_exc is not None
+    raise last_exc
+
+
+def _export_sheet_as_xlsx_once(
+    file_id: str,
+    mime_type: str | None = None,
+    db: DBSession | None = None,
+    db_path: Path | str | None = None,
+) -> bytes:
+    """Single-attempt export used by :func:`export_sheet_as_xlsx`."""
     service = _get_service(db=db, db_path=db_path)
     if mime_type is None:
         meta = service.files().get(fileId=file_id, fields="mimeType").execute()
@@ -699,7 +774,9 @@ def export_sheet_as_xlsx(
     downloader = MediaIoBaseDownload(buffer, request)
     done = False
     while not done:
-        _, done = downloader.next_chunk()
+        # num_retries gives googleapiclient its own exponential backoff on
+        # transient per-chunk timeouts/5xx before we fall back to a full retry.
+        _, done = downloader.next_chunk(num_retries=_CHUNK_NUM_RETRIES)
     return buffer.getvalue()
 
 
